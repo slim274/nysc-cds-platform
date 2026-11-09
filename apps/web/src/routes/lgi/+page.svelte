@@ -546,7 +546,7 @@
   .content {
     width: 100%;
     max-width: 1250px;
-    margin: auto;
+    margin: 0 auto;
     padding: 32px 34px;
   }
 
