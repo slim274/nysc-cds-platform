@@ -101,14 +101,37 @@ Use a UTF-8 CSV. Review the import summary and search the catalogue after import
 
 ## Development setup
 
-After pulling this branch:
+After pulling this branch, from the repository root:
 
-1. Generate and review the Drizzle migration for `course_aliases`.
-2. Apply the migration.
-3. Run the development seed to create the Platform Administrator role/account and starter catalogue records.
-4. Generate a development activation token for `platform.admin@example.test` with the existing development-only activation-token script.
-5. Activate the demo account using the existing activation flow.
-6. Sign in; Platform Administrators are routed to `/platform/course-catalogue`.
+1. Generate and review the Drizzle migration for `course_aliases`:
+
+   ```bash
+   bun run --filter @nysc/database db:generate
+   ```
+
+2. Commit the generated SQL, journal and snapshot files, then apply the migration:
+
+   ```bash
+   bun run --filter @nysc/database db:migrate
+   ```
+
+3. Run the development seed. It creates the Platform Administrator role/account and representative starter catalogue records:
+
+   ```bash
+   bun run --filter @nysc/database db:seed
+   ```
+
+4. Generate a development activation token for `platform.admin@example.test`:
+
+   ```bash
+   bun run apps/api/src/scripts/create-activation-token.ts platform.admin@example.test
+   ```
+
+5. Use the printed token with the existing local activation flow (`python3 scripts/activate-account.py`) and set a new password. Keep the token private and do not paste it into chat, commit it, or use this dev-only process in production.
+
+6. Sign in at `/login` with the Platform Administrator account. Successful sign-in routes to `/platform/course-catalogue`.
+
+The demo seed is for local development only. Do not run it against production data.
 
 The seed contains representative starter courses across the categories. It is deliberately not described as complete. For a real deployment, import a reviewed, authoritative course dataset supplied/approved by the operating organisation.
 
