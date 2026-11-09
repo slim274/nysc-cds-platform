@@ -15,7 +15,8 @@ import {
   courses,
   lgas,
   roles,
-  users
+  users,
+  userRoleAssignments
 } from '@nysc/database';
 
 import type {
@@ -40,35 +41,6 @@ function assertLgaScope(lgaIds: string[]): void {
       'Your LGI account is not assigned to an LGA.',
       403,
       'LGI_LGA_SCOPE_MISSING'
-    );
-  }
-}
-
-async function assertCoursesAreActive(
-  executor: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0],
-  courseIds: string[]
-): Promise<void> {
-  if (courseIds.length === 0) {
-    throw new CdsGroupServiceError(
-      'Select at least one eligible course.',
-      400,
-      'COURSE_REQUIRED'
-    );
-  }
-
-  const activeCourses = await executor
-    .select({ id: courses.id })
-    .from(courses)
-    .where(and(
-      inArray(courses.id, courseIds),
-      eq(courses.isActive, true)
-    ));
-
-  if (activeCourses.length !== courseIds.length) {
-    throw new CdsGroupServiceError(
-      'One or more selected courses do not exist or are inactive.',
-      400,
-      'INVALID_COURSE_SELECTION'
     );
   }
 }
@@ -241,13 +213,13 @@ export async function getCdsGroup(
         })
         .from(users)
         .innerJoin(
-          (await import('@nysc/database')).userRoleAssignments,
-          eq((await import('@nysc/database')).userRoleAssignments.userId, users.id)
+          userRoleAssignments,
+          eq(userRoleAssignments.userId, users.id)
         )
-        .innerJoin(roles, eq((await import('@nysc/database')).userRoleAssignments.roleId, roles.id))
+        .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
         .where(and(
-          eq((await import('@nysc/database')).userRoleAssignments.cdsGroupId, groupId),
-          eq((await import('@nysc/database')).userRoleAssignments.isActive, true),
+          eq(userRoleAssignments.cdsGroupId, groupId),
+          eq(userRoleAssignments.isActive, true),
           eq(roles.code, 'CDS_COORDINATOR')
         ))
     ]);
@@ -265,8 +237,7 @@ export async function getCdsGroup(
 
 export async function createCdsGroup(
   input: CreateCdsGroupInput,
-  lgaIds: string[],
-  actorUserId: string
+  lgaIds: string[]
 ): Promise<string> {
   assertLgaScope(lgaIds);
 
@@ -297,7 +268,21 @@ export async function createCdsGroup(
         );
       }
 
-      await assertCoursesAreActive(tx, input.courseIds);
+      const activeCourses = await tx
+        .select({ id: courses.id })
+        .from(courses)
+        .where(and(
+          inArray(courses.id, input.courseIds),
+          eq(courses.isActive, true)
+        ));
+
+      if (activeCourses.length !== input.courseIds.length) {
+        throw new CdsGroupServiceError(
+          'One or more selected courses do not exist or are inactive.',
+          400,
+          'INVALID_COURSE_SELECTION'
+        );
+      }
 
       const [created] = await tx
         .insert(cdsGroups)
@@ -391,7 +376,21 @@ export async function updateCdsGroup(
       }
 
       if (input.courseIds !== undefined) {
-        await assertCoursesAreActive(tx, input.courseIds);
+        const activeCourses = await tx
+          .select({ id: courses.id })
+          .from(courses)
+          .where(and(
+            inArray(courses.id, input.courseIds),
+            eq(courses.isActive, true)
+          ));
+
+        if (activeCourses.length !== input.courseIds.length) {
+          throw new CdsGroupServiceError(
+            'One or more selected courses do not exist or are inactive.',
+            400,
+            'INVALID_COURSE_SELECTION'
+          );
+        }
       }
 
       const changes: Partial<typeof cdsGroups.$inferInsert> = {
