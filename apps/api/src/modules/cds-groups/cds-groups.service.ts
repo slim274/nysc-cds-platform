@@ -139,8 +139,11 @@ export async function listCdsGroups(
     ))
     .groupBy(cdsGroupMemberships.cdsGroupId);
 
-  const countByGroup = new Map(
-    membershipCounts.map((row) => [row.groupId, Number(row.memberCount)])
+  const countByGroup = new Map<string, number>(
+    membershipCounts.map((row): [string, number] => [
+      row.groupId,
+      Number(row.memberCount)
+    ])
   );
 
   return rows.map((row) => ({
@@ -186,7 +189,7 @@ export async function getCdsGroup(
     );
   }
 
-  const [courseMappings, [membershipCount], coordinatorAssignments] =
+  const [courseMappings, membershipRows, coordinatorAssignments] =
     await Promise.all([
       db
         .select({
@@ -224,7 +227,7 @@ export async function getCdsGroup(
         ))
     ]);
 
-  const currentMemberCount = Number(membershipCount?.value ?? 0);
+  const currentMemberCount = Number(membershipRows[0]?.value ?? 0);
 
   return {
     ...group,
