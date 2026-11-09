@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { login, getCurrentUser, ApiError } from '#lib/api/client.ts';
+  import { login, getCurrentUser, logout, ApiError } from '#lib/api/client.ts';
 
   let email = $state('');
   let password = $state('');
@@ -22,7 +22,7 @@
       } else if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
         await goto('/lgi');
       } else {
-        await goto('/login');
+        await logout();
         errorMessage = 'Your account does not have access to this administration portal.';
       }
 
