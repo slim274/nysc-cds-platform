@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  sql,
   eq,
   ilike,
   inArray,
@@ -56,8 +57,15 @@ async function ensureNamesAvailable(
   names: string[],
   excludedCourseId?: string
 ): Promise<void> {
-  const normalizedNames = [...new Set(names.map(normalizeCourseName).filter(Boolean))];
+  const normalizedNames = [...new Set(names.map(normalizeCourseName).filter(Boolean))].sort();
   if (normalizedNames.length === 0) return;
+
+  // Serialize canonical-name and alias claims across the two catalogue tables.
+  for (const normalizedName of normalizedNames) {
+    await executor.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedName}, 0))`
+    );
+  }
 
   const canonicalMatches = await executor
     .select({
@@ -358,6 +366,16 @@ export async function importCourses(rows: CourseImportRow[]) {
   let aliasesAdded = 0;
 
   await db.transaction(async (tx) => {
+    const importNames = [...new Set(
+      rows.flatMap((row) => [row.name, ...row.aliases]).map(normalizeCourseName)
+    )].sort();
+
+    for (const normalizedName of importNames) {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedName}, 0))`
+      );
+    }
+
     for (const row of rows) {
       const name = row.name.trim();
       const normalizedName = normalizeCourseName(name);
