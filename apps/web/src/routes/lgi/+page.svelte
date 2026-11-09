@@ -16,6 +16,17 @@
   let loading = $state(true);
   let errorMessage = $state('');
   let signingOut = $state(false);
+  let mobileNavOpen = $state(false);
+
+  function closeMobileNavigation() {
+    mobileNavOpen = false;
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      closeMobileNavigation();
+    }
+  }
 
   const navigation = [
     { label: 'Dashboard', icon: '▦', active: true },
@@ -80,6 +91,8 @@
   />
 </svelte:head>
 
+<svelte:window onkeydown={handleWindowKeydown} />
+
 {#if loading}
 
   <main class="loading-screen">
@@ -99,7 +112,16 @@
 
   <div class="dashboard">
 
-    <aside class="sidebar">
+    {#if mobileNavOpen}
+      <button
+        class="sidebar-backdrop"
+        type="button"
+        aria-label="Close navigation menu"
+        onclick={closeMobileNavigation}
+      ></button>
+    {/if}
+
+    <aside id="lgi-sidebar" class="sidebar" class:open={mobileNavOpen} aria-label="LGI administration">
 
       <div class="brand">
         <div class="brand-icon">N</div>
@@ -112,7 +134,7 @@
 
       <div class="nav-label">ADMINISTRATION</div>
 
-      <nav>
+      <nav aria-label="Primary navigation">
         {#each navigation as item}
           <div class:active={item.active} class="nav-item">
             <span class="nav-icon">{item.icon}</span>
@@ -135,9 +157,23 @@
     <section class="main-content">
 
       <header class="topbar">
-        <div>
-          <span class="breadcrumb">Administration / Dashboard</span>
-          <h1>Dashboard</h1>
+        <div class="topbar-heading">
+          <button
+            class="mobile-menu-button"
+            type="button"
+            aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileNavOpen}
+            aria-controls="lgi-sidebar"
+            onclick={() => (mobileNavOpen = !mobileNavOpen)}
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="page-heading">
+            <span class="breadcrumb">Administration / Dashboard</span>
+            <h1>Dashboard</h1>
+          </div>
         </div>
 
         <div class="account">
@@ -257,6 +293,7 @@
 
   :global(body) {
     margin: 0;
+    overflow-x: hidden;
     background: #f5f7f5;
     color: #19251e;
     font-family: Inter, Arial, sans-serif;
@@ -383,6 +420,16 @@
     align-items: center;
     justify-content: space-between;
     gap: 20px;
+  }
+
+  .topbar-heading {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .mobile-menu-button {
+    display: none;
   }
 
   .breadcrumb {
@@ -654,70 +701,233 @@
 
   @media (max-width: 850px) {
     .sidebar {
-      width: 215px;
+      width: 220px;
+      padding-inline: 14px;
     }
 
     .topbar {
-      padding: 15px 20px;
+      padding: 15px 22px;
     }
 
     .content {
-      padding: 25px 20px;
+      padding: 26px 22px;
+    }
+
+    .feature-grid {
+      gap: 13px;
     }
   }
 
   @media (max-width: 650px) {
-    .dashboard {
-      flex-direction: column;
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 30;
+      width: min(290px, 86vw);
+      height: 100vh;
+      height: 100dvh;
+      overflow-y: auto;
+      padding: 22px 16px;
+      transform: translateX(-105%);
+      visibility: hidden;
+      pointer-events: none;
+      box-shadow: 12px 0 32px rgba(8, 34, 20, 0.18);
+      transition: transform 180ms ease, visibility 180ms ease;
     }
 
-    .sidebar {
+    .sidebar.open {
+      transform: translateX(0);
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .sidebar-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 20;
       width: 100%;
-      padding: 15px;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      background: rgba(10, 25, 16, 0.48);
+      cursor: pointer;
     }
 
     .brand {
-      padding-bottom: 15px;
+      padding: 0 9px 26px;
+    }
+
+    .nav-label {
+      display: block;
     }
 
     .sidebar nav {
-      display: flex;
-      overflow-x: auto;
-    }
-
-    .nav-label,
-    .sidebar-footer {
-      display: none;
+      display: grid;
+      gap: 6px;
+      overflow: visible;
     }
 
     .nav-item {
-      flex: 0 0 auto;
-      white-space: nowrap;
+      width: 100%;
+      min-height: 46px;
+      white-space: normal;
+    }
+
+    .sidebar-footer {
+      display: block;
+      margin-top: 24px;
     }
 
     .topbar {
+      min-height: 76px;
+      padding: 13px 16px;
       flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
     }
 
-    .feature-grid {
-      grid-template-columns: 1fr;
+    .topbar-heading {
+      gap: 10px;
+    }
+
+    .mobile-menu-button {
+      display: grid;
+      flex: 0 0 42px;
+      width: 42px;
+      height: 42px;
+      place-content: center;
+      gap: 5px;
+      padding: 0;
+      border: 1px solid #e1e9e2;
+      border-radius: 9px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    .mobile-menu-button span {
+      display: block;
+      width: 18px;
+      height: 2px;
+      border-radius: 2px;
+      background: #0a5c37;
+    }
+
+    .mobile-menu-button:focus-visible,
+    .sidebar-backdrop:focus-visible {
+      outline: 3px solid #7ac69b;
+      outline-offset: 3px;
+    }
+
+    .breadcrumb {
+      font-size: 9px;
+    }
+
+    .topbar h1 {
+      margin-top: 4px;
+      font-size: 19px;
+    }
+
+    .account {
+      margin-left: auto;
+      gap: 8px;
     }
 
     .account-details {
       display: none;
     }
 
+    .logout-button {
+      min-height: 42px;
+      margin-left: 0;
+      padding: 9px 11px;
+      font-size: 10px;
+    }
+
+    .content {
+      padding: 22px 16px 28px;
+    }
+
     .welcome {
-      padding: 22px;
+      padding: 21px 19px;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .welcome h2 {
+      margin-top: 10px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    .welcome p {
+      font-size: 12px;
+      line-height: 1.65;
     }
 
     .welcome-icon {
       display: none;
     }
 
+    .section-heading {
+      margin: 27px 0 14px;
+    }
+
+    .feature-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .feature-card {
+      padding: 20px;
+    }
+
+    .feature-card p {
+      min-height: 0;
+    }
+
     .account-status {
       align-items: flex-start;
       flex-direction: column;
+      padding: 18px;
+    }
+
+    .verified-badge {
+      white-space: normal;
+    }
+
+    footer {
+      padding: 15px 16px;
+      line-height: 1.5;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .topbar {
+      padding-inline: 12px;
+    }
+
+    .content {
+      padding-inline: 13px;
+    }
+
+    .logout-button {
+      padding-inline: 9px;
+      font-size: 9px;
+    }
+
+    .welcome {
+      padding: 18px 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar {
+      transition: none;
+    }
+
+    .loader {
+      animation-duration: 1.8s;
     }
   }
 </style>
