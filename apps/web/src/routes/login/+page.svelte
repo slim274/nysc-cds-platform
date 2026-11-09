@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { login, ApiError } from '#lib/api/client.ts';
+  import { login, getCurrentUser, ApiError } from '#lib/api/client.ts';
 
   let email = $state('');
   let password = $state('');
@@ -15,8 +15,16 @@
 
     try {
       await login(email.trim(), password);
+      const session = await getCurrentUser();
 
-      await goto('/lgi');
+      if (session.roles.some((role) => role.code === 'PLATFORM_ADMIN')) {
+        await goto('/platform/course-catalogue');
+      } else if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
+        await goto('/lgi');
+      } else {
+        await goto('/login');
+        errorMessage = 'Your account does not have access to this administration portal.';
+      }
 
     } catch (error) {
       errorMessage = error instanceof ApiError
