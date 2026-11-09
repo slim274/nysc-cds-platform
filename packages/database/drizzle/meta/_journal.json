@@ -15,6 +15,20 @@
       "when": 1794230212284,
       "tag": "0001_amused_zuras",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794241421415,
+      "tag": "0002_premium_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794244382646,
+      "tag": "0003_lonely_blink",
+      "breakpoints": true
     }
   ]
 }
