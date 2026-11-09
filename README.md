@@ -110,6 +110,11 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | Responsive landing and login layouts | Implemented on the development branch; local validation pending |
 | Responsive LGI mobile navigation drawer and sticky header | Implemented on the development branch; local validation pending |
 | CDS group domain model and API design | Documented |
+| Shared course catalogue categories and aliases schema | Added on the development branch; migration generation pending |
+| Platform Administrator course management and CSV import API | Implemented on the development branch; local typecheck pending |
+| Platform Administrator course catalogue screen | Implemented on the development branch; local Svelte check pending |
+| LGI searchable read-only course picker | Implemented on the development branch; local Svelte check pending |
+| Expanded development course starter records | Added to the seed; local seed validation pending |
 | CDS groups, course mappings and membership-history Drizzle schemas | Added on the development branch |
 | CDS group migration | Generated and applied successfully to the local PostgreSQL database; migration file still needs to be committed if not already |
 | Group-scoped role assignments | Added to the database schema and authenticated role context |
