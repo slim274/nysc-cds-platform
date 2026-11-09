@@ -262,6 +262,7 @@ export async function listLgiCourses(filters: {
   const query = new URLSearchParams();
   if (filters.q) query.set('q', filters.q);
   if (filters.category) query.set('category', filters.category);
+  query.set('status', 'active');
   const suffix = query.size ? `?${query.toString()}` : '';
   const response = await request<{
     success: boolean;
