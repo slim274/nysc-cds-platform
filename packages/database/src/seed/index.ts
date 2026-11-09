@@ -16,9 +16,12 @@ import {
 
 import {
   users,
-  roles,
-  userRoleAssignments
+  roles
 } from '../schema/identity';
+
+import {
+  userRoleAssignments
+} from '../schema/user-role-assignments';
 
 import { corpsMembers } from '../schema/corps-members';
 
