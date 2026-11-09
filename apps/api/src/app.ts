@@ -13,7 +13,7 @@ import {
 } from './modules/cds-groups/cds-groups.routes';
 
 import {
-  platformRoutes
+  lgiCourseCatalogueRoutes
 } from './modules/course-catalogue/course-catalogue.routes';
 
 import type {
@@ -66,7 +66,7 @@ app.route('/auth', authRoutes);
 // LGI administration routes
 app.route('/lgi', lgiRoutes);
 
-// Platform administration routes
-app.route('/platform', platformRoutes);
+// Shared course catalogue management for authorised LGI administrators.
+app.route('/lgi', lgiCourseCatalogueRoutes);
 
 export default app;
