@@ -405,7 +405,7 @@
   }
 
   .sidebar-footer {
-    margin-top: auto;
+    margin-top: 24px;
     padding: 17px 9px 5px;
     color: #a6c6b3;
     font-size: 10px;
