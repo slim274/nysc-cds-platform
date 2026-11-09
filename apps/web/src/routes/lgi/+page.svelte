@@ -157,8 +157,19 @@
       </nav>
 
       <div class="sidebar-footer">
-        <span class="status-indicator"></span>
-        Development Environment
+        <div class="environment-status">
+          <span class="status-indicator"></span>
+          Development Environment
+        </div>
+
+        <button
+          class="sidebar-logout-button"
+          type="button"
+          onclick={handleLogout}
+          disabled={signingOut}
+        >
+          {signingOut ? 'Signing out...' : 'Sign out'}
+        </button>
       </div>
 
     </aside>
@@ -193,13 +204,6 @@
             <span>{currentUser.email}</span>
           </div>
 
-          <button
-            class="logout-button"
-            onclick={handleLogout}
-            disabled={signingOut}
-          >
-            {signingOut ? 'Signing out...' : 'Sign out'}
-          </button>
         </div>
       </header>
 
@@ -406,6 +410,41 @@
     color: #a6c6b3;
     font-size: 10px;
     border-top: 1px solid #ffffff1f;
+  }
+
+  .environment-status {
+    display: flex;
+    align-items: center;
+  }
+
+  .sidebar-logout-button {
+    width: 100%;
+    min-height: 42px;
+    margin-top: 15px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .sidebar-logout-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.42);
+  }
+
+  .sidebar-logout-button:focus-visible {
+    outline: 3px solid #a8e6bf;
+    outline-offset: 3px;
+  }
+
+  .sidebar-logout-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
   }
 
   .status-indicator {
