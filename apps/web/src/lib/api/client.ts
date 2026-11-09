@@ -88,3 +88,129 @@ export async function logout(): Promise<void> {
     method: 'POST'
   });
 }
+
+export interface CdsGroupSummary {
+  id: string;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+  code: string;
+  name: string;
+  description: string | null;
+  maxCapacity: number;
+  isActive: boolean;
+  currentMemberCount: number;
+  availableCapacity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CdsGroupCourse {
+  id: string;
+  name: string;
+  disciplineCategory: string;
+}
+
+export interface CdsGroupDetail extends CdsGroupSummary {
+  courses: CdsGroupCourse[];
+  coordinatorAssignments: Array<{
+    userId: string;
+    email: string | null;
+    status: string;
+  }>;
+}
+
+export interface CdsGroupReferenceData {
+  lgas: Array<{
+    id: string;
+    name: string;
+    stateName: string;
+  }>;
+  courses: CdsGroupCourse[];
+}
+
+export interface CreateCdsGroupInput {
+  lgaId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  maxCapacity: number;
+  courseIds: string[];
+}
+
+export type UpdateCdsGroupInput = Partial<
+  Omit<CreateCdsGroupInput, 'lgaId'>
+> & {
+  isActive?: boolean;
+};
+
+export async function getCdsGroupReferenceData(): Promise<CdsGroupReferenceData> {
+  const response = await request<{
+    success: boolean;
+    data: CdsGroupReferenceData;
+  }>('/lgi/cds-groups/reference-data');
+
+  return response.data;
+}
+
+export async function listCdsGroups(filters: {
+  lgaId?: string;
+  search?: string;
+  active?: boolean;
+} = {}): Promise<CdsGroupSummary[]> {
+  const query = new URLSearchParams();
+
+  if (filters.lgaId) query.set('lgaId', filters.lgaId);
+  if (filters.search) query.set('search', filters.search);
+  if (filters.active !== undefined) {
+    query.set('active', String(filters.active));
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const response = await request<{
+    success: boolean;
+    data: CdsGroupSummary[];
+  }>(`/lgi/cds-groups${suffix}`);
+
+  return response.data;
+}
+
+export async function getCdsGroup(groupId: string): Promise<CdsGroupDetail> {
+  const response = await request<{
+    success: boolean;
+    data: CdsGroupDetail;
+  }>(`/lgi/cds-groups/${encodeURIComponent(groupId)}`);
+
+  return response.data;
+}
+
+export async function createCdsGroup(
+  input: CreateCdsGroupInput
+): Promise<CdsGroupDetail> {
+  const response = await request<{
+    success: boolean;
+    message: string;
+    data: CdsGroupDetail;
+  }>('/lgi/cds-groups', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+
+  return response.data;
+}
+
+export async function updateCdsGroup(
+  groupId: string,
+  input: UpdateCdsGroupInput
+): Promise<CdsGroupDetail> {
+  const response = await request<{
+    success: boolean;
+    message: string;
+    data: CdsGroupDetail;
+  }>(`/lgi/cds-groups/${encodeURIComponent(groupId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+
+  return response.data;
+}
