@@ -16,12 +16,13 @@ The initial implementation is a modular monolith. The API owns authorization and
 
 | Role | Scope and responsibilities |
 |---|---|
+| Platform Administrator | Manages global configuration and the shared course catalogue across all LGAs. |
 | LGI Administrator | Manages the LGA, service years, batches, streams, corps-member records, CDS groups, coordinator accounts, assignments, exemptions and reports. |
 | CDS Coordinator | Manages assigned CDS groups and designates CDS Presidents only from corps members allocated to those groups. |
 | CDS President | Records and views attendance for the specifically assigned CDS group. |
 | Corps Member | Activates an account, maintains profile information, views allocation and attendance, and submits eligible requests. |
 
-Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission.
+Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission. The Platform Administrator role is global and is reserved for authorised platform operators. LGIs have read-only access to active shared course-catalogue records.
 
 ## Account administration workflow
 
@@ -114,7 +115,16 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | Group-scoped role assignments | Added to the database schema and authenticated role context |
 | LGI CDS Group Management API | Implemented on the development branch; local typecheck and integration tests pending |
 | LGI CDS Groups interface | Implemented on the development branch; local Svelte check and browser tests pending |
+| Shared course catalogue schema and aliases | Added on the development branch; migration generation pending |
+| Platform Administrator course catalogue API | Implemented on the development branch; local typecheck and access tests pending |
+| Platform Administrator catalogue interface | Implemented on the development branch; local Svelte check and browser tests pending |
+| CSV catalogue import and template | Implemented on the development branch; local import tests pending |
+| LGI read-only searchable course catalogue | Implemented on the development branch; local integration tests pending |
 | Coordinator account lifecycle and group assignments | Planned |
+
+## Shared course catalogue
+
+The shared academic course catalogue is managed by Platform Administrators and is read-only for LGIs. It supports discipline categories, canonical course names, aliases and CSV import. The development starter catalogue is representative, not exhaustive or an official national list. See [Course Catalogue documentation](docs/course-catalogue.md) for the API, CSV format, bootstrap and security rules.
 
 ## Local development
 
@@ -143,9 +153,9 @@ bun run --filter @nysc/api typecheck
 ## Next implementation sequence
 
 1. Pull the latest development branch and run API typecheck, frontend check and production build.
-2. Ensure the generated CDS group SQL migration and metadata are committed to Git.
-3. Test the LGI CDS Group Management endpoints against the local PostgreSQL database.
-4. Polish the CDS Groups interface based on local browser testing.
+2. Generate, review and apply the course-alias migration, then run the development seed.
+3. Test Platform Administrator catalogue management, CSV import and LGI read-only search.
+4. Polish CDS Group Management and the searchable course picker.
 5. Build Coordinator invitation, group assignment, disable/reactivate and session revocation.
 6. Build corps-member administration and NYSC cohort/reference-data management.
 7. Add Coordinator-scoped President designation, meeting attendance and reports.
