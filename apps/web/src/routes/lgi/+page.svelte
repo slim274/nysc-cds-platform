@@ -33,6 +33,7 @@
     { label: 'Corps Members', icon: '♙', active: false },
     { label: 'Batches & Streams', icon: '▤', active: false },
     { label: 'CDS Groups', icon: '◎', active: false },
+    { label: 'Course Catalogue', icon: '▤', active: false },
     { label: 'Course Mapping', icon: '⌘', active: false },
     { label: 'CDS Officials', icon: '♧', active: false },
     { label: 'Attendance', icon: '✓', active: false },
@@ -145,9 +146,9 @@
 
       <nav aria-label="Primary navigation">
         {#each navigation as item}
-          {#if item.label === 'CDS Groups'}
+          {#if item.label === 'CDS Groups' || item.label === 'Course Catalogue'}
             <a
-              href="/lgi/cds-groups"
+              href={item.label === 'CDS Groups' ? '/lgi/cds-groups' : '/lgi/course-catalogue'}
               class="nav-item"
               onclick={closeMobileNavigation}
             >
@@ -263,6 +264,18 @@
             </p>
             <a class="feature-link" href="/lgi/cds-groups">
               Manage CDS groups →
+            </a>
+          </article>
+          
+          <article class="feature-card">
+            <div class="feature-icon purple">▤</div>
+            <h3>Course Catalogue</h3>
+            <p>
+              Maintain the shared academic course list and aliases
+              used when configuring CDS group eligibility across LGAs.
+            </p>
+            <a class="feature-link" href="/lgi/course-catalogue">
+              Manage course catalogue →
             </a>
           </article>
 
