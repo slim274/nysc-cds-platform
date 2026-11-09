@@ -4,3 +4,4 @@ export * from './organisation';
 export * from './academics';
 export * from './identity';
 export * from './corps-members';
+export * from './cds-groups';
