@@ -95,7 +95,9 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | Responsive landing and login layouts | Implemented on the development branch; local validation pending |
 | Responsive LGI mobile navigation drawer and sticky header | Implemented on the development branch; local validation pending |
 | CDS group domain model and API design | Documented |
-| LGI CDS Group Management | Planned |
+| CDS groups, course mappings and membership-history Drizzle schemas | Added on the development branch; migration generation pending |
+| Group-scoped role assignments | Added on the development branch; migration generation pending |
+| LGI CDS Group Management API and UI | Planned |
 | Coordinator account lifecycle and group assignments | Planned |
 
 ## Local development
@@ -125,8 +127,9 @@ bun run --filter @nysc/api typecheck
 ## Next implementation sequence
 
 1. Run local frontend checks, production build and responsive browser validation.
-2. Implement the CDS group database schema and migration.
-3. Build LGI CDS Group Management (group CRUD, course mapping and capacity).
-4. Build Coordinator invitation, group assignment, disable/reactivate and session revocation.
-5. Build corps-member administration and NYSC cohort/reference-data management.
-6. Add Coordinator-scoped President designation, meeting attendance and reports.
+2. Generate, review and apply the Drizzle migration for CDS group schemas.
+3. Implement LGI CDS Group Management API (group CRUD, course mapping and capacity).
+4. Build the responsive LGI CDS Groups interface.
+5. Build Coordinator invitation, group assignment, disable/reactivate and session revocation.
+6. Build corps-member administration and NYSC cohort/reference-data management.
+7. Add Coordinator-scoped President designation, meeting attendance and reports.
