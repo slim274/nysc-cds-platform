@@ -271,15 +271,24 @@
       </div>
 
       <div class="nav-label">ADMINISTRATION</div>
-      <nav aria-label="LGI navigation">
-        <a class="nav-item" href="/lgi" onclick={closeMobileNavigation}><span>▦</span>Dashboard</a>
-        <a class="nav-item" href="/lgi/cds-groups" onclick={closeMobileNavigation}><span>◎</span>CDS Groups</a>
-        <a class="nav-item active" href="/lgi/course-catalogue" aria-current="page" onclick={closeMobileNavigation}><span>▤</span>Course Catalogue</a>
+      <nav aria-label="Primary navigation">
+        <a class="nav-item" href="/lgi" onclick={closeMobileNavigation}><span class="nav-icon">▦</span><span>Dashboard</span></a>
+        <div class="nav-item muted"><span class="nav-icon">♙</span><span>Corps Members</span><small>Soon</small></div>
+        <div class="nav-item muted"><span class="nav-icon">▤</span><span>Batches &amp; Streams</span><small>Soon</small></div>
+        <a class="nav-item" href="/lgi/cds-groups" onclick={closeMobileNavigation}><span class="nav-icon">◎</span><span>CDS Groups</span></a>
+        <a class="nav-item active" href="/lgi/course-catalogue" aria-current="page" onclick={closeMobileNavigation}><span class="nav-icon">▤</span><span>Course Catalogue</span></a>
+        <div class="nav-item muted"><span class="nav-icon">⌘</span><span>Course Mapping</span><small>Soon</small></div>
+        <div class="nav-item muted"><span class="nav-icon">♧</span><span>CDS Officials</span><small>Soon</small></div>
+        <div class="nav-item muted"><span class="nav-icon">✓</span><span>Attendance</span><small>Soon</small></div>
+        <div class="nav-item muted"><span class="nav-icon">▣</span><span>Monthly Clearance</span><small>Soon</small></div>
+        <div class="nav-item muted"><span class="nav-icon">▥</span><span>Reports</span><small>Soon</small></div>
       </nav>
 
       <div class="sidebar-footer">
-        <span class="status-dot"></span>LGI Administrator
-        <button class="sidebar-logout" type="button" onclick={handleLogout} disabled={signingOut}>{signingOut ? 'Signing out...' : 'Sign out'}</button>
+        <div class="environment-status"><span class="status-indicator"></span>Development Environment</div>
+        <button class="sidebar-logout" type="button" onclick={handleLogout} disabled={signingOut}>
+          {signingOut ? 'Signing out...' : 'Sign out'}
+        </button>
       </div>
     </aside>
 
@@ -385,9 +394,14 @@
   .nav-label { padding: 0 10px 13px; color: #a6c6b3; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; }
   nav { display: grid; gap: 6px; }
   .nav-item { min-height: 44px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border-radius: 7px; color: #d1e0d7; font-size: 12px; text-decoration: none; }
-  .nav-item > span:first-child { width: 20px; text-align: center; }
+  .nav-item > .nav-icon { width: 20px; flex: 0 0 20px; text-align: center; font-size: 15px; }
+  .nav-item > span:nth-child(2) { min-width: 0; }
   .nav-item.active { background: #0e6440; color: #fff; font-weight: 700; }
+  .nav-item.muted { color: #d1e0d7; }
+  .nav-item small { margin-left: auto; color: #a6c6b3; font-size: 8px; }
   .sidebar-footer { margin-top: 24px; padding: 17px 9px 5px; border-top: 1px solid #ffffff1f; color: #a6c6b3; font-size: 10px; }
+  .environment-status { display: flex; align-items: center; }
+  .status-indicator { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #55d58a; }
   .status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #55d58a; }
   .sidebar-logout { width: 100%; min-height: 42px; margin-top: 15px; padding: 10px 12px; border: 1px solid #ffffff3d; border-radius: 8px; background: #ffffff14; color: #fff; text-align: left; font-size: 12px; cursor: pointer; }
   .main-area { min-width: 0; flex: 1; display: flex; flex-direction: column; }
