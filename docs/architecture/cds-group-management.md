@@ -70,29 +70,31 @@ LGI operations:
 
 A disabled Coordinator must fail authentication even if a previously issued session cookie exists. Account state changes must not delete the user's historical actions.
 
-## API boundary (planned)
+## API boundary
 
-All endpoints are authenticated and enforce LGA/group scope in the API; hiding a button in the browser is not authorization.
+All implemented endpoints are authenticated and enforce LGA scope in the API; hiding a button in the browser is not authorization.
 
-LGI-only:
-- `GET /lgi/cds-groups` — list groups in the authenticated LGI's LGA, including active member count and coordinator assignment.
-- `POST /lgi/cds-groups` — create a group in the authenticated LGI's LGA.
-- `GET /lgi/cds-groups/:groupId` — group details and mapped courses.
-- `PATCH /lgi/cds-groups/:groupId` — update name, code, description, capacity, active state and course mappings.
-- `POST /lgi/cds-groups/:groupId/coordinator` — assign an existing invited/active Coordinator to a group.
+Implemented LGI-only routes:
+- `GET /lgi/cds-groups/reference-data` — return the authenticated LGI's active assigned LGA(s) and active course catalogue.
+- `GET /lgi/cds-groups` — list groups within the authenticated LGI's assigned LGA(s), with optional LGA, search and active-status filters; includes active member count and available capacity.
+- `POST /lgi/cds-groups` — create a group only in an LGA assigned to the authenticated LGI, with one or more active course mappings.
+- `GET /lgi/cds-groups/:groupId` — return group details, mapped courses, active member count and assigned Coordinator.
+- `PATCH /lgi/cds-groups/:groupId` — update name, code, description, capacity, active state and course mappings. Capacity cannot be lowered below the current active membership count.
 
-Coordinator account administration (LGI-only):
+The frontend includes the responsive LGI CDS Groups screen for listing, filtering, creating and editing groups.
+
+Planned Coordinator account administration (LGI-only):
 - `GET /lgi/coordinators`
 - `POST /lgi/coordinators`
 - `PATCH /lgi/coordinators/:userId/status`
 - `PUT /lgi/coordinators/:userId/groups`
 
-Coordinator-only:
+Planned Coordinator-only routes:
 - `GET /coordinator/groups` — only assigned groups.
 - `GET /coordinator/groups/:groupId/members` — only if the Coordinator has an active assignment to that group.
 - `POST /coordinator/groups/:groupId/president` — designate a President only from active members of an assigned group.
 
-The first implementation should deliver CDS-group CRUD and course mapping before Coordinator invitations and President designation.
+The next backend milestone is Coordinator invitation, assignment and lifecycle management.
 
 ## LGI password recovery
 
