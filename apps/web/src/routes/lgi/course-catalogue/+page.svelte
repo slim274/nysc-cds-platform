@@ -356,7 +356,7 @@
 {#if formOpen}
   <div class="modal-layer">
     <button class="modal-scrim" type="button" aria-label="Close course form" onclick={() => (formOpen = false)}></button>
-    <section class="course-modal" role="dialog" aria-modal="true" aria-labelledby="course-modal-title">
+    <div class="course-modal" role="dialog" aria-modal="true" aria-labelledby="course-modal-title">
       <div class="modal-header"><div><span class="eyebrow">COURSE RECORD</span><h2 id="course-modal-title">{editingCourse ? 'Edit course' : 'Add course'}</h2><p>Use the canonical academic programme name and add common variations as aliases.</p></div><button class="modal-close" type="button" aria-label="Close form" onclick={() => (formOpen = false)}>×</button></div>
       {#if formError}<div class="message error" role="alert">{formError}</div>{/if}
       <form class="course-form" onsubmit={saveCourse}>
@@ -366,7 +366,7 @@
         {#if editingCourse}<label class="active-toggle"><input type="checkbox" bind:checked={form.isActive} /><span><strong>Course is active</strong><small>Inactive courses are hidden from new CDS group course selection.</small></span></label>{/if}
         <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving...' : editingCourse ? 'Save changes' : 'Add course'}</button></div>
       </form>
-    </section>
+    </div>
   </div>
 {/if}
 
