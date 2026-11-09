@@ -110,6 +110,7 @@ export interface CdsGroupCourse {
   id: string;
   name: string;
   disciplineCategory: string;
+  aliases?: string[];
 }
 
 export interface CdsGroupDetail extends CdsGroupSummary {
@@ -322,4 +323,25 @@ export async function importCourseCsv(csv: string): Promise<{
     body: csv
   });
   return response.data;
+}
+
+export function getCourseDisciplineLabel(code: string): string {
+  const labels: Record<string, string> = {
+    AGRICULTURE: 'Agriculture & Agricultural Sciences',
+    ARTS_HUMANITIES: 'Arts & Humanities',
+    BUILT_ENVIRONMENT: 'Architecture & Built Environment',
+    EDUCATION: 'Education',
+    ENGINEERING: 'Engineering & Technology',
+    ENVIRONMENTAL_SCIENCES: 'Environmental Sciences',
+    HEALTH: 'Health & Medical Sciences',
+    ICT: 'ICT & Computing',
+    LEGAL: 'Law & Legal Studies',
+    MANAGEMENT_SCIENCES: 'Management Sciences',
+    NATURAL_SCIENCES: 'Natural & Physical Sciences',
+    PHARMACEUTICAL_SCIENCES: 'Pharmaceutical Sciences',
+    SOCIAL_SCIENCES: 'Social Sciences',
+    VETERINARY_MEDICINE: 'Veterinary Medicine',
+    UNCLASSIFIED: 'Unclassified / Other'
+  };
+  return labels[code] ?? code;
 }
