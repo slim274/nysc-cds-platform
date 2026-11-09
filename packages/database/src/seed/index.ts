@@ -381,9 +381,9 @@ async function main() {
     for (const alias of aliases) {
       const normalizedName = alias
         .normalize('NFKC')
-        .replace(/[^\\p{L}\\p{N}]+/gu, ' ')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim()
-        .replace(/\\s+/g, ' ')
+        .replace(/\s+/g, ' ')
         .toLocaleUpperCase('en');
 
       const [existingAlias] = await db
