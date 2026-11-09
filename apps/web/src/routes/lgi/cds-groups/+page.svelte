@@ -194,6 +194,7 @@
         };
 
         await createCdsGroup(input);
+        selectedLga = form.lgaId;
       }
 
       formOpen = false;
