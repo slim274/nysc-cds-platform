@@ -17,6 +17,7 @@ export type AuthRole = {
   code: string;
   name: string;
   lgaId: string | null;
+  cdsGroupId: string | null;
 };
 
 export type AuthEnv = {
@@ -86,7 +87,8 @@ export const requireAuth = createMiddleware<AuthEnv>(
         .select({
           code: roles.code,
           name: roles.name,
-          lgaId: userRoleAssignments.lgaId
+          lgaId: userRoleAssignments.lgaId,
+          cdsGroupId: userRoleAssignments.cdsGroupId
         })
         .from(userRoleAssignments)
         .innerJoin(
