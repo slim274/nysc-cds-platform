@@ -78,7 +78,7 @@ Medical exemption and reassignment decisions remain subject to authorised human 
 
 ## Development status
 
-The repository currently contains the initial monorepo scaffold and baseline API connectivity screen. The local development session has also implemented login and LGI dashboard work, but those latest frontend files have not yet been pushed to this GitHub repository. Do not treat those local changes as present on `main` until they are synced.
+The development branch contains the frontend login and LGI dashboard, responsive layouts and mobile navigation updates. The authentication API, database schema and synthetic seed have been implemented and tested in the local development environment. The latest responsive changes still require local Svelte checks, production build and browser validation across the documented viewport widths.
 
 | Component | Status |
 |---|---|
@@ -92,9 +92,11 @@ The repository currently contains the initial monorepo scaffold and baseline API
 | Login/logout and PostgreSQL session management | Implemented and tested locally |
 | Authentication middleware and LGI role authorization | Implemented and typechecked locally |
 | Frontend login and LGI dashboard | Implemented and committed on the development branch |
-| Responsive landing and login layouts | Updated on the development branch; local validation pending |
-| Responsive LGI mobile navigation drawer | Implemented on the development branch; local validation pending |
-| LGI administration module | Planned |
+| Responsive landing and login layouts | Implemented on the development branch; local validation pending |
+| Responsive LGI mobile navigation drawer and sticky header | Implemented on the development branch; local validation pending |
+| CDS group domain model and API design | Documented |
+| LGI CDS Group Management | Planned |
+| Coordinator account lifecycle and group assignments | Planned |
 
 ## Local development
 
@@ -122,8 +124,9 @@ bun run --filter @nysc/api typecheck
 
 ## Next implementation sequence
 
-1. Sync the latest verified local login/dashboard/API client work into the repository.
-2. Audit and fix responsive behaviour at the viewport widths listed above.
-3. Build LGI CDS Group Management and coordinator account management.
-4. Build corps-member administration and NYSC cohort/reference-data management.
-5. Add scoped President designation, meeting attendance and reports.
+1. Run local frontend checks, production build and responsive browser validation.
+2. Implement the CDS group database schema and migration.
+3. Build LGI CDS Group Management (group CRUD, course mapping and capacity).
+4. Build Coordinator invitation, group assignment, disable/reactivate and session revocation.
+5. Build corps-member administration and NYSC cohort/reference-data management.
+6. Add Coordinator-scoped President designation, meeting attendance and reports.
