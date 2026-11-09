@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { db, postgresClient } from '../client';
 
@@ -114,32 +114,37 @@ async function assignRole(
   });
 }
 
-async function assignGlobalRole(userId: string, roleId: string) {
-  const [existing] = await db
-    .select({ id: userRoleAssignments.id })
-    .from(userRoleAssignments)
-    .where(
-      and(
-        eq(userRoleAssignments.userId, userId),
-        eq(userRoleAssignments.roleId, roleId),
-        isNull(userRoleAssignments.lgaId),
-        isNull(userRoleAssignments.cdsGroupId)
-      )
-    )
+
+async function removeLegacyPlatformAdminDemoAccount() {
+  // Remove the separate Platform Administrator demo account introduced by
+  // an earlier development seed. User-owned sessions, tokens and role
+  // assignments are removed through their foreign-key cascade rules.
+  await db
+    .delete(users)
+    .where(eq(users.email, 'platform.admin@example.test'));
+
+  const [legacyRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.code, 'PLATFORM_ADMIN'))
     .limit(1);
 
-  if (existing) return;
+  if (legacyRole) {
+    const [remainingAssignment] = await db
+      .select({ id: userRoleAssignments.id })
+      .from(userRoleAssignments)
+      .where(eq(userRoleAssignments.roleId, legacyRole.id))
+      .limit(1);
 
-  await db.insert(userRoleAssignments).values({
-    userId,
-    roleId,
-    lgaId: null,
-    cdsGroupId: null
-  });
+    if (!remainingAssignment) {
+      await db.delete(roles).where(eq(roles.id, legacyRole.id));
+    }
+  }
 }
 
 async function main() {
   console.log('Starting NYSC database seeding...\n');
+  await removeLegacyPlatformAdminDemoAccount();
 
   // 1. Create Demo LGA
   let [lga] = await db
@@ -427,12 +432,6 @@ async function main() {
     'Registered NYSC corps member'
   );
 
-  const platformAdminRole = await getRole(
-    'PLATFORM_ADMIN',
-    'Platform Administrator',
-    'Manages global platform configuration and the shared course catalogue'
-  );
-
   console.log('✓ System roles created/found');
 
   // 8. Create administrative accounts
@@ -446,19 +445,13 @@ async function main() {
     'president.demo@example.test'
   );
 
-  const platformAdminUserId = await getUser(
-    'platform.admin@example.test'
-  );
-
   await assignRole(lgiUserId, lgiRole, lga.id);
 
   await assignRole(coordinatorUserId, coordinatorRole, lga.id);
 
   await assignRole(presidentUserId, presidentRole, lga.id);
-  await assignGlobalRole(platformAdminUserId, platformAdminRole);
 
-  console.log('✓ Administrative test accounts created/found');
-  console.log('Platform catalogue admin: platform.admin@example.test (pending activation)');
+  console.log('✓ LGI, Coordinator and President test accounts created/found');
 
   // 9. Five synthetic corps members
   const members = [
