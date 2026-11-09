@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { db, postgresClient } from '../client';
 
@@ -13,6 +13,9 @@ import {
   institutions,
   courses
 } from '../schema/academics';
+import {
+  courseAliases
+} from '../schema/course-aliases';
 
 import {
   users,
@@ -108,6 +111,30 @@ async function assignRole(
     userId,
     roleId,
     lgaId
+  });
+}
+
+async function assignGlobalRole(userId: string, roleId: string) {
+  const [existing] = await db
+    .select({ id: userRoleAssignments.id })
+    .from(userRoleAssignments)
+    .where(
+      and(
+        eq(userRoleAssignments.userId, userId),
+        eq(userRoleAssignments.roleId, roleId),
+        isNull(userRoleAssignments.lgaId),
+        isNull(userRoleAssignments.cdsGroupId)
+      )
+    )
+    .limit(1);
+
+  if (existing) return;
+
+  await db.insert(userRoleAssignments).values({
+    userId,
+    roleId,
+    lgaId: null,
+    cdsGroupId: null
   });
 }
 
@@ -328,6 +355,12 @@ async function main() {
     'Registered NYSC corps member'
   );
 
+  const platformAdminRole = await getRole(
+    'PLATFORM_ADMIN',
+    'Platform Administrator',
+    'Manages global platform configuration and the shared course catalogue'
+  );
+
   console.log('✓ System roles created/found');
 
   // 8. Create administrative accounts
@@ -341,13 +374,19 @@ async function main() {
     'president.demo@example.test'
   );
 
+  const platformAdminUserId = await getUser(
+    'platform.admin@example.test'
+  );
+
   await assignRole(lgiUserId, lgiRole, lga.id);
 
   await assignRole(coordinatorUserId, coordinatorRole, lga.id);
 
   await assignRole(presidentUserId, presidentRole, lga.id);
+  await assignGlobalRole(platformAdminUserId, platformAdminRole);
 
   console.log('✓ Administrative test accounts created/found');
+  console.log('Platform catalogue admin: platform.admin@example.test (pending activation)');
 
   // 9. Five synthetic corps members
   const members = [
