@@ -412,9 +412,12 @@
   }
 
   .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
     min-height: 88px;
     padding: 15px 34px;
-    background: white;
+    background: #ffffff;
     border-bottom: 1px solid #e8ece8;
     display: flex;
     align-items: center;
