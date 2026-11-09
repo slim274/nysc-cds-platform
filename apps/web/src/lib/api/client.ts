@@ -238,7 +238,7 @@ export interface CourseInput {
   aliases: string[];
 }
 
-export async function listPlatformCourses(filters: {
+export async function listLgiAdminCourses(filters: {
   q?: string;
   category?: string;
   status?: 'active' | 'inactive' | 'all';
@@ -251,7 +251,7 @@ export async function listPlatformCourses(filters: {
   const response = await request<{
     success: boolean;
     data: CourseCatalogueItem[];
-  }>(`/platform/course-catalogue${suffix}`);
+  }>(`/lgi/course-catalogue${suffix}`);
   return response.data;
 }
 
@@ -274,7 +274,7 @@ export async function getCourseCategories(): Promise<CourseCategory[]> {
   const response = await request<{
     success: boolean;
     data: CourseCategory[];
-  }>('/platform/course-catalogue/categories');
+  }>('/lgi/course-catalogue/categories');
   return response.data;
 }
 
@@ -282,7 +282,7 @@ export async function createCatalogueCourse(input: CourseInput): Promise<CourseC
   const response = await request<{
     success: boolean;
     data: CourseCatalogueItem;
-  }>('/platform/course-catalogue', {
+  }>('/lgi/course-catalogue', {
     method: 'POST',
     body: JSON.stringify(input)
   });
@@ -296,7 +296,7 @@ export async function updateCatalogueCourse(
   const response = await request<{
     success: boolean;
     data: CourseCatalogueItem;
-  }>(`/platform/course-catalogue/${encodeURIComponent(courseId)}`, {
+  }>(`/lgi/course-catalogue/${encodeURIComponent(courseId)}`, {
     method: 'PATCH',
     body: JSON.stringify(input)
   });
@@ -317,7 +317,7 @@ export async function importCourseCsv(csv: string): Promise<{
       aliasesAdded: number;
       totalProcessed: number;
     };
-  }>('/platform/course-catalogue/import', {
+  }>('/lgi/course-catalogue/import', {
     method: 'POST',
     headers: { 'Content-Type': 'text/csv' },
     body: csv
