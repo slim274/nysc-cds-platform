@@ -1,0 +1,14 @@
+{
+  "name": "nysc-cds-platform",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "bun --filter @nysc/web dev",
+    "dev:api": "bun --filter @nysc/api dev",
+    "dev:worker": "bun --filter @nysc/worker dev"
+  }
+}
