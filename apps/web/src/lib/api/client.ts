@@ -12,6 +12,7 @@ export interface AuthRole {
   code: string;
   name: string;
   lgaId: string | null;
+  cdsGroupId: string | null;
 }
 
 export interface AuthUser {
