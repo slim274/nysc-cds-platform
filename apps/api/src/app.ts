@@ -8,6 +8,10 @@ import {
   authRoutes
 } from './modules/auth/auth.routes';
 
+import {
+  lgiRoutes
+} from './modules/cds-groups/cds-groups.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -54,5 +58,8 @@ app.get('/health/db', async (c) => {
 
 // Authentication routes
 app.route('/auth', authRoutes);
+
+// LGI administration routes
+app.route('/lgi', lgiRoutes);
 
 export default app;
