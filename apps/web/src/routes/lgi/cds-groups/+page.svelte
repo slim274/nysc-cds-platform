@@ -10,6 +10,8 @@
     getCdsGroup,
     createCdsGroup,
     updateCdsGroup,
+    listLgiCourses,
+    getCourseDisciplineLabel,
     logout
   } from '#lib/api/client.ts';
 
@@ -35,6 +37,8 @@
   let search = $state('');
   let selectedLga = $state('');
   let statusFilter = $state('all');
+  let courseSearch = $state('');
+  let courseCategory = $state('all');
 
   let form = $state({
     lgaId: '',
@@ -49,6 +53,15 @@
   const activeGroupCount = $derived(groups.filter((group) => group.isActive).length);
   const totalMembers = $derived(groups.reduce((total, group) => total + group.currentMemberCount, 0));
   const totalCapacity = $derived(groups.reduce((total, group) => total + group.maxCapacity, 0));
+  const courseCategories = $derived([...new Set(referenceData.courses.map((course) => course.disciplineCategory))].sort());
+  const visibleCourses = $derived(referenceData.courses.filter((course) => {
+    const query = courseSearch.trim().toLocaleLowerCase();
+    const matchesSearch = !query ||
+      course.name.toLocaleLowerCase().includes(query) ||
+      (course.aliases ?? []).some((alias) => alias.toLocaleLowerCase().includes(query));
+    const matchesCategory = courseCategory === 'all' || course.disciplineCategory === courseCategory;
+    return matchesSearch && matchesCategory;
+  }));
 
   onMount(() => {
     void loadPage();
@@ -69,6 +82,16 @@
 
       currentUser = userResponse.user;
       referenceData = await getCdsGroupReferenceData();
+      const sharedCourses = await listLgiCourses();
+      referenceData = {
+        ...referenceData,
+        courses: sharedCourses.map((course) => ({
+          id: course.id,
+          name: course.name,
+          disciplineCategory: course.disciplineCategory,
+          aliases: course.aliases.map((alias) => alias.name)
+        }))
+      };
 
       if (!selectedLga && referenceData.lgas.length > 0) {
         selectedLga = referenceData.lgas[0].id;
@@ -464,19 +487,54 @@
 
         <fieldset class="course-fieldset">
           <legend>Eligible courses *</legend>
-          <p>Select the academic courses that can be allocated to this group.</p>
-          <div class="course-options">
-            {#each referenceData.courses as course}
-              <label class="course-option">
-                <input
-                  type="checkbox"
-                  checked={form.courseIds.includes(course.id)}
-                  onchange={(event) => toggleCourse(course.id, event.currentTarget.checked)}
-                />
-                <span><strong>{course.name}</strong><small>{course.disciplineCategory}</small></span>
-              </label>
-            {/each}
+          <p>Select academic courses from the shared catalogue. Search also recognises course aliases.</p>
+
+          <div class="course-picker-tools">
+            <input
+              class="course-search"
+              type="search"
+              bind:value={courseSearch}
+              placeholder="Search course or alternate name..."
+              aria-label="Search eligible courses"
+            />
+            <select bind:value={courseCategory} aria-label="Filter eligible courses by discipline">
+              <option value="all">All disciplines</option>
+              {#each courseCategories as category}
+                <option value={category}>{getCourseDisciplineLabel(category)}</option>
+              {/each}
+            </select>
           </div>
+
+          <div class="course-selection-actions">
+            <span>{form.courseIds.length} selected</span>
+            <div>
+              <button type="button" onclick={() => (form.courseIds = [...new Set([...form.courseIds, ...visibleCourses.map((course) => course.id)])])} disabled={visibleCourses.length === 0}>Select visible</button>
+              <button type="button" onclick={() => (form.courseIds = form.courseIds.filter((id) => !visibleCourses.some((course) => course.id === id)))} disabled={!visibleCourses.some((course) => form.courseIds.includes(course.id))}>Clear visible</button>
+            </div>
+          </div>
+
+          {#if visibleCourses.length === 0}
+            <div class="course-empty">No matching courses. Try another search or discipline.</div>
+          {:else}
+            <div class="course-options">
+              {#each visibleCourses as course (course.id)}
+                <label class="course-option">
+                  <input
+                    type="checkbox"
+                    checked={form.courseIds.includes(course.id)}
+                    onchange={(event) => toggleCourse(course.id, event.currentTarget.checked)}
+                  />
+                  <span>
+                    <strong>{course.name}</strong>
+                    <small>{getCourseDisciplineLabel(course.disciplineCategory)}</small>
+                    {#if course.aliases && course.aliases.length > 0}
+                      <small class="course-aliases">Also: {course.aliases.join(', ')}</small>
+                    {/if}
+                  </span>
+                </label>
+              {/each}
+            </div>
+          {/if}
         </fieldset>
 
         {#if editingGroup}
@@ -598,7 +656,15 @@
   .course-fieldset { min-width: 0; margin: 0; padding: 14px; border: 1px solid #e1e9e2; border-radius: 9px; }
   .course-fieldset legend { padding: 0 5px; color: #405448; font-size: 10px; font-weight: 700; }
   .course-fieldset > p { margin: 0 0 10px; color: #819087; font-size: 10px; }
-  .course-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .course-picker-tools { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(180px, 1fr); gap: 8px; margin-bottom: 10px; }
+  .course-search, .course-picker-tools select { width: 100%; min-width: 0; min-height: 40px; padding: 9px 11px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; font-size: 10px; }
+  .course-selection-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; color: #0a5c37; font-size: 9px; font-weight: 700; }
+  .course-selection-actions > div { display: flex; gap: 10px; }
+  .course-selection-actions button { padding: 3px 0; border: 0; background: transparent; color: #0a6841; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .course-selection-actions button:disabled { opacity: .45; cursor: not-allowed; }
+  .course-empty { padding: 18px 10px; border: 1px dashed #dce5de; border-radius: 8px; color: #819087; font-size: 10px; text-align: center; }
+  .course-aliases { color: #89948c !important; font-weight: 400; line-height: 1.4; }
+  .course-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 280px; overflow-y: auto; padding: 2px; }
   .course-option { min-width: 0; display: flex !important; align-items: center; gap: 9px !important; padding: 10px; border: 1px solid #edf0ed; border-radius: 8px; cursor: pointer; }
   .course-option input { width: 15px; height: 15px; flex: 0 0 15px; accent-color: #0a5c37; }
   .course-option span, .course-option strong, .course-option small { display: block; min-width: 0; }
@@ -654,7 +720,8 @@
     .stat-card { padding: 13px; }
     .stat-card strong { font-size: 20px; }
     .stat-card small { font-size: 8px; }
-    .form-row, .course-options { grid-template-columns: 1fr; }
+    .form-row, .course-options, .course-picker-tools { grid-template-columns: 1fr; }
+    .course-selection-actions { align-items: flex-start; flex-direction: column; }
     .modal-layer { padding: 10px; }
     .group-modal { max-height: 96vh; padding: 18px; border-radius: 12px; }
     .modal-actions { flex-direction: column-reverse; }
