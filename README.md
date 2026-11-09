@@ -66,6 +66,20 @@ Responsive acceptance checks:
 
 Medical exemption and reassignment decisions remain subject to authorised human review. Internal attendance readiness must not be represented as official NYSC clearance without an authorised integration.
 
+## Account recovery
+
+Password recovery is available to authorised roles, including LGI administrators, through a self-service reset flow:
+
+1. The user submits the email address registered to their account.
+2. The system responds with a generic message regardless of whether the address exists, and creates a reset token only for an eligible account with a verified recovery email.
+3. A single-use, short-lived reset link is delivered to that verified email address.
+4. The user sets a new password. The API validates and consumes the token transactionally and stores the new password using Argon2id.
+5. All active sessions for that account are revoked so the user must authenticate again.
+
+Reset tokens are stored as hashes, are never logged or returned by production API responses, and are rate-limited. A password reset must never reactivate a disabled or suspended account. If an LGI loses access to the registered recovery address, recovery requires an authorised platform-level administrator to follow a separate identity-verified and audited process; a CDS Coordinator cannot reset an LGI account.
+
+The database already includes the `password_reset` token purpose and `auth_tokens` table. The reset endpoints, email delivery integration, UI and tests remain to be implemented.
+
 ## Security and integrity requirements
 
 - Server-side role and resource-scope checks on every protected operation.
