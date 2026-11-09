@@ -291,7 +291,39 @@ async function main() {
       name: 'Agricultural Science',
       normalizedName: 'AGRICULTURAL SCIENCE',
       disciplineCategory: 'AGRICULTURE'
-    }
+    },
+    { name: 'Accounting', normalizedName: 'ACCOUNTING', disciplineCategory: 'MANAGEMENT_SCIENCES' },
+    { name: 'Business Administration', normalizedName: 'BUSINESS ADMINISTRATION', disciplineCategory: 'MANAGEMENT_SCIENCES' },
+    { name: 'Economics', normalizedName: 'ECONOMICS', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Political Science', normalizedName: 'POLITICAL SCIENCE', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Sociology', normalizedName: 'SOCIOLOGY', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Psychology', normalizedName: 'PSYCHOLOGY', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Mass Communication', normalizedName: 'MASS COMMUNICATION', disciplineCategory: 'ARTS_HUMANITIES' },
+    { name: 'English Language', normalizedName: 'ENGLISH LANGUAGE', disciplineCategory: 'ARTS_HUMANITIES' },
+    { name: 'History and International Studies', normalizedName: 'HISTORY AND INTERNATIONAL STUDIES', disciplineCategory: 'ARTS_HUMANITIES' },
+    { name: 'Biochemistry', normalizedName: 'BIOCHEMISTRY', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Microbiology', normalizedName: 'MICROBIOLOGY', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Chemistry', normalizedName: 'CHEMISTRY', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Physics', normalizedName: 'PHYSICS', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Mathematics', normalizedName: 'MATHEMATICS', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Statistics', normalizedName: 'STATISTICS', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Civil Engineering', normalizedName: 'CIVIL ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Electrical and Electronics Engineering', normalizedName: 'ELECTRICAL AND ELECTRONICS ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Mechanical Engineering', normalizedName: 'MECHANICAL ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Chemical Engineering', normalizedName: 'CHEMICAL ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Architecture', normalizedName: 'ARCHITECTURE', disciplineCategory: 'BUILT_ENVIRONMENT' },
+    { name: 'Quantity Surveying', normalizedName: 'QUANTITY SURVEYING', disciplineCategory: 'BUILT_ENVIRONMENT' },
+    { name: 'Urban and Regional Planning', normalizedName: 'URBAN AND REGIONAL PLANNING', disciplineCategory: 'BUILT_ENVIRONMENT' },
+    { name: 'Environmental Management', normalizedName: 'ENVIRONMENTAL MANAGEMENT', disciplineCategory: 'ENVIRONMENTAL_SCIENCES' },
+    { name: 'Geography', normalizedName: 'GEOGRAPHY', disciplineCategory: 'ENVIRONMENTAL_SCIENCES' },
+    { name: 'Education and Biology', normalizedName: 'EDUCATION AND BIOLOGY', disciplineCategory: 'EDUCATION' },
+    { name: 'Educational Management', normalizedName: 'EDUCATIONAL MANAGEMENT', disciplineCategory: 'EDUCATION' },
+    { name: 'Pharmacy', normalizedName: 'PHARMACY', disciplineCategory: 'PHARMACEUTICAL_SCIENCES' },
+    { name: 'Medical Laboratory Science', normalizedName: 'MEDICAL LABORATORY SCIENCE', disciplineCategory: 'HEALTH' },
+    { name: 'Public Health', normalizedName: 'PUBLIC HEALTH', disciplineCategory: 'HEALTH' },
+    { name: 'Physiotherapy', normalizedName: 'PHYSIOTHERAPY', disciplineCategory: 'HEALTH' },
+    { name: 'Veterinary Medicine', normalizedName: 'VETERINARY MEDICINE', disciplineCategory: 'VETERINARY_MEDICINE' },
+    { name: 'Computer Engineering', normalizedName: 'COMPUTER ENGINEERING', disciplineCategory: 'ENGINEERING' }
   ];
 
   const courseIds: Record<string, string> = {};
@@ -328,6 +360,46 @@ async function main() {
     courseIds[course.normalizedName] = record.id;
 
     console.log(`✓ Course: ${course.name}`);
+  }
+
+  // 6b. Add common course-name aliases to the shared catalogue.
+  const aliasData: Record<string, string[]> = {
+    'COMPUTER SCIENCE': ['Computing', 'Computer Studies'],
+    'SOFTWARE ENGINEERING': ['Software Development'],
+    'AGRICULTURAL SCIENCE': ['Agriculture', 'Agricultural Sciences'],
+    'ACCOUNTING': ['Accountancy'],
+    'BUSINESS ADMINISTRATION': ['Business Management'],
+    'MASS COMMUNICATION': ['Mass Communications'],
+    'ELECTRICAL AND ELECTRONICS ENGINEERING': ['Electrical Engineering'],
+    'MEDICAL LABORATORY SCIENCE': ['Medical Laboratory Technology']
+  };
+
+  for (const [canonicalName, aliases] of Object.entries(aliasData)) {
+    const courseId = courseIds[canonicalName];
+    if (!courseId) continue;
+
+    for (const alias of aliases) {
+      const normalizedName = alias
+        .normalize('NFKC')
+        .replace(/[^\\p{L}\\p{N}]+/gu, ' ')
+        .trim()
+        .replace(/\\s+/g, ' ')
+        .toLocaleUpperCase('en');
+
+      const [existingAlias] = await db
+        .select({ id: courseAliases.id })
+        .from(courseAliases)
+        .where(eq(courseAliases.normalizedName, normalizedName))
+        .limit(1);
+
+      if (existingAlias) continue;
+
+      await db.insert(courseAliases).values({
+        courseId,
+        name: alias,
+        normalizedName
+      });
+    }
   }
 
   // 7. Create system roles
@@ -466,8 +538,8 @@ async function main() {
   console.log('====================================');
   console.log('LGA: Demo LGA');
   console.log('Cohort: 2026 / Batch A / Stream I');
-  console.log('Administrative accounts: 3');
-  console.log('Corps members: 5');
+  console.log('Administrative accounts: 4');
+  console.log(`Course catalogue starter records: ${courseData.length}`);\n  console.log('Corps members: 5');
   console.log('====================================');
 }
 
