@@ -215,3 +215,111 @@ export async function updateCdsGroup(
 
   return response.data;
 }
+
+export interface CourseCategory {
+  code: string;
+  label: string;
+}
+
+export interface CourseCatalogueItem {
+  id: string;
+  name: string;
+  normalizedName: string;
+  disciplineCategory: string;
+  isActive: boolean;
+  createdAt: string;
+  aliases: Array<{ id: string; name: string }>;
+}
+
+export interface CourseInput {
+  name: string;
+  disciplineCategory: string;
+  aliases: string[];
+}
+
+export async function listPlatformCourses(filters: {
+  q?: string;
+  category?: string;
+  status?: 'active' | 'inactive' | 'all';
+} = {}): Promise<CourseCatalogueItem[]> {
+  const query = new URLSearchParams();
+  if (filters.q) query.set('q', filters.q);
+  if (filters.category) query.set('category', filters.category);
+  if (filters.status) query.set('status', filters.status);
+  const suffix = query.size ? `?${query.toString()}` : '';
+  const response = await request<{
+    success: boolean;
+    data: CourseCatalogueItem[];
+  }>(`/platform/course-catalogue${suffix}`);
+  return response.data;
+}
+
+export async function listLgiCourses(filters: {
+  q?: string;
+  category?: string;
+} = {}): Promise<CourseCatalogueItem[]> {
+  const query = new URLSearchParams();
+  if (filters.q) query.set('q', filters.q);
+  if (filters.category) query.set('category', filters.category);
+  const suffix = query.size ? `?${query.toString()}` : '';
+  const response = await request<{
+    success: boolean;
+    data: CourseCatalogueItem[];
+  }>(`/lgi/course-catalogue${suffix}`);
+  return response.data;
+}
+
+export async function getCourseCategories(): Promise<CourseCategory[]> {
+  const response = await request<{
+    success: boolean;
+    data: CourseCategory[];
+  }>('/platform/course-catalogue/categories');
+  return response.data;
+}
+
+export async function createCatalogueCourse(input: CourseInput): Promise<CourseCatalogueItem> {
+  const response = await request<{
+    success: boolean;
+    data: CourseCatalogueItem;
+  }>('/platform/course-catalogue', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function updateCatalogueCourse(
+  courseId: string,
+  input: Partial<CourseInput> & { isActive?: boolean }
+): Promise<CourseCatalogueItem> {
+  const response = await request<{
+    success: boolean;
+    data: CourseCatalogueItem;
+  }>(`/platform/course-catalogue/${encodeURIComponent(courseId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function importCourseCsv(csv: string): Promise<{
+  inserted: number;
+  updated: number;
+  aliasesAdded: number;
+  totalProcessed: number;
+}> {
+  const response = await request<{
+    success: boolean;
+    data: {
+      inserted: number;
+      updated: number;
+      aliasesAdded: number;
+      totalProcessed: number;
+    };
+  }>('/platform/course-catalogue/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/csv' },
+    body: csv
+  });
+  return response.data;
+}
