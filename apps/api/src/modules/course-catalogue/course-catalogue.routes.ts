@@ -25,7 +25,25 @@ import {
 } from '../auth/middleware/auth.middleware';
 
 const lgiCourseCatalogueRoutes = new Hono<AuthEnv>();
-lgiCourseCatalogueRoutes.use('*', requireAuth, requireRole('LGI_ADMIN'));
+lgiCourseCatalogueRoutes.use(
+  '*',
+  requireAuth,
+  requireRole('LGI_ADMIN'),
+  async (c, next) => {
+    const hasLgaAssignment = c.get('authRoles').some(
+      (role) => role.code === 'LGI_ADMIN' && role.lgaId !== null
+    );
+
+    if (!hasLgaAssignment) {
+      return c.json({
+        success: false,
+        message: 'An active LGA administrator assignment is required.'
+      }, 403);
+    }
+
+    await next();
+  }
+);
 
 const courseIdSchema = z.string().uuid();
 
