@@ -1,69 +1,154 @@
-<script lang="ts">
-  import { onMount } from 'svelte';
-
-  let apiStatus = 'Checking API...';
-  let apiError = '';
-
-  onMount(async () => {
-    try {
-      const response = await fetch('/api/health');
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      apiStatus = data.status;
-    } catch (error) {
-      apiStatus = 'Unavailable';
-      apiError = error instanceof Error
-        ? error.message
-        : 'Unable to connect to API';
-    }
-  });
-</script>
-
 <svelte:head>
-  <title>NYSC CDS Platform</title>
+  <title>NYSC CDS Management Platform</title>
   <meta
     name="description"
-    content="NYSC CDS Management Platform"
+    content="Centralised NYSC CDS administration and management."
   />
 </svelte:head>
 
 <main>
-  <h1>NYSC CDS Management Platform</h1>
+  <div class="container">
+    <div class="brand">
+      <div class="logo">N</div>
 
-  <p>System connectivity test</p>
+      <div>
+        <strong>NYSC CDS</strong>
+        <span>Management Platform</span>
+      </div>
+    </div>
 
-  <section>
-    <h2>Backend API Status</h2>
+    <section class="hero">
+      <span class="eyebrow">DIGITAL CDS ADMINISTRATION</span>
 
-    {#if apiStatus === 'healthy'}
-      <p>🟢 API Connected Successfully</p>
-    {:else}
-      <p>🔴 {apiStatus}</p>
-    {/if}
+      <h1>
+        Simplifying Corps Member
+        <span>Management.</span>
+      </h1>
 
-    {#if apiError}
-      <small>{apiError}</small>
-    {/if}
-  </section>
+      <p>
+        A centralised platform for corps member administration,
+        CDS group allocation, attendance management and
+        monthly clearance readiness.
+      </p>
+
+      <a href="/login">Access Administration Portal →</a>
+    </section>
+
+    <footer>
+      NYSC CDS Management Platform · Version 0.1.0
+    </footer>
+  </div>
 </main>
 
 <style>
-  main {
-    max-width: 800px;
-    margin: 100px auto;
-    padding: 24px;
-    font-family: sans-serif;
+  :global(*) {
+    box-sizing: border-box;
   }
 
-  section {
-    margin-top: 30px;
-    padding: 20px;
-    border: 1px solid #ddd;
+  :global(body) {
+    margin: 0;
+    background: #f5f7f5;
+    color: #17251c;
+    font-family: Inter, Arial, sans-serif;
+  }
+
+  main {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 30px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 1050px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    width: 43px;
+    height: 43px;
+    display: grid;
+    place-items: center;
+    background: #0a5c37;
+    color: white;
     border-radius: 10px;
+    font-size: 21px;
+    font-weight: 800;
+  }
+
+  .brand strong,
+  .brand span {
+    display: block;
+  }
+
+  .brand strong {
+    color: #0a5c37;
+    font-size: 15px;
+  }
+
+  .brand span {
+    margin-top: 4px;
+    color: #819087;
+    font-size: 11px;
+  }
+
+  .hero {
+    max-width: 690px;
+    padding: 120px 0 110px;
+  }
+
+  .eyebrow {
+    color: #0a8050;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  h1 {
+    margin: 22px 0;
+    font-size: clamp(37px, 6vw, 65px);
+    line-height: 1.13;
+    letter-spacing: -2px;
+  }
+
+  h1 span {
+    display: block;
+    color: #0a8050;
+  }
+
+  .hero p {
+    max-width: 590px;
+    margin-bottom: 32px;
+    color: #718078;
+    font-size: 15px;
+    line-height: 1.9;
+  }
+
+  .hero a {
+    display: inline-block;
+    padding: 15px 22px;
+    border-radius: 8px;
+    background: #0a5c37;
+    color: white;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .hero a:hover {
+    background: #064526;
+  }
+
+  footer {
+    padding-top: 22px;
+    border-top: 1px solid #e0e8e1;
+    color: #89948c;
+    font-size: 11px;
   }
 </style>
