@@ -128,17 +128,17 @@
 
   .login-page {
     min-height: 100vh;
+    min-height: 100svh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 24px clamp(16px, 4vw, 32px);
   }
 
   .login-card {
-    width: 100%;
-    max-width: 440px;
-    padding: 40px;
+    width: min(100%, 440px);
+    padding: clamp(24px, 5vw, 40px);
     background: #ffffff;
     border: 1px solid #e4ebe6;
     border-radius: 16px;
@@ -279,15 +279,39 @@
   }
 
   footer {
-    margin-top: 30px;
+    width: min(100%, 440px);
+    margin-top: 24px;
     color: #89948c;
     font-size: 11px;
+    line-height: 1.5;
     text-align: center;
   }
 
   @media (max-width: 480px) {
+    .login-page {
+      padding: 20px 16px;
+    }
+
     .login-card {
       padding: 28px 22px;
+      border-radius: 14px;
+    }
+
+    .brand {
+      margin-bottom: 32px;
+    }
+
+    .heading h2 {
+      font-size: clamp(26px, 8vw, 29px);
+    }
+
+    .login-footer {
+      flex-wrap: wrap;
+      gap: 10px 16px;
+    }
+
+    .login-footer p {
+      margin: 0;
     }
   }
 </style>
