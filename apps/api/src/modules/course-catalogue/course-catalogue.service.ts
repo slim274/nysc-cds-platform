@@ -254,9 +254,12 @@ export async function updateCourse(
 
     if (nextAliases !== undefined) {
       const aliasNormalized = nextAliases.map(normalizeCourseName);
-      if (new Set(aliasNormalized).size !== aliasNormalized.length) {
+      if (
+        new Set(aliasNormalized).size !== aliasNormalized.length ||
+        aliasNormalized.includes(nextNormalizedName)
+      ) {
         throw new CourseCatalogueError(
-          'Aliases must be unique after normalisation.',
+          'Aliases must be unique and must not repeat the canonical course name.',
           400,
           'DUPLICATE_COURSE_ALIASES'
         );
@@ -300,6 +303,20 @@ export async function importCourses(rows: CourseImportRow[]) {
   const seenAliases = new Set<string>();
   for (const row of rows) {
     assertCategory(row.disciplineCategory);
+    if (row.name.trim().length < 2 || row.name.trim().length > 200) {
+      throw new CourseCatalogueError(
+        `Line ${row.line}: course name must contain between 2 and 200 characters.`,
+        400,
+        'INVALID_IMPORT_ROW'
+      );
+    }
+    if (row.aliases.length > 30 || row.aliases.some((alias) => alias.trim().length > 200)) {
+      throw new CourseCatalogueError(
+        `Line ${row.line}: each course may include at most 30 aliases of up to 200 characters each.`,
+        400,
+        'INVALID_IMPORT_ALIASES'
+      );
+    }
     const normalized = normalizeCourseName(row.name);
     if (!normalized) {
       throw new CourseCatalogueError(`Line ${row.line}: course name is empty.`, 400, 'INVALID_IMPORT_ROW');
