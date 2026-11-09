@@ -539,7 +539,8 @@ async function main() {
   console.log('LGA: Demo LGA');
   console.log('Cohort: 2026 / Batch A / Stream I');
   console.log('Administrative accounts: 4');
-  console.log(`Course catalogue starter records: ${courseData.length}`);\n  console.log('Corps members: 5');
+  console.log(`Course catalogue starter records: ${courseData.length}`);
+  console.log('Corps members: 5');
   console.log('====================================');
 }
 
