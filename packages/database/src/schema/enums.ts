@@ -20,3 +20,14 @@ export const authTokenPurposeEnum = pgEnum('auth_token_purpose', [
   'password_reset',
   'email_verification'
 ]);
+
+export const cdsMembershipStatusEnum = pgEnum('cds_membership_status', [
+  'active',
+  'ended',
+  'cancelled'
+]);
+
+export const cdsMembershipSourceEnum = pgEnum('cds_membership_source', [
+  'automatic',
+  'manual'
+]);
