@@ -109,9 +109,11 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | Responsive landing and login layouts | Implemented on the development branch; local validation pending |
 | Responsive LGI mobile navigation drawer and sticky header | Implemented on the development branch; local validation pending |
 | CDS group domain model and API design | Documented |
-| CDS groups, course mappings and membership-history Drizzle schemas | Added on the development branch; migration generation pending |
-| Group-scoped role assignments | Added on the development branch; migration generation pending |
-| LGI CDS Group Management API and UI | Planned |
+| CDS groups, course mappings and membership-history Drizzle schemas | Added on the development branch |
+| CDS group migration | Generated and applied successfully to the local PostgreSQL database; migration file still needs to be committed if not already |
+| Group-scoped role assignments | Added to the database schema and authenticated role context |
+| LGI CDS Group Management API | Implemented on the development branch; local typecheck and integration tests pending |
+| LGI CDS Groups interface | Implemented on the development branch; local Svelte check and browser tests pending |
 | Coordinator account lifecycle and group assignments | Planned |
 
 ## Local development
@@ -140,10 +142,10 @@ bun run --filter @nysc/api typecheck
 
 ## Next implementation sequence
 
-1. Run local frontend checks, production build and responsive browser validation.
-2. Generate, review and apply the Drizzle migration for CDS group schemas.
-3. Implement LGI CDS Group Management API (group CRUD, course mapping and capacity).
-4. Build the responsive LGI CDS Groups interface.
+1. Pull the latest development branch and run API typecheck, frontend check and production build.
+2. Ensure the generated CDS group SQL migration and metadata are committed to Git.
+3. Test the LGI CDS Group Management endpoints against the local PostgreSQL database.
+4. Polish the CDS Groups interface based on local browser testing.
 5. Build Coordinator invitation, group assignment, disable/reactivate and session revocation.
 6. Build corps-member administration and NYSC cohort/reference-data management.
 7. Add Coordinator-scoped President designation, meeting attendance and reports.
