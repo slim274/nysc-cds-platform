@@ -11,6 +11,7 @@ import {
 
 import { userStatusEnum, authTokenPurposeEnum } from './enums';
 import { lgas } from './organisation';
+import { cdsGroups } from './cds-groups';
 
 export const users = pgTable(
   'users',
@@ -91,6 +92,11 @@ export const userRoleAssignments = pgTable(
         onDelete: 'restrict'
       }),
 
+    cdsGroupId: uuid('cds_group_id')
+      .references(() => cdsGroups.id, {
+        onDelete: 'restrict'
+      }),
+
     isActive: boolean('is_active').notNull().default(true),
 
     createdAt: timestamp('created_at', {
@@ -99,7 +105,8 @@ export const userRoleAssignments = pgTable(
   },
   (table) => [
     index('user_roles_user_idx').on(table.userId),
-    index('user_roles_lga_idx').on(table.lgaId)
+    index('user_roles_lga_idx').on(table.lgaId),
+    index('user_roles_cds_group_idx').on(table.cdsGroupId)
   ]
 );
 
