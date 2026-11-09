@@ -291,7 +291,7 @@
           </button>
           <div><span class="breadcrumb">Administration / Shared Reference Data</span><h1>Course Catalogue</h1></div>
         </div>
-        <div class="account"><div class="avatar">LG</div><div class="account-copy"><strong>Platform Administrator</strong><span>{currentUser.email}</span></div></div>
+        <div class="account"><div class="avatar">LG</div><div class="account-copy"><strong>LGI Administrator</strong><span>{currentUser.email}</span></div></div>
       </header>
 
       <main class="page-content">
