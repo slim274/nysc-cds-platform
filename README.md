@@ -91,8 +91,9 @@ The repository currently contains the initial monorepo scaffold and baseline API
 | Account activation, Argon2id password hashing | Completed locally |
 | Login/logout and PostgreSQL session management | Implemented and tested locally |
 | Authentication middleware and LGI role authorization | Implemented and typechecked locally |
-| Frontend login and LGI dashboard | Implemented locally; not yet present on GitHub |
-| Responsive audit and fixes | Planned |
+| Frontend login and LGI dashboard | Implemented and committed on the development branch |
+| Responsive landing and login layouts | Updated on the development branch; local validation pending |
+| Responsive LGI mobile navigation drawer | Implemented on the development branch; local validation pending |
 | LGI administration module | Planned |
 
 ## Local development
