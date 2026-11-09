@@ -150,5 +150,38 @@
     border-top: 1px solid #e0e8e1;
     color: #89948c;
     font-size: 11px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 600px) {
+    main {
+      padding: 24px 18px;
+    }
+
+    .hero {
+      padding: 76px 0 68px;
+    }
+
+    .eyebrow {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+    }
+
+    h1 {
+      margin: 18px 0;
+      letter-spacing: -1.2px;
+    }
+
+    .hero p {
+      margin-bottom: 26px;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    .hero a {
+      min-height: 48px;
+      padding: 15px 18px;
+      line-height: 1.3;
+    }
   }
 </style>
