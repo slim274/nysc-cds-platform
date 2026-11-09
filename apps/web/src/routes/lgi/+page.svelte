@@ -130,6 +130,15 @@
           <h2>NYSC CDS</h2>
           <span>Management Platform</span>
         </div>
+
+        <button
+          class="sidebar-close"
+          type="button"
+          aria-label="Close navigation menu"
+          onclick={closeMobileNavigation}
+        >
+          ×
+        </button>
       </div>
 
       <div class="nav-label">ADMINISTRATION</div>
@@ -331,6 +340,10 @@
     border-radius: 9px;
     font-weight: 800;
     font-size: 21px;
+  }
+
+  .sidebar-close {
+    display: none;
   }
 
   .brand h2 {
@@ -758,7 +771,35 @@
     }
 
     .brand {
+      width: 100%;
       padding: 0 9px 26px;
+    }
+
+    .sidebar-close {
+      display: grid;
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      margin: 2px 0 0 auto;
+      place-items: center;
+      padding: 0 0 3px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 29px;
+      font-weight: 300;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .sidebar-close:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .sidebar-close:focus-visible {
+      outline: 3px solid #a8e6bf;
+      outline-offset: 3px;
     }
 
     .nav-label {
