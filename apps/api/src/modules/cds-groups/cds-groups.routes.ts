@@ -17,6 +17,10 @@ import {
 } from './cds-groups.schema';
 
 import {
+  listCourseCatalogue
+} from '../course-catalogue/course-catalogue.service';
+
+import {
   requireAuth,
   requireRole,
   type AuthEnv
@@ -60,6 +64,37 @@ function handleServiceError(c: Context<AuthEnv>, error: unknown) {
     message: 'Unable to complete the CDS group request.'
   }, 500);
 }
+
+// Active catalogue is shared globally; LGI administrators have read-only access.
+lgiRoutes.get('/course-catalogue', async (c) => {
+  const query = z.object({
+    q: z.string().trim().max(100).optional(),
+    category: z.string().trim().max(60).optional()
+  }).safeParse(c.req.query());
+
+  if (!query.success) {
+    return c.json({
+      success: false,
+      message: 'Invalid course search.',
+      errors: query.error.issues
+    }, 400);
+  }
+
+  try {
+    const data = await listCourseCatalogue({
+      q: query.data.q,
+      category: query.data.category,
+      status: 'active'
+    });
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('LGI course catalogue read failed:', error);
+    return c.json({
+      success: false,
+      message: 'Unable to search the course catalogue.'
+    }, 500);
+  }
+});
 
 // Reference data for the authenticated LGI's assigned LGA(s).
 lgiRoutes.get('/cds-groups/reference-data', async (c) => {
