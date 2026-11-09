@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -106,7 +107,10 @@ export const userRoleAssignments = pgTable(
   (table) => [
     index('user_roles_user_idx').on(table.userId),
     index('user_roles_lga_idx').on(table.lgaId),
-    index('user_roles_cds_group_idx').on(table.cdsGroupId)
+    index('user_roles_cds_group_idx').on(table.cdsGroupId),
+    uniqueIndex('user_roles_active_group_role_unique')
+      .on(table.roleId, table.cdsGroupId)
+      .where(sql`${table.isActive} = true AND ${table.cdsGroupId} IS NOT NULL`)
   ]
 );
 
