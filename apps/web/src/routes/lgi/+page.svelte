@@ -145,14 +145,25 @@
 
       <nav aria-label="Primary navigation">
         {#each navigation as item}
-          <div class:active={item.active} class="nav-item">
-            <span class="nav-icon">{item.icon}</span>
-            <span>{item.label}</span>
+          {#if item.label === 'CDS Groups'}
+            <a
+              href="/lgi/cds-groups"
+              class="nav-item"
+              onclick={closeMobileNavigation}
+            >
+              <span class="nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </a>
+          {:else}
+            <div class:active={item.active} class="nav-item">
+              <span class="nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
 
-            {#if !item.active}
-              <small>Soon</small>
-            {/if}
-          </div>
+              {#if !item.active}
+                <small>Soon</small>
+              {/if}
+            </div>
+          {/if}
         {/each}
       </nav>
 
@@ -250,7 +261,9 @@
               Configure CDS groups, eligibility rules
               and maximum membership capacity.
             </p>
-            <span>Group management coming next</span>
+            <a class="feature-link" href="/lgi/cds-groups">
+              Manage CDS groups →
+            </a>
           </article>
 
           <article class="feature-card">
@@ -376,6 +389,7 @@
   }
 
   .nav-item {
+    text-decoration: none;
     min-height: 43px;
     padding: 0 11px;
     border-radius: 7px;
@@ -644,10 +658,20 @@
     line-height: 1.7;
   }
 
-  .feature-card > span {
+  .feature-card > span,
+  .feature-link {
     color: #0a8050;
     font-size: 10px;
     font-weight: 600;
+  }
+
+  .feature-link {
+    display: inline-block;
+    text-decoration: none;
+  }
+
+  .feature-link:hover {
+    text-decoration: underline;
   }
 
   .account-status {
