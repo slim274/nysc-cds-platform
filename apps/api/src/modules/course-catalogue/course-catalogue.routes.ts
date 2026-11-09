@@ -24,8 +24,8 @@ import {
   type AuthEnv
 } from '../auth/middleware/auth.middleware';
 
-const platformRoutes = new Hono<AuthEnv>();
-platformRoutes.use('*', requireAuth, requireRole('PLATFORM_ADMIN'));
+const lgiCourseCatalogueRoutes = new Hono<AuthEnv>();
+lgiCourseCatalogueRoutes.use('*', requireAuth, requireRole('LGI_ADMIN'));
 
 const courseIdSchema = z.string().uuid();
 
@@ -58,14 +58,14 @@ function handleCatalogueError(c: Context<AuthEnv>, error: unknown) {
   }, 500);
 }
 
-platformRoutes.get('/course-catalogue/categories', (c) => {
+lgiCourseCatalogueRoutes.get('/course-catalogue/categories', (c) => {
   return c.json({
     success: true,
     data: COURSE_DISCIPLINE_CATEGORIES
   });
 });
 
-platformRoutes.get('/course-catalogue', async (c) => {
+lgiCourseCatalogueRoutes.get('/course-catalogue', async (c) => {
   const validation = courseListQuerySchema.safeParse(c.req.query());
 
   if (!validation.success) {
@@ -84,7 +84,7 @@ platformRoutes.get('/course-catalogue', async (c) => {
   }
 });
 
-platformRoutes.post('/course-catalogue', async (c) => {
+lgiCourseCatalogueRoutes.post('/course-catalogue', async (c) => {
   const body = await c.req.json().catch(() => null);
   const validation = createCourseSchema.safeParse(body);
 
@@ -108,7 +108,7 @@ platformRoutes.post('/course-catalogue', async (c) => {
   }
 });
 
-platformRoutes.patch('/course-catalogue/:courseId', async (c) => {
+lgiCourseCatalogueRoutes.patch('/course-catalogue/:courseId', async (c) => {
   const id = courseIdSchema.safeParse(c.req.param('courseId'));
 
   if (!id.success) {
@@ -138,7 +138,7 @@ platformRoutes.patch('/course-catalogue/:courseId', async (c) => {
   }
 });
 
-platformRoutes.post('/course-catalogue/import', async (c) => {
+lgiCourseCatalogueRoutes.post('/course-catalogue/import', async (c) => {
   const contentLength = Number(c.req.header('content-length') ?? 0);
   if (contentLength > 1_000_000) {
     return c.json({
@@ -170,7 +170,7 @@ platformRoutes.post('/course-catalogue/import', async (c) => {
   }
 });
 
-platformRoutes.get('/course-catalogue/template', (c) => {
+lgiCourseCatalogueRoutes.get('/course-catalogue/template', (c) => {
   const csv = [
     'name,disciplineCategory,aliases',
     'Computer Science,ICT,"Computing|Computer Studies"',
@@ -182,4 +182,4 @@ platformRoutes.get('/course-catalogue/template', (c) => {
   return c.body(csv);
 });
 
-export { platformRoutes };
+export { lgiCourseCatalogueRoutes };
