@@ -527,21 +527,6 @@
     font-size: 10px;
   }
 
-  .logout-button {
-    margin-left: 12px;
-    padding: 9px 12px;
-    border: 1px solid #e0e7e1;
-    border-radius: 7px;
-    background: white;
-    color: #44554a;
-    font-size: 11px;
-    cursor: pointer;
-  }
-
-  .logout-button:hover {
-    border-color: #0a5c37;
-    color: #0a5c37;
-  }
 
   .content {
     width: 100%;
@@ -920,12 +905,6 @@
       display: none;
     }
 
-    .logout-button {
-      min-height: 42px;
-      margin-left: 0;
-      padding: 9px 11px;
-      font-size: 10px;
-    }
 
     .content {
       padding: 22px 16px 28px;
@@ -1000,10 +979,6 @@
       padding-inline: 13px;
     }
 
-    .logout-button {
-      padding-inline: 9px;
-      font-size: 9px;
-    }
 
     .welcome {
       padding: 18px 16px;
