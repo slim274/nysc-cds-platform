@@ -1,5 +1,6 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import {
   getCdsGroupReferenceData,
@@ -33,11 +34,8 @@ const listQuerySchema = z.object({
   active: z.enum(['true', 'false']).optional()
 });
 
-function getAssignedLgaIds(c: Parameters<typeof lgiRoutes.get>[1] extends never ? never : any): string[] {
-  const roles = c.get('authRoles') as Array<{
-    code: string;
-    lgaId: string | null;
-  }>;
+function getAssignedLgaIds(c: Context<AuthEnv>): string[] {
+  const roles = c.get('authRoles');
 
   return [...new Set(
     roles
@@ -46,13 +44,13 @@ function getAssignedLgaIds(c: Parameters<typeof lgiRoutes.get>[1] extends never 
   )];
 }
 
-function handleServiceError(c: any, error: unknown) {
+function handleServiceError(c: Context<AuthEnv>, error: unknown) {
   if (error instanceof CdsGroupServiceError) {
     return c.json({
       success: false,
       code: error.code,
       message: error.message
-    }, error.status);
+    }, error.status as ContentfulStatusCode);
   }
 
   console.error('CDS group request failed:', error);
