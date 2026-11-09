@@ -12,6 +12,10 @@ import {
   lgiRoutes
 } from './modules/cds-groups/cds-groups.routes';
 
+import {
+  platformRoutes
+} from './modules/course-catalogue/course-catalogue.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -61,5 +65,8 @@ app.route('/auth', authRoutes);
 
 // LGI administration routes
 app.route('/lgi', lgiRoutes);
+
+// Platform administration routes
+app.route('/platform', platformRoutes);
 
 export default app;
