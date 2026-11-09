@@ -263,7 +263,7 @@
       <button class="drawer-backdrop" type="button" aria-label="Close navigation menu" onclick={closeMobileNavigation}></button>
     {/if}
 
-    <aside id="platform-sidebar" class="sidebar" class:open={mobileNavOpen} aria-label="LGI administration">
+    <aside id="lgi-course-catalogue-sidebar" class="sidebar" class:open={mobileNavOpen} aria-label="LGI administration">
       <div class="brand">
         <div class="brand-icon">N</div>
         <div class="brand-copy"><strong>NYSC CDS</strong><span>LGI Administration</span></div>
@@ -286,7 +286,7 @@
     <section class="main-area">
       <header class="topbar">
         <div class="topbar-heading">
-          <button class="menu-button" type="button" aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileNavOpen} aria-controls="platform-sidebar" onclick={() => (mobileNavOpen = !mobileNavOpen)}>
+          <button class="menu-button" type="button" aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileNavOpen} aria-controls="lgi-course-catalogue-sidebar" onclick={() => (mobileNavOpen = !mobileNavOpen)}>
             <span></span><span></span><span></span>
           </button>
           <div><span class="breadcrumb">Administration / Shared Reference Data</span><h1>Course Catalogue</h1></div>
