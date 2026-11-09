@@ -17,9 +17,7 @@
       await login(email.trim(), password);
       const session = await getCurrentUser();
 
-      if (session.roles.some((role) => role.code === 'PLATFORM_ADMIN')) {
-        await goto('/platform/course-catalogue');
-      } else if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
+      if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
         await goto('/lgi');
       } else {
         await logout();
