@@ -173,6 +173,14 @@ export async function createCourse(input: CreateCourseInput) {
   const name = input.name.trim();
   const normalizedName = normalizeCourseName(name);
   const aliases = [...new Set(input.aliases.map((alias) => alias.trim()).filter(Boolean))];
+  const aliasNames = aliases.map(normalizeCourseName);
+  if (new Set(aliasNames).size !== aliasNames.length || aliasNames.includes(normalizedName)) {
+    throw new CourseCatalogueError(
+      'Aliases must be unique and must not repeat the canonical course name.',
+      400,
+      'DUPLICATE_COURSE_ALIASES'
+    );
+  }
 
   await db.transaction(async (tx) => {
     await ensureNamesAvailable(tx, [name, ...aliases]);
@@ -289,6 +297,7 @@ export async function importCourses(rows: CourseImportRow[]) {
   }
 
   const seenCanonicalNames = new Set<string>();
+  const seenAliases = new Set<string>();
   for (const row of rows) {
     assertCategory(row.disciplineCategory);
     const normalized = normalizeCourseName(row.name);
@@ -299,6 +308,32 @@ export async function importCourses(rows: CourseImportRow[]) {
       throw new CourseCatalogueError(`Line ${row.line}: duplicate course name in the uploaded file.`, 400, 'DUPLICATE_IMPORT_ROW');
     }
     seenCanonicalNames.add(normalized);
+
+    for (const alias of row.aliases) {
+      const aliasNormalized = normalizeCourseName(alias);
+      if (
+        !aliasNormalized ||
+        aliasNormalized === normalized ||
+        seenAliases.has(aliasNormalized) ||
+        seenCanonicalNames.has(aliasNormalized)
+      ) {
+        throw new CourseCatalogueError(
+          `Line ${row.line}: alias "${alias}" is duplicated or conflicts with a course name in the uploaded file.`,
+          400,
+          'DUPLICATE_IMPORT_ALIAS'
+        );
+      }
+      seenAliases.add(aliasNormalized);
+    }
+  }
+
+  const canonicalSet = new Set([...seenCanonicalNames]);
+  if ([...seenAliases].some((alias) => canonicalSet.has(alias))) {
+    throw new CourseCatalogueError(
+      'An imported alias conflicts with another canonical course name in this file.',
+      400,
+      'IMPORT_ALIAS_CANONICAL_CONFLICT'
+    );
   }
 
   let inserted = 0;
