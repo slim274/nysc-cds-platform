@@ -94,6 +94,22 @@ Coordinator-only:
 
 The first implementation should deliver CDS-group CRUD and course mapping before Coordinator invitations and President designation.
 
+## LGI password recovery
+
+The current identity schema already supports `password_reset` tokens. Implement the workflow as follows:
+
+- Add `POST /auth/password/forgot` with an email-only request body. Always return the same generic response to avoid account enumeration.
+- Only issue a token for an eligible active account with a verified recovery email.
+- Generate a cryptographically random token, persist only its SHA-256 hash in `auth_tokens`, set purpose `password_reset`, and use a short expiry (30 minutes is the initial policy).
+- Deliver the raw token only through the verified recovery email provider; never log it, expose it from production endpoints or store it in plaintext.
+- Add `POST /auth/password/reset` that validates the token, purpose, expiry and unused state, then consumes the token and updates the Argon2id password hash in one transaction.
+- Revoke all of the user's active sessions in that same transaction after a successful reset.
+- Rate-limit requests and responses; require HTTPS in production.
+- A reset must not change `disabled` or `suspended` account status.
+- If an LGI loses access to their registered recovery email, require an authorised platform-level administrator to complete a separately audited identity-verification process. A Coordinator or Corps Member cannot reset an LGI account.
+
+The current `auth_tokens` table and `auth_token_purpose` enum already cover token storage and `password_reset`; no new database migration should be required for this feature. The API routes, email integration, reset UI and tests are still pending.
+
 ## Validation and security
 
 - Validate all request bodies with Zod.
