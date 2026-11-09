@@ -902,6 +902,12 @@
     }
   }
 
+  @media (min-width: 651px) {
+    .sidebar-backdrop {
+      display: none;
+    }
+  }
+
   @media (max-width: 380px) {
     .topbar {
       padding-inline: 12px;
