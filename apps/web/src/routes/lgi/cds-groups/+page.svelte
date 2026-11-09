@@ -303,6 +303,7 @@
         <div class="nav-item muted"><span class="nav-icon">♙</span><span>Corps Members</span><small>Soon</small></div>
         <div class="nav-item muted"><span class="nav-icon">▤</span><span>Batches & Streams</span><small>Soon</small></div>
         <a class="nav-item active" href="/lgi/cds-groups" aria-current="page" onclick={closeMobileNavigation}><span class="nav-icon">◎</span><span>CDS Groups</span></a>
+        <a class="nav-item" href="/lgi/course-catalogue" onclick={closeMobileNavigation}><span class="nav-icon">▤</span><span>Course Catalogue</span></a>
         <div class="nav-item muted"><span class="nav-icon">⌘</span><span>Course Mapping</span><small>Soon</small></div>
         <div class="nav-item muted"><span class="nav-icon">♧</span><span>CDS Officials</span><small>Soon</small></div>
         <div class="nav-item muted"><span class="nav-icon">✓</span><span>Attendance</span><small>Soon</small></div>
