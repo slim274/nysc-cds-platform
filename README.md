@@ -109,21 +109,21 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | Responsive landing and login layouts | Implemented on the development branch; local validation pending |
 | Responsive LGI mobile navigation drawer and sticky header | Implemented on the development branch; local validation pending |
 | CDS group domain model and API design | Documented |
-| Shared course catalogue categories and aliases schema | Added on the development branch; migration generation pending |
+| Shared course catalogue categories and aliases schema | Implemented; course-alias migration generated, committed and applied locally |
 | LGI shared course catalogue management and CSV import API | Implemented; GitHub Actions API typecheck passed; database/import integration checks pending |
 | LGI course catalogue screen | Implemented; GitHub Actions Svelte check and production build passed |
 | LGI searchable read-only course picker | Implemented; GitHub Actions Svelte check and production build passed |
 | Expanded development course starter records | Added to the seed; local seed validation pending |
 | CDS groups, course mappings and membership-history Drizzle schemas | Added on the development branch |
-| CDS group migration | Generated and applied successfully to the local PostgreSQL database; migration file still needs to be committed if not already |
+| CDS group migration | Generated, committed and applied successfully to the local PostgreSQL database |
 | Group-scoped role assignments | Added to the database schema and authenticated role context |
 | LGI CDS Group Management API | Implemented on the development branch; local typecheck and integration tests pending |
 | LGI CDS Groups interface | Implemented on the development branch; local Svelte check and browser tests pending |
-| Shared course catalogue schema and aliases | Added on the development branch; alias migration generation pending |
+
 | LGI course catalogue API | Implemented on the development branch; local typecheck and access tests pending |
 | LGI course catalogue interface | Implemented on the development branch; local Svelte check and browser tests pending |
 | CSV catalogue import and template | Implemented on the development branch; local import tests pending |
-| LGI read-only searchable course catalogue | Implemented on the development branch; local integration tests pending |
+| LGI shared course catalogue and searchable CDS-group picker | Implemented on the development branch; local integration tests pending |
 | Coordinator account lifecycle and group assignments | Planned |
 
 ## Shared course catalogue
