@@ -317,7 +317,7 @@ corpsMemberDocumentRoutes.get('/documents/:submissionId/file', async (c) => {
   try {
     const file = await getDocumentSubmissionFileForMember(id.data, c.get('authUser').id);
     setPrivateFileHeaders(c, file.contentType, file.fileName);
-    return c.body(file.bytes);
+    return c.body(file.bytes.buffer.slice(file.bytes.byteOffset, file.bytes.byteOffset + file.bytes.byteLength) as ArrayBuffer);
   } catch (error) {
     return handleDocumentError(c, error);
   }
