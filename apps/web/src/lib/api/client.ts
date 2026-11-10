@@ -546,6 +546,7 @@ export interface CorpsMemberDetail {
   qualification: string | null;
   graduationYear: number | null;
   profileStatus: CorpsProfileStatus;
+  hasPassportPhoto: boolean;
   createdAt: string;
   updatedAt: string;
 }
