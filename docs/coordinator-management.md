@@ -77,13 +77,13 @@ The API validates every group against the caller's assigned LGA(s). It rejects i
 
 ## Local development
 
-Apply the new `0004_cds_group_handovers` migration before testing the handover screens:
+Apply the new `0004_cds_group_handovers` and `0005_handover_standby_restore` migrations before testing the handover screens:
 
 ```bash
 bun run --filter @nysc/database db:migrate
 ```
 
-Start the API and web app, sign in as an LGI administrator, open `/lgi/coordinators`, and use **Transfer responsibility** on an active group assignment. The incoming Coordinator must have an active account and an active Coordinator role assignment in the same LGA. They may be a standby Coordinator with no group assignment; a different CDS group is not required. Sign in as that Coordinator to review and accept the handover at `/coordinator/handovers`.
+Start the API and web app, sign in as an LGI administrator, open `/lgi/coordinators`, and use **Transfer responsibility** on an active group assignment. The incoming Coordinator must have an active account and an active Coordinator role assignment in the same LGA. They may be a standby Coordinator with no group assignment; a different CDS group is not required. To create one, use **Add coordinator**, select **Create as a standby Coordinator**, choose the LGA, and activate the account. The standby assignment is converted into the transferred group's assignment during handover. Sign in as that Coordinator to review and accept the handover at `/coordinator/handovers`.
 
 The transfer changes the active assignment immediately when the LGI submits it; acceptance records that the incoming Coordinator has reviewed and acknowledged the handover. Do not interpret acceptance as an NYSC clearance or official approval.
 
