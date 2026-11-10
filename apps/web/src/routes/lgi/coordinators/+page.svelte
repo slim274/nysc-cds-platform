@@ -478,7 +478,7 @@
                     <div class="person-icon">♧</div>
                     <div class="person-details"><h3>{coordinator.email ?? 'Email not available'}</h3><span class:pending={coordinator.accountStatus === 'pending_activation'} class:disabled={coordinator.accountStatus === 'disabled' || coordinator.accountStatus === 'suspended'} class="status-badge">{statusLabel(coordinator.accountStatus)}</span></div>
                     <div class="card-actions">
-                      <button class="secondary-button" type="button" onclick={() => openEditForm(coordinator)}>Edit groups</button>
+                      {#if coordinator.assignments.some((assignment) => assignment.groupId)}<button class="secondary-button" type="button" onclick={() => openEditForm(coordinator)}>Edit groups</button>{/if}
                       {#if coordinator.accountStatus === 'active' || coordinator.accountStatus === 'pending_activation'}
                         <button class="danger-button" type="button" onclick={() => void toggleAccount(coordinator)}>Disable</button>
                       {:else if coordinator.accountStatus === 'disabled'}
@@ -489,7 +489,11 @@
                   <div class="assigned-groups">
                     <span class="assigned-label">Assigned CDS groups</span>
                     {#if coordinator.assignments.filter((assignment) => assignment.isActive && assignment.groupId).length === 0}
-                      <span class="muted-copy">No active group assignments</span>
+                      {#if coordinator.assignments.some((assignment) => assignment.isActive && !assignment.groupId)}
+                        <span class="standby-label">Standby Coordinator · {availableLgaOptions.find((lga) => lga.id === coordinator.assignments.find((assignment) => assignment.isActive && !assignment.groupId)?.lgaId)?.name ?? 'Assigned LGA'}</span>
+                      {:else}
+                        <span class="muted-copy">No active group assignments</span>
+                      {/if}
                     {:else}
                       <div class="group-chips">
                         {#each coordinator.assignments.filter((assignment) => assignment.isActive && assignment.groupId) as assignment}
@@ -570,7 +574,8 @@
           <select bind:value={handoverIncomingId} required>
             <option value="">Select an active Coordinator</option>
             {#each handoverIncomingCandidates as candidate (candidate.userId)}
-              <option value={candidate.userId}>{candidate.email}</option>
+              {@const standby = candidate.assignments.some((assignment) => assignment.isActive && !assignment.groupId && assignment.lgaId === handoverTargetGroup?.lgaId)}
+              <option value={candidate.userId}>{candidate.email}{standby ? ' · Standby' : ' · Coordinator'}</option>
             {/each}
           </select>
         </label>
@@ -666,6 +671,7 @@
   textarea:focus { outline: 3px solid #0a80501a; border-color: #0a8050; }
   .group-chip { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .handover-link { padding: 3px 7px; border: 1px solid #c8decf; border-radius: 5px; background: #fff; color: #0a5c37; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .standby-label { display: inline-flex; align-items: center; padding: 6px 9px; border-radius: 6px; background: #eef6f0; color: #24633d; font-size: 10px; font-weight: 700; }
   .handover-history { margin-top: 18px; }
   .history-empty { padding: 20px 0; }
   .handover-list { display: grid; gap: 10px; margin-top: 16px; }
