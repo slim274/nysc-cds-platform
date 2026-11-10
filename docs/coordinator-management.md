@@ -43,7 +43,8 @@ Use the transfer action on the specific CDS group assignment when a Coordinator 
 - The group's membership, course mappings and other group-owned records are not deleted or recreated.
 - The handover remains `pending_acceptance` until the incoming Coordinator signs in and acknowledges it.
 - Only the designated incoming Coordinator can accept the record. Their optional acknowledgement note and acceptance timestamp are retained.
-- A partial unique index permits only one pending handover per CDS group. LGI handover history shows pending and accepted transfers.
+- A partial unique index permits only one pending handover per CDS group. LGI handover history shows pending, accepted and cancelled transfers.
+- The LGI can cancel a pending handover. The incoming assignment is released and the previous Coordinator is restored if their account is still active; otherwise the group is left available for reassignment.
 
 The current coordinator-facing workspace is limited to the handover inbox and acceptance screen at `/coordinator/handovers`; it is not yet the full group-operations workspace.
 
@@ -67,6 +68,7 @@ All endpoints require an authenticated `LGI_ADMIN` account with at least one act
 - `PATCH /lgi/coordinators/:coordinatorId` — replace group assignments and/or disable/reactivate the account.
 - `GET /lgi/coordinators/handovers` — list handover history for the caller's LGA scope.
 - `POST /lgi/coordinators/handovers` — prepare a group handover and atomically transfer its active Coordinator assignment.
+- `POST /lgi/coordinators/handovers/:handoverId/cancel` — cancel a pending handover and safely roll back the assignment when possible.
 - `GET /coordinator/handovers` — list handovers assigned to the authenticated incoming Coordinator.
 - `POST /coordinator/handovers/:handoverId/accept` — acknowledge a pending handover assigned to the authenticated Coordinator.
 
