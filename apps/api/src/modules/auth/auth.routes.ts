@@ -146,11 +146,12 @@ authRoutes.post('/send-corps-member-otp', async (c) => {
       message: 'If the identity details matched an eligible record with the selected contact method, a verification code has been sent.'
     }, 202);
   } catch (error) {
+    // Keep the public response indistinguishable for matched and non-matched challenges.
     console.error('Corps member OTP request failed:', error);
     return c.json({
-      success: false,
-      message: 'Unable to process the verification request.'
-    }, 503);
+      success: true,
+      message: 'If the identity details matched an eligible record with the selected contact method, a verification code has been sent.'
+    }, 202);
   }
 });
 
