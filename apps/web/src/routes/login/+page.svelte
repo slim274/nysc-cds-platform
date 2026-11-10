@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { login, getCurrentUser, logout, ApiError } from '#lib/api/client.ts';
 
-  let email = $state('');
+  let identifier = $state('');
   let password = $state('');
   let submitting = $state(false);
   let errorMessage = $state('');
@@ -14,7 +14,7 @@
     submitting = true;
 
     try {
-      await login(email.trim(), password);
+      await login(identifier.trim(), password);
       const session = await getCurrentUser();
 
       if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
@@ -74,13 +74,13 @@
     <form onsubmit={handleSubmit}>
 
       <div class="form-group">
-        <label for="email">Email address</label>
+        <label for="identifier">Email address or phone number</label>
 
         <input
-          id="email"
-          type="email"
-          bind:value={email}
-          placeholder="Enter your email address"
+          id="identifier"
+          type="text"
+          bind:value={identifier}
+          placeholder="Enter your email or phone number"
           autocomplete="username"
           required
           disabled={submitting}
@@ -103,7 +103,7 @@
 
       <button
         type="submit"
-        disabled={submitting || !email.trim() || !password}
+        disabled={submitting || !identifier.trim() || !password}
       >
         {submitting ? 'Signing in...' : 'Sign in'}
       </button>
