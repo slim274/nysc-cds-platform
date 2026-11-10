@@ -510,8 +510,12 @@ export interface CorpsMemberRecord {
   middleName: string | null;
   lastName: string;
   gender: string | null;
+  dateOfBirth: string | null;
+  qualification: string | null;
+  graduationYear: number | null;
   lgaId: string;
   lgaName: string;
+  lgaState: string;
   streamId: string;
   streamName: string;
   streamCode: string;
@@ -628,5 +632,66 @@ export async function updateCorpsMember(memberId: string, input: Partial<CorpsMe
 export async function getCorpsMember(memberId: string): Promise<CorpsMemberDetail> {
   const response = await request<{ success: boolean; data: CorpsMemberDetail }>(`/lgi/corps-members/${encodeURIComponent(memberId)}`);
   return response.data;
+}
+
+export async function importCorpsMemberCsv(csv: string): Promise<{
+  created: number;
+  updated: number;
+  totalProcessed: number;
+}> {
+  const response = await request<{
+    success: boolean;
+    data: { created: number; updated: number; totalProcessed: number };
+  }>('/lgi/corps-members/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/csv' },
+    body: csv
+  });
+  return response.data;
+}
+
+export async function downloadCorpsMembersCsv(filters: {
+  search?: string;
+  lgaId?: string;
+  streamId?: string;
+  profileStatus?: CorpsProfileStatus;
+} = {}): Promise<Blob> {
+  const query = new URLSearchParams();
+  if (filters.search) query.set('search', filters.search);
+  if (filters.lgaId) query.set('lgaId', filters.lgaId);
+  if (filters.streamId) query.set('streamId', filters.streamId);
+  if (filters.profileStatus) query.set('profileStatus', filters.profileStatus);
+
+  const response = await fetch(`/api/lgi/corps-members/export?${query.toString()}`, {
+    method: 'GET',
+    headers: { Accept: 'text/csv' },
+    credentials: 'same-origin'
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+      ? data.message
+      : 'Unable to export corps member records.';
+    throw new ApiError(message, response.status);
+  }
+  return response.blob();
+}
+
+export async function uploadCorpsMemberPhoto(memberId: string, photo: File): Promise<void> {
+  const formData = new FormData();
+  formData.append('photo', photo);
+  const response = await fetch(`/api/lgi/corps-members/${encodeURIComponent(memberId)}/photo`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' }
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+      ? data.message
+      : 'Unable to upload the profile photo.';
+    throw new ApiError(message, response.status);
+  }
 }
 
