@@ -218,8 +218,12 @@ export async function listCorpsMembers(
     middleName: corpsMembers.middleName,
     lastName: corpsMembers.lastName,
     gender: corpsMembers.gender,
+    dateOfBirth: corpsMembers.dateOfBirth,
+    qualification: corpsMembers.qualification,
+    graduationYear: corpsMembers.graduationYear,
     lgaId: corpsMembers.lgaId,
     lgaName: lgas.name,
+    lgaState: lgas.stateName,
     streamId: corpsMembers.streamId,
     streamName: streams.name,
     streamCode: streams.code,
@@ -285,7 +289,20 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
   if (!member) {
     throw new CorpsMemberServiceError('Corps member not found in your assigned LGA(s).', 404, 'CORPS_MEMBER_NOT_FOUND');
   }
-  return member;
+  const { passportObjectKey, ...safeMember } = member;
+  return { ...safeMember, hasPassportPhoto: Boolean(passportObjectKey) };
+}
+
+export async function getCorpsMemberPhotoKey(memberId: string, lgaIds: string[]) {
+  assertLgaScope(lgaIds);
+  const [member] = await db.select({ passportObjectKey: corpsMembers.passportObjectKey })
+    .from(corpsMembers)
+    .where(and(eq(corpsMembers.id, memberId), inArray(corpsMembers.lgaId, lgaIds)))
+    .limit(1);
+  if (!member) {
+    throw new CorpsMemberServiceError('Corps member not found in your assigned LGA(s).', 404, 'CORPS_MEMBER_NOT_FOUND');
+  }
+  return member.passportObjectKey;
 }
 
 export async function createCorpsMember(input: CreateCorpsMemberInput, lgaIds: string[], actorUserId: string) {
