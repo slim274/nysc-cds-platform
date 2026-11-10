@@ -660,7 +660,7 @@
 
         <section class="roster-section">
           <div class="roster-section-heading">
-            <div><h3>Add Corps Members</h3><p>Only unassigned members in this LGA whose course matches this group’s eligibility are listed.</p></div>
+            <div><h3>Manual placement &amp; reassignment</h3><p>Use this exception tool when automatic matching found no group or a member declined an assignment. Only unassigned members in this LGA whose course matches this group are listed.</p></div>
           </div>
           <form class="roster-search" onsubmit={(event) => { event.preventDefault(); void loadRoster(); }}>
             <input bind:value={rosterSearch} placeholder="Search by name or state code…" aria-label="Search eligible Corps Members" />
@@ -680,6 +680,10 @@
                     <strong>{member.lastName}, {member.firstName} {member.middleName ?? ''}</strong>
                     <span>{member.stateCode} · {member.courseName ?? 'Course not recorded'}</span>
                     <small>Profile: {member.profileStatus}</small>
+                    {#if member.previousDecline}
+                      <small class="previous-decline">Previously declined {member.previousDecline.groupName}{member.previousDecline.reason ? ` · ${member.previousDecline.reason.replaceAll('_', ' ')}` : ''}</small>
+                      {#if member.previousDecline.notes}<small class="previous-decline-note">Member's note: {member.previousDecline.notes}</small>{/if}
+                    {/if}
                   </div>
                   <button class="primary-button add-member-button" type="button" onclick={() => void assignMember(member.id)} disabled={Boolean(rosterSavingMemberId)}>
                     {rosterSavingMemberId === member.id ? 'Adding…' : 'Add to group'}
@@ -724,6 +728,8 @@
   .roster-search button { min-width: 90px; }
   .add-member-button { min-height: 35px; padding: 8px 11px; font-size: 9px; white-space: nowrap; }
   .roster-empty { padding: 18px 14px; border: 1px dashed #dce7de; border-radius: 8px; background: #fafcfa; color: #718078; font-size: 10px; line-height: 1.6; text-align: center; }
+  .previous-decline { color: #a15a28 !important; font-weight: 700; text-transform: capitalize; }
+  .previous-decline-note { color: #7b6555 !important; font-style: italic; white-space: normal; }
   .roster-success { padding: 10px 12px; margin-top: 14px; border: 1px solid #cce6d3; border-radius: 8px; background: #eef8f0; color: #16633b; font-size: 10px; }
   @media (max-width: 600px) {
     .roster-summary { grid-template-columns: 1fr; }
