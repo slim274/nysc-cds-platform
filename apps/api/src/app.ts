@@ -25,6 +25,10 @@ import {
   coordinatorWorkspaceRoutes
 } from './modules/coordinators/coordinator-workspace.routes';
 
+import {
+  corpsMemberRoutes
+} from './modules/corps-members/corps-members.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -84,5 +88,8 @@ app.route('/lgi', coordinatorRoutes);
 // Coordinator-facing handover inbox and acceptance.
 app.route('/coordinator', coordinatorSelfServiceRoutes);
 app.route('/coordinator', coordinatorWorkspaceRoutes);
+
+// LGI corps member management routes.
+app.route('/lgi', corpsMemberRoutes);
 
 export default app;
