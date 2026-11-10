@@ -19,7 +19,6 @@ export const corpsMemberVerificationChallenges = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     corpsMemberId: uuid('corps_member_id')
-      .notNull()
       .references(() => corpsMembers.id, { onDelete: 'cascade' }),
     tokenHash: varchar('token_hash', { length: 64 }).notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
