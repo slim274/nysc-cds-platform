@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { db, corpsMembers } from '@nysc/database';
-import { getCorpsMember, CorpsMemberServiceError } from './corps-members.service';
+import { getCorpsMemberPhotoKey } from './corps-members.service';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const PHOTO_DIRECTORY = resolve(
@@ -75,7 +75,7 @@ export async function saveCorpsMemberPhoto(
     throw new CorpsMemberPhotoError('The uploaded file content does not match its image type.', 400, 'PHOTO_TYPE_MISMATCH');
   }
 
-  const member = await getCorpsMember(memberId, lgaIds);
+  const previousKey = await getCorpsMemberPhotoKey(memberId, lgaIds);
   await mkdir(PHOTO_DIRECTORY, { recursive: true, mode: 0o700 });
 
   const key = `${randomUUID()}.${detected.extension}`;
@@ -94,13 +94,13 @@ export async function saveCorpsMemberPhoto(
     throw error;
   }
 
-  await removeManagedPhoto(member.passportObjectKey);
+  await removeManagedPhoto(previousKey);
   return { uploaded: true, contentType: detected.contentType, sizeBytes: bytes.byteLength };
 }
 
 export async function readCorpsMemberPhoto(memberId: string, lgaIds: string[]) {
-  const member = await getCorpsMember(memberId, lgaIds);
-  if (!isManagedPhotoKey(member.passportObjectKey)) {
+  const photoKey = await getCorpsMemberPhotoKey(memberId, lgaIds);
+  if (!isManagedPhotoKey(photoKey)) {
     throw new CorpsMemberPhotoError('This corps member has no uploaded profile photo.', 404, 'PHOTO_NOT_FOUND');
   }
 
@@ -112,7 +112,7 @@ export async function readCorpsMemberPhoto(memberId: string, lgaIds: string[]) {
       : 'image/webp';
 
   try {
-    const bytes = await readFile(join(PHOTO_DIRECTORY, member.passportObjectKey));
+    const bytes = await readFile(join(PHOTO_DIRECTORY, photoKey));
     return { bytes, contentType };
   } catch {
     throw new CorpsMemberPhotoError('The profile photo is temporarily unavailable.', 404, 'PHOTO_FILE_NOT_FOUND');
