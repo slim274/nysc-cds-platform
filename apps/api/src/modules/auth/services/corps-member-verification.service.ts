@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import {
   and,
   eq,
@@ -13,7 +14,7 @@ import {
   corpsMemberVerificationRateLimits
 } from '@nysc/database';
 
-import { generateSecureToken, hashToken } from './token';
+import { generateSecureToken, hashToken } from '../utils/token';
 
 const CHALLENGE_TTL_SECONDS = 10 * 60;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -31,6 +32,15 @@ export class IdentityVerificationRateLimitError extends Error {
 
 let lastCleanupAt = 0;
 
+function hashRateLimitKey(value: string): string {
+  const pepper = Bun.env.IDENTITY_VERIFICATION_PEPPER;
+  if (!pepper || Buffer.byteLength(pepper, 'utf8') < 32) {
+    throw new Error('IDENTITY_VERIFICATION_PEPPER must be configured with at least 32 bytes.');
+  }
+
+  return createHmac('sha256', pepper).update(value).digest('hex');
+}
+
 async function cleanupExpiredVerificationState(now: Date): Promise<void> {
   if (Date.now() - lastCleanupAt < 60 * 60 * 1000) return;
   lastCleanupAt = Date.now();
@@ -44,8 +54,6 @@ async function cleanupExpiredVerificationState(now: Date): Promise<void> {
         .where(lt(corpsMemberVerificationRateLimits.updatedAt, olderThan))
     ]);
   } catch (error) {
-    // Cleanup must never turn an otherwise valid verification request into a
-    // failure. A later request will retry the cleanup.
     lastCleanupAt = 0;
     console.error('Identity verification cleanup failed:', error);
   }
@@ -112,12 +120,12 @@ export async function initiateCorpsMemberIdentityVerification(
 ): Promise<{ challengeToken: string; expiresInSeconds: number }> {
   const now = new Date();
 
-  // Both limits are persisted in PostgreSQL, so they remain effective across
-  // API restarts and multiple API instances.
-  const identityKey = hashToken(
+  // HMAC prevents offline guessing of low-entropy identity details if the
+  // rate-limit table is exposed. Raw identifiers and IP addresses are never stored.
+  const identityKey = hashRateLimitKey(
     `corps-member-verification:identity:${input.stateCode}:${input.dateOfBirth}:${input.callUpNumber}`
   );
-  const addressKey = hashToken(
+  const addressKey = hashRateLimitKey(
     `corps-member-verification:address:${clientAddress}`
   );
 
@@ -144,23 +152,20 @@ export async function initiateCorpsMemberIdentityVerification(
     .where(and(
       eq(corpsMembers.stateCode, input.stateCode),
       eq(corpsMembers.dateOfBirth, input.dateOfBirth),
-      sql`upper(trim(${corpsMembers.callUpNumber})) = ${input.callUpNumber}`,
+      sql`upper(trim(coalesce(${corpsMembers.callUpNumber}, ''))) = ${input.callUpNumber}`,
       isNull(corpsMembers.userId)
     ))
     .limit(1);
 
-  // Always return a fresh opaque token with an identical response shape.
-  // Persist it only for a matching, unlinked member. This prevents the public
-  // endpoint from becoming a corps-member record enumeration oracle.
+  // Always persist a fresh token row and return the same response shape.
+  // A null member reference is an intentionally unusable challenge, preventing
+  // callers from discovering which identifier combinations match records.
   const challengeToken = generateSecureToken();
-
-  if (member) {
-    await db.insert(corpsMemberVerificationChallenges).values({
-      corpsMemberId: member.id,
-      tokenHash: hashToken(challengeToken),
-      expiresAt: new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000)
-    });
-  }
+  await db.insert(corpsMemberVerificationChallenges).values({
+    corpsMemberId: member?.id ?? null,
+    tokenHash: hashToken(challengeToken),
+    expiresAt: new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000)
+  });
 
   return {
     challengeToken,
