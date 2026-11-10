@@ -35,6 +35,58 @@ export type CdsMatchResult =
     };
 
 /**
+ * Shared gate for automatic matching and LGI exception placement.
+ * A member must have a verified latest submission for every active mandatory
+ * requirement configured in their LGA.
+ */
+export async function hasVerifiedMandatoryDocuments(
+  tx: DatabaseTransaction,
+  corpsMemberId: string,
+  lgaId: string
+): Promise<boolean> {
+  const requirements = await tx
+    .select({
+      id: corpsMemberDocumentRequirements.id,
+      isRequired: corpsMemberDocumentRequirements.isRequired
+    })
+    .from(corpsMemberDocumentRequirements)
+    .where(and(
+      eq(corpsMemberDocumentRequirements.lgaId, lgaId),
+      eq(corpsMemberDocumentRequirements.isActive, true)
+    ));
+
+  if (requirements.length === 0) return false;
+  const requiredIds = requirements
+    .filter((requirement) => requirement.isRequired)
+    .map((requirement) => requirement.id);
+  if (requiredIds.length === 0) return false;
+
+  const submissions = await tx
+    .select({
+      requirementId: corpsMemberDocumentSubmissions.requirementId,
+      status: corpsMemberDocumentSubmissions.status,
+      submittedAt: corpsMemberDocumentSubmissions.submittedAt
+    })
+    .from(corpsMemberDocumentSubmissions)
+    .where(and(
+      eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMemberId),
+      inArray(corpsMemberDocumentSubmissions.requirementId, requiredIds)
+    ))
+    .orderBy(desc(corpsMemberDocumentSubmissions.submittedAt));
+
+  const latestByRequirement = new Map<string, string>();
+  for (const submission of submissions) {
+    if (!latestByRequirement.has(submission.requirementId)) {
+      latestByRequirement.set(submission.requirementId, submission.status);
+    }
+  }
+
+  return requiredIds.every((requirementId) =>
+    latestByRequirement.get(requirementId) === 'verified'
+  );
+}
+
+/**
  * Called only after an uploaded document has a verified status.
  * The transaction checks every active mandatory requirement before matching.
  * Matching is deterministic and spreads new members by group utilisation.
@@ -63,51 +115,24 @@ export async function assignCorpsMemberAfterDocumentVerification(
     return { assigned: false, reason: 'course_not_recorded' };
   }
 
-  const requirements = await tx
-    .select({
-      id: corpsMemberDocumentRequirements.id,
-      isRequired: corpsMemberDocumentRequirements.isRequired
-    })
-    .from(corpsMemberDocumentRequirements)
-    .where(and(
-      eq(corpsMemberDocumentRequirements.lgaId, member.lgaId),
-      eq(corpsMemberDocumentRequirements.isActive, true)
-    ));
-
-  if (requirements.length === 0) {
-    return { assigned: false, reason: 'documents_not_configured' };
-  }
-
-  const requiredIds = requirements
-    .filter((requirement) => requirement.isRequired)
-    .map((requirement) => requirement.id);
-
-  if (requiredIds.length === 0) {
-    return { assigned: false, reason: 'documents_not_configured' };
-  }
-
-  const submissions = await tx
-    .select({
-      requirementId: corpsMemberDocumentSubmissions.requirementId,
-      status: corpsMemberDocumentSubmissions.status,
-      submittedAt: corpsMemberDocumentSubmissions.submittedAt
-    })
-    .from(corpsMemberDocumentSubmissions)
-    .where(and(
-      eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMemberId),
-      inArray(corpsMemberDocumentSubmissions.requirementId, requiredIds)
-    ))
-    .orderBy(desc(corpsMemberDocumentSubmissions.submittedAt));
-
-  const latestByRequirement = new Map<string, string>();
-  for (const submission of submissions) {
-    if (!latestByRequirement.has(submission.requirementId)) {
-      latestByRequirement.set(submission.requirementId, submission.status);
-    }
-  }
-
-  if (requiredIds.some((requirementId) => latestByRequirement.get(requirementId) !== 'verified')) {
-    return { assigned: false, reason: 'documents_incomplete' };
+  const verifiedDocuments = await hasVerifiedMandatoryDocuments(
+    tx,
+    corpsMemberId,
+    member.lgaId
+  );
+  if (!verifiedDocuments) {
+    const [configured] = await tx
+      .select({ id: corpsMemberDocumentRequirements.id })
+      .from(corpsMemberDocumentRequirements)
+      .where(and(
+        eq(corpsMemberDocumentRequirements.lgaId, member.lgaId),
+        eq(corpsMemberDocumentRequirements.isActive, true)
+      ))
+      .limit(1);
+    return {
+      assigned: false,
+      reason: configured ? 'documents_incomplete' : 'documents_not_configured'
+    };
   }
 
   const [existingMembership] = await tx
