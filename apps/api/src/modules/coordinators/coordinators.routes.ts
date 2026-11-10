@@ -10,6 +10,7 @@ import {
   createCoordinatorHandover,
   listMyCoordinatorHandovers,
   acceptCoordinatorHandover,
+  cancelCoordinatorHandover,
   CoordinatorServiceError
 } from './coordinators.service';
 
@@ -157,6 +158,30 @@ coordinatorRoutes.post('/coordinators/handovers', async (c) => {
       message: 'Coordinator responsibility transferred. The incoming coordinator must review and accept the handover.',
       data
     }, 201);
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+
+coordinatorRoutes.post('/coordinators/handovers/:handoverId/cancel', async (c) => {
+  const id = coordinatorIdSchema.safeParse(c.req.param('handoverId'));
+  if (!id.success) {
+    return c.json({ success: false, message: 'Invalid handover ID.' }, 400);
+  }
+
+  try {
+    const data = await cancelCoordinatorHandover(
+      id.data,
+      getAssignedLgaIds(c)
+    );
+    return c.json({
+      success: true,
+      message: data.previousCoordinatorRestored
+        ? 'Handover cancelled and the previous Coordinator assignment restored.'
+        : 'Handover cancelled. The previous Coordinator account is not active, so the group is available for reassignment.',
+      data
+    });
   } catch (error) {
     return handleCoordinatorError(c, error);
   }
