@@ -10,6 +10,8 @@ import {
   updateCorpsMember,
   CorpsMemberServiceError
 } from './corps-members.service';
+import { importCorpsMembers, parseCorpsMemberCsv, exportCorpsMembersCsv, CorpsMemberImportError } from './corps-members-import.service';
+import { saveCorpsMemberPhoto, readCorpsMemberPhoto, CorpsMemberPhotoError } from './corps-members-photo.service';
 import {
   createCorpsMemberSchema,
   updateCorpsMemberSchema
@@ -42,6 +44,9 @@ function getAssignedLgaIds(c: Context<AuthEnv>): string[] {
 }
 
 function handleError(c: Context<AuthEnv>, error: unknown) {
+  if (error instanceof CorpsMemberImportError || error instanceof CorpsMemberPhotoError) {
+    return c.json({ success: false, code: error.code, message: error.message }, error.status as ContentfulStatusCode);
+  }
   if (error instanceof CorpsMemberServiceError) {
     return c.json({
       success: false,
@@ -106,6 +111,90 @@ corpsMemberRoutes.post('/corps-members', async (c) => {
       message: 'Corps member record created successfully.',
       data
     }, 201);
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
+corpsMemberRoutes.post('/corps-members/import', async (c) => {
+  const contentLength = Number(c.req.header('content-length') ?? 0);
+  if (contentLength > 2_000_000) {
+    return c.json({ success: false, message: 'CSV upload must not exceed 2 MB.' }, 413);
+  }
+
+  try {
+    const csv = await c.req.text();
+    const rows = parseCorpsMemberCsv(csv);
+    const data = await importCorpsMembers(rows, getAssignedLgaIds(c), c.get('authUser').id);
+    return c.json({ success: true, message: 'Corps member import completed.', data });
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
+corpsMemberRoutes.get('/corps-members/export', async (c) => {
+  const query = listQuerySchema.omit({ page: true, pageSize: true }).safeParse(c.req.query());
+  if (!query.success) {
+    return c.json({ success: false, message: 'Invalid corps member export filters.', errors: query.error.issues }, 400);
+  }
+
+  try {
+    const result = await exportCorpsMembersCsv(getAssignedLgaIds(c), query.data);
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    c.header('Content-Disposition', 'attachment; filename="nysc-corps-members.csv"');
+    c.header('Cache-Control', 'private, no-store');
+    return c.body(result.csv);
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
+corpsMemberRoutes.get('/corps-members/template', (c) => {
+  const csv = [
+    'stateCode,callUpNumber,firstName,middleName,lastName,dateOfBirth,gender,lgaName,lgaState,serviceYear,batchCode,streamCode,institutionName,courseName,qualification,graduationYear,profileStatus',
+    'AB/26A/001,CALLUP-001,Amina,,Bello,2000-04-12,Female,Demo LGA,Demo State,2026,A,I,Demo University,Computer Science,B.Sc.,2022,preloaded'
+  ].join('\\r\\n');
+
+  c.header('Content-Type', 'text/csv; charset=utf-8');
+  c.header('Content-Disposition', 'attachment; filename="corps-members-import-template.csv"');
+  return c.body(csv);
+});
+
+corpsMemberRoutes.post('/corps-members/:memberId/photo', async (c) => {
+  const id = memberIdSchema.safeParse(c.req.param('memberId'));
+  if (!id.success) return c.json({ success: false, message: 'Invalid corps member ID.' }, 400);
+
+  try {
+    const formData = await c.req.formData();
+    const photo = formData.get('photo');
+    if (!(photo instanceof File)) {
+      return c.json({ success: false, message: 'Select a profile photo to upload.' }, 400);
+    }
+    if (photo.size > 5 * 1024 * 1024) {
+      return c.json({ success: false, message: 'Profile photos must not exceed 5 MB.' }, 413);
+    }
+    const result = await saveCorpsMemberPhoto(
+      id.data,
+      new Uint8Array(await photo.arrayBuffer()),
+      photo.type,
+      getAssignedLgaIds(c)
+    );
+    return c.json({ success: true, message: 'Profile photo uploaded successfully.', data: result });
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
+corpsMemberRoutes.get('/corps-members/:memberId/photo', async (c) => {
+  const id = memberIdSchema.safeParse(c.req.param('memberId'));
+  if (!id.success) return c.json({ success: false, message: 'Invalid corps member ID.' }, 400);
+
+  try {
+    const result = await readCorpsMemberPhoto(id.data, getAssignedLgaIds(c));
+    c.header('Content-Type', result.contentType);
+    c.header('Cache-Control', 'private, no-store');
+    c.header('X-Content-Type-Options', 'nosniff');
+    return c.body(result.bytes);
   } catch (error) {
     return handleError(c, error);
   }
