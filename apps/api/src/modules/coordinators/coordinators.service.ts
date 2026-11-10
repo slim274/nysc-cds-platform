@@ -25,7 +25,9 @@ import {
 
 import type {
   CreateCoordinatorInput,
-  UpdateCoordinatorInput
+  UpdateCoordinatorInput,
+  CreateCoordinatorHandoverInput,
+  AcceptCoordinatorHandoverInput
 } from './coordinators.schema';
 
 export class CoordinatorServiceError extends Error {
@@ -548,11 +550,6 @@ export async function updateCoordinator(
   });
 }
 
-
-import type {
-  CreateCoordinatorHandoverInput,
-  AcceptCoordinatorHandoverInput
-} from './coordinators.schema';
 
 export async function listLgiCoordinatorHandovers(lgaIds: string[]) {
   assertLgaScope(lgaIds);
