@@ -308,7 +308,7 @@
         <label class="check-line"><input type="checkbox" bind:checked={form.isRequired} /><span>Mandatory document (required before CDS matching)</span></label>
         <fieldset><legend>Accepted file formats *</legend><label class="check-line"><input type="checkbox" bind:checked={form.allowPdf} /><span>PDF</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowJpeg} /><span>JPEG</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowPng} /><span>PNG</span></label></fieldset>
         <label><span>Maximum file size (MB)</span><input type="number" bind:value={form.maxSizeMb} min="1" max="50" required /></label>
-        <div class="info-note">After creating the requirement, upload a real sample/template issued by the LGI or relevant institution. It improves document-type and layout comparison.</div>
+        <div class="info-note">After creating the requirement, upload a real sample/template issued by the LGI or relevant institution. A reference sample is required for automatic verification of mandatory documents.</div>
         <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Create requirement'}</button></div>
       </form>
     </section>
