@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  desc,
   eq,
   ilike,
   inArray,
@@ -574,6 +575,42 @@ export async function listCdsGroupMembers(
       .limit(50);
   }
 
+  const eligibleIds = eligibleMembers.map((member) => member.id);
+  const declineRows = eligibleIds.length > 0
+    ? await db
+        .select({
+          memberId: cdsGroupMemberships.corpsMemberId,
+          groupName: cdsGroups.name,
+          reason: cdsGroupMemberships.declineReason,
+          notes: cdsGroupMemberships.declineNotes,
+          declinedAt: cdsGroupMemberships.declinedAt
+        })
+        .from(cdsGroupMemberships)
+        .innerJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+        .where(and(
+          inArray(cdsGroupMemberships.corpsMemberId, eligibleIds),
+          eq(cdsGroupMemberships.status, 'cancelled')
+        ))
+        .orderBy(desc(cdsGroupMemberships.declinedAt))
+    : [];
+
+  const latestDeclineByMember = new Map<string, {
+    groupName: string;
+    reason: string | null;
+    notes: string | null;
+    declinedAt: Date | null;
+  }>();
+  for (const decline of declineRows) {
+    if (!latestDeclineByMember.has(decline.memberId)) {
+      latestDeclineByMember.set(decline.memberId, {
+        groupName: decline.groupName,
+        reason: decline.reason,
+        notes: decline.notes,
+        declinedAt: decline.declinedAt
+      });
+    }
+  }
+
   return {
     group: {
       ...group,
@@ -581,7 +618,10 @@ export async function listCdsGroupMembers(
       availableCapacity
     },
     members,
-    eligibleMembers
+    eligibleMembers: eligibleMembers.map((member) => ({
+      ...member,
+      previousDecline: latestDeclineByMember.get(member.id) ?? null
+    }))
   };
 }
 
