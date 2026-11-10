@@ -625,4 +625,8 @@ export async function updateCorpsMember(memberId: string, input: Partial<CorpsMe
   });
   return response.data;
 }
+export async function getCorpsMember(memberId: string): Promise<CorpsMemberDetail> {
+  const response = await request<{ success: boolean; data: CorpsMemberDetail }>(`/lgi/corps-members/${encodeURIComponent(memberId)}`);
+  return response.data;
+}
 
