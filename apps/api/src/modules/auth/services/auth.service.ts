@@ -2,7 +2,8 @@ import {
   and,
   eq,
   gt,
-  isNull
+  isNull,
+  or
 } from 'drizzle-orm';
 
 import {
@@ -117,8 +118,9 @@ export async function activateAccount(
  */
 export async function authenticateUser(
   input: LoginInput
-): Promise<{ id: string; email: string } | null> {
+): Promise<{ id: string; email: string | null } | null> {
 
+  const identifier = input.identifier.trim();
   const [user] = await db
     .select({
       id: users.id,
@@ -127,7 +129,10 @@ export async function authenticateUser(
       status: users.status
     })
     .from(users)
-    .where(eq(users.email, input.email))
+    .where(or(
+      eq(users.email, identifier.toLowerCase()),
+      eq(users.phone, identifier)
+    ))
     .limit(1);
 
   if (
@@ -143,7 +148,7 @@ export async function authenticateUser(
     user.passwordHash
   );
 
-  if (!passwordIsValid || !user.email) {
+  if (!passwordIsValid) {
     return null;
   }
 
