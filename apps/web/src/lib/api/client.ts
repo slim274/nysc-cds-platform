@@ -418,3 +418,76 @@ export function getCourseDisciplineLabel(code: string): string {
   };
   return labels[code] ?? code;
 }
+
+
+export interface CoordinatorHandover {
+  id: string;
+  groupId: string;
+  groupCode: string;
+  groupName: string;
+  outgoingCoordinatorId?: string;
+  outgoingCoordinatorEmail: string | null;
+  incomingCoordinatorId?: string;
+  incomingCoordinatorEmail: string;
+  status: 'pending_acceptance' | 'accepted' | 'cancelled' | string;
+  reason: string;
+  handoverNotes: string;
+  pendingActivities: string[];
+  upcomingEvents: string[];
+  outstandingTasks: string[];
+  acceptanceNotes: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+}
+
+export type CoordinatorHandoverReason =
+  | 'resignation'
+  | 'transfer'
+  | 'temporary_replacement'
+  | 'other';
+
+export async function listCoordinatorHandovers(): Promise<CoordinatorHandover[]> {
+  const response = await request<{
+    success: boolean;
+    data: CoordinatorHandover[];
+  }>('/lgi/coordinators/handovers');
+  return response.data;
+}
+
+export async function createCoordinatorHandover(input: {
+  groupId: string;
+  outgoingCoordinatorId: string;
+  incomingCoordinatorId: string;
+  reason: CoordinatorHandoverReason;
+  handoverNotes: string;
+  pendingActivities: string[];
+  upcomingEvents: string[];
+  outstandingTasks: string[];
+}): Promise<CoordinatorHandover> {
+  const response = await request<{
+    success: boolean;
+    data: CoordinatorHandover;
+  }>('/lgi/coordinators/handovers', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function listMyCoordinatorHandovers(): Promise<CoordinatorHandover[]> {
+  const response = await request<{
+    success: boolean;
+    data: CoordinatorHandover[];
+  }>('/coordinator/handovers');
+  return response.data;
+}
+
+export async function acceptMyCoordinatorHandover(
+  handoverId: string,
+  acceptanceNotes: string
+): Promise<void> {
+  await request('/coordinator/handovers/' + encodeURIComponent(handoverId) + '/accept', {
+    method: 'POST',
+    body: JSON.stringify({ acceptanceNotes })
+  });
+}
