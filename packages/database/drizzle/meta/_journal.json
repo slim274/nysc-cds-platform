@@ -64,6 +64,13 @@
       "when": 1794321000000,
       "tag": "0008_corps_member_otp_registration",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794325000000,
+      "tag": "0009_cds_member_declines",
+      "breakpoints": true
     }
   ]
 }
