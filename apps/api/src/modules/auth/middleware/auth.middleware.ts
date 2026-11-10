@@ -24,7 +24,7 @@ export type AuthEnv = {
   Variables: {
     authUser: {
       id: string;
-      email: string;
+      email: string | null;
     };
     authSessionId: string;
     authRoles: AuthRole[];
@@ -69,7 +69,7 @@ export const requireAuth = createMiddleware<AuthEnv>(
         )
         .limit(1);
 
-      if (!session || !session.email) {
+      if (!session) {
         deleteCookie(c, SESSION_COOKIE, {
           path: '/',
           secure: Bun.env.NODE_ENV === 'production',
