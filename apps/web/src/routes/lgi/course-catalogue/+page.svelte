@@ -278,7 +278,7 @@
         <a class="nav-item" href="/lgi/cds-groups" onclick={closeMobileNavigation}><span class="nav-icon">◎</span><span>CDS Groups</span></a>
         <a class="nav-item active" href="/lgi/course-catalogue" aria-current="page" onclick={closeMobileNavigation}><span class="nav-icon">▤</span><span>Course Catalogue</span></a>
         <div class="nav-item muted"><span class="nav-icon">⌘</span><span>Course Mapping</span><small>Soon</small></div>
-        <div class="nav-item muted"><span class="nav-icon">♧</span><span>CDS Officials</span><small>Soon</small></div>
+        <a class="nav-item" href="/lgi/coordinators" onclick={closeMobileNavigation}><span class="nav-icon">♧</span><span>CDS Coordinators</span></a>
         <div class="nav-item muted"><span class="nav-icon">✓</span><span>Attendance</span><small>Soon</small></div>
         <div class="nav-item muted"><span class="nav-icon">▣</span><span>Monthly Clearance</span><small>Soon</small></div>
         <div class="nav-item muted"><span class="nav-icon">▥</span><span>Reports</span><small>Soon</small></div>
