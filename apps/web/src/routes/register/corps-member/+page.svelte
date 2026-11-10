@@ -61,9 +61,19 @@
     }
   }
 
+  function updateOtp(value: string) {
+    // Keep only six digits so pasted spaces or other characters cannot
+    // trigger the browser's native pattern-validation tooltip.
+    code = value.replace(/\\D/g, '').slice(0, 6);
+  }
+
   async function confirmOtp(event: SubmitEvent) {
     event.preventDefault();
     errorMessage = '';
+    if (!/^\\d{6}$/.test(code)) {
+      errorMessage = 'Enter the six-digit verification code.';
+      return;
+    }
     submitting = true;
     try {
       await verifyCorpsMemberOtp(challengeToken, code.trim());
@@ -156,7 +166,7 @@
       {#if otpRequested}
         <form onsubmit={confirmOtp}>
           <label for="otp">Six-digit verification code</label>
-          <input id="otp" bind:value={code} inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required disabled={submitting} />
+          <input id="otp" value={code} oninput={(event) => updateOtp(event.currentTarget.value)} inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required disabled={submitting} />
           <button disabled={submitting || !/^\d{6}$/.test(code.trim())}>
             {submitting ? 'Verifying…' : 'Verify code'}
           </button>
