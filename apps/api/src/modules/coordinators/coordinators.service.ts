@@ -716,13 +716,15 @@ export async function createCoordinatorHandover(
     }
 
     const [incomingRoleAssignment] = await tx
-      .select({ id: userRoleAssignments.id })
+      .select({
+        id: userRoleAssignments.id,
+        cdsGroupId: userRoleAssignments.cdsGroupId
+      })
       .from(userRoleAssignments)
       .where(and(
         eq(userRoleAssignments.userId, incomingUser.id),
         eq(userRoleAssignments.roleId, roleId),
         eq(userRoleAssignments.lgaId, group.lgaId),
-        isNotNull(userRoleAssignments.cdsGroupId),
         eq(userRoleAssignments.isActive, true)
       ))
       .limit(1);
@@ -783,6 +785,18 @@ export async function createCoordinatorHandover(
       });
     }
 
+    // Convert an LGA-scoped standby permission into the specific group scope.
+    await tx
+      .update(userRoleAssignments)
+      .set({ isActive: false })
+      .where(and(
+        eq(userRoleAssignments.userId, incomingUser.id),
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.lgaId, group.lgaId),
+        isNull(userRoleAssignments.cdsGroupId),
+        eq(userRoleAssignments.isActive, true)
+      ));
+
     const [handover] = await tx
       .insert(cdsGroupHandovers)
       .values({
@@ -796,6 +810,7 @@ export async function createCoordinatorHandover(
         pendingActivities: input.pendingActivities,
         upcomingEvents: input.upcomingEvents,
         outstandingTasks: input.outstandingTasks,
+        incomingWasStandby: incomingRoleAssignment.cdsGroupId === null,
         preparedAt: new Date(),
         initiatedByUserId
       })
