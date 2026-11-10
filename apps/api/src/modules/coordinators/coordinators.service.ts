@@ -3,7 +3,6 @@ import {
   desc,
   eq,
   inArray,
-  isNotNull,
   isNull
 } from 'drizzle-orm';
 
@@ -183,7 +182,27 @@ export async function createCoordinator(
   assertLgaScope(lgaIds);
 
   return db.transaction(async (tx) => {
-    const groups = await validateGroups(tx, input.groupIds, lgaIds);
+    const groups = input.groupIds.length > 0
+      ? await validateGroups(tx, input.groupIds, lgaIds)
+      : [];
+
+    if (groups.length === 0 && (!input.lgaId || !lgaIds.includes(input.lgaId))) {
+      throw new CoordinatorServiceError(
+        'Select an LGA in your assigned scope for a standby Coordinator.',
+        403,
+        'COORDINATOR_STANDBY_LGA_REQUIRED'
+      );
+    }
+
+    const targetLgaId = groups[0]?.lgaId ?? input.lgaId;
+    if (groups.length > 0 && input.lgaId && groups.some((group) => group.lgaId !== input.lgaId)) {
+      throw new CoordinatorServiceError(
+        'A Coordinator invitation can only include groups from the selected LGA.',
+        400,
+        'COORDINATOR_GROUP_LGA_MISMATCH'
+      );
+    }
+
     const roleId = await getCoordinatorRoleId(tx);
 
     let [user] = await tx
@@ -260,83 +279,111 @@ export async function createCoordinator(
       );
     }
 
-    const occupiedGroups = await tx
-      .select({
-        groupId: userRoleAssignments.cdsGroupId,
-        userId: userRoleAssignments.userId
-      })
-      .from(userRoleAssignments)
-      .where(and(
-        eq(userRoleAssignments.roleId, roleId),
-        eq(userRoleAssignments.isActive, true),
-        inArray(userRoleAssignments.cdsGroupId, input.groupIds)
-      ));
+    if (groups.length > 0) {
+      const occupiedGroups = await tx
+        .select({
+          groupId: userRoleAssignments.cdsGroupId,
+          userId: userRoleAssignments.userId
+        })
+        .from(userRoleAssignments)
+        .where(and(
+          eq(userRoleAssignments.roleId, roleId),
+          eq(userRoleAssignments.isActive, true),
+          inArray(userRoleAssignments.cdsGroupId, input.groupIds)
+        ));
 
-    const occupiedIds = new Set(
-      occupiedGroups
-        .filter((assignment: { userId: string }) => assignment.userId !== user.id)
-        .map((assignment: { groupId: string | null }) => assignment.groupId)
-    );
-
-    const occupied = groups.filter((group: { id: string }) => occupiedIds.has(group.id));
-    if (occupied.length > 0) {
-      throw new CoordinatorServiceError(
-        `A coordinator is already assigned to: ${occupied.map((group: { code: string; name: string }) => `${group.code} — ${group.name}`).join(', ')}.`,
-        409,
-        'COORDINATOR_GROUP_ALREADY_ASSIGNED'
+      const occupiedIds = new Set(
+        occupiedGroups
+          .filter((assignment: { userId: string }) => assignment.userId !== user.id)
+          .map((assignment: { groupId: string | null }) => assignment.groupId)
       );
-    }
 
-    const existingAssignments = await tx
-      .select({
-        id: userRoleAssignments.id,
-        groupId: userRoleAssignments.cdsGroupId
-      })
-      .from(userRoleAssignments)
-      .where(and(
-        eq(userRoleAssignments.userId, user.id),
-        eq(userRoleAssignments.roleId, roleId),
-        inArray(userRoleAssignments.cdsGroupId, input.groupIds)
-      ));
+      const occupied = groups.filter((group) => occupiedIds.has(group.id));
+      if (occupied.length > 0) {
+        throw new CoordinatorServiceError(
+          `A coordinator is already assigned to: ${occupied.map((group) => `${group.code} — ${group.name}`).join(', ')}.`,
+          409,
+          'COORDINATOR_GROUP_ALREADY_ASSIGNED'
+        );
+      }
 
-    const existingByGroup = new Map(
-      existingAssignments.map((assignment: { id: string; groupId: string | null }) => [
-        assignment.groupId,
-        assignment.id
-      ])
-    );
+      const existingAssignments = await tx
+        .select({
+          id: userRoleAssignments.id,
+          groupId: userRoleAssignments.cdsGroupId
+        })
+        .from(userRoleAssignments)
+        .where(and(
+          eq(userRoleAssignments.userId, user.id),
+          eq(userRoleAssignments.roleId, roleId),
+          inArray(userRoleAssignments.cdsGroupId, input.groupIds)
+        ));
 
-    for (const group of groups) {
-      const existingId = existingByGroup.get(group.id);
-      if (existingId) {
+      const existingByGroup = new Map(
+        existingAssignments.map((assignment: { id: string; groupId: string | null }) => [
+          assignment.groupId,
+          assignment.id
+        ])
+      );
+
+      for (const group of groups) {
+        const existingId = existingByGroup.get(group.id);
+        if (existingId) {
+          await tx
+            .update(userRoleAssignments)
+            .set({
+              lgaId: group.lgaId,
+              isActive: true
+            })
+            .where(eq(userRoleAssignments.id, existingId));
+        } else {
+          await tx.insert(userRoleAssignments).values({
+            userId: user.id,
+            roleId,
+            lgaId: group.lgaId,
+            cdsGroupId: group.id
+          });
+        }
+      }
+
+      // A group-scoped assignment supersedes any older standby assignment
+      // for that LGA; the historical row is retained but inactive.
+      await tx
+        .update(userRoleAssignments)
+        .set({ isActive: false })
+        .where(and(
+          eq(userRoleAssignments.userId, user.id),
+          eq(userRoleAssignments.roleId, roleId),
+          eq(userRoleAssignments.lgaId, targetLgaId!),
+          isNull(userRoleAssignments.cdsGroupId),
+          eq(userRoleAssignments.isActive, true)
+        ));
+    } else {
+      const [standbyAssignment] = await tx
+        .select({ id: userRoleAssignments.id })
+        .from(userRoleAssignments)
+        .where(and(
+          eq(userRoleAssignments.userId, user.id),
+          eq(userRoleAssignments.roleId, roleId),
+          eq(userRoleAssignments.lgaId, targetLgaId!),
+          isNull(userRoleAssignments.cdsGroupId)
+        ))
+        .limit(1);
+
+      if (standbyAssignment) {
         await tx
           .update(userRoleAssignments)
-          .set({
-            lgaId: group.lgaId,
-            isActive: true
-          })
-          .where(eq(userRoleAssignments.id, existingId));
+          .set({ isActive: true })
+          .where(eq(userRoleAssignments.id, standbyAssignment.id));
       } else {
         await tx.insert(userRoleAssignments).values({
           userId: user.id,
           roleId,
-          lgaId: group.lgaId,
-          cdsGroupId: group.id
+          lgaId: targetLgaId!,
+          cdsGroupId: null
         });
       }
     }
-
-    // Retire old LGA-only coordinator assignments with no group scope.
-    await tx
-      .update(userRoleAssignments)
-      .set({ isActive: false })
-      .where(and(
-        eq(userRoleAssignments.userId, user.id),
-        eq(userRoleAssignments.roleId, roleId),
-        inArray(userRoleAssignments.lgaId, lgaIds),
-        isNull(userRoleAssignments.cdsGroupId),
-        eq(userRoleAssignments.isActive, true)
-      ));
 
     let activationToken: string | null = null;
     if (user.status === 'pending_activation') {
