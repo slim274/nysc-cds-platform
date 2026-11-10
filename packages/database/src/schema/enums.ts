@@ -31,3 +31,9 @@ export const cdsMembershipSourceEnum = pgEnum('cds_membership_source', [
   'automatic',
   'manual'
 ]);
+
+export const cdsHandoverStatusEnum = pgEnum('cds_handover_status', [
+  'pending_acceptance',
+  'accepted',
+  'cancelled'
+]);
