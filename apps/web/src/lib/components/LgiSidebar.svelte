@@ -33,7 +33,7 @@
   <button class="drawer-backdrop" type="button" aria-label="Close navigation menu" onclick={onClose}></button>
 {/if}
 
-<aside id="lgi-sidebar" class:open class="sidebar" aria-label="LGI administration" aria-hidden={!open && typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches}>
+<aside id="lgi-sidebar" class:open class="sidebar" aria-label="LGI administration">
   <div class="brand">
     <div class="brand-icon">N</div>
     <div class="brand-copy"><strong>NYSC CDS</strong><span>LGI Administration</span></div>
