@@ -100,7 +100,6 @@
   <div class="workspace">
     <header class="topbar">
       <div class="brand"><span class="brand-icon">N</span><div><strong>NYSC CDS</strong><small>Coordinator workspace</small></div></div>
-      <nav class="workspace-nav" aria-label="Coordinator navigation"><a href="/coordinator">Dashboard</a><a class="active" href="/coordinator/handovers">Handovers</a></nav>
       <div class="account"><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
     </header>
 
@@ -172,9 +171,6 @@
   .brand strong, .brand small, .account strong, .account small { display: block; }
   .brand strong { color: #0a5c37; font-size: 14px; }
   .brand small, .account small { margin-top: 4px; color: #819087; font-size: 10px; }
-  .workspace-nav { display: flex; align-items: center; gap: 7px; flex: 1; }
-  .workspace-nav a { padding: 10px 12px; border-radius: 7px; color: #637368; font-size: 11px; font-weight: 600; text-decoration: none; }
-  .workspace-nav a.active, .workspace-nav a:hover { color: #0a5c37; background: #eff6f1; }
   .account { gap: 16px; }
   .account strong { font-size: 11px; }
   .content { width: min(100%, 1040px); margin: 0 auto; padding: 42px 22px; flex: 1; }
@@ -220,5 +216,5 @@
   .state-screen { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 10px; color: #53665a; font: 13px Inter, Arial, sans-serif; }
   .loader { width: 28px; height: 28px; border: 3px solid #dce8df; border-top-color: #0a8050; border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 700px) { .topbar { flex-wrap: wrap; } .workspace-nav { order: 3; width: 100%; flex-basis: 100%; } .detail-grid { grid-template-columns: 1fr; gap: 0; } .account { align-items: flex-end; gap: 9px; } .account > div { max-width: 180px; overflow-wrap: anywhere; } .summary { flex-wrap: wrap; } }
+  @media (max-width: 700px) { .topbar { flex-wrap: wrap; } .detail-grid { grid-template-columns: 1fr; gap: 0; } .account { align-items: flex-end; gap: 9px; } .account > div { max-width: 180px; overflow-wrap: anywhere; } .summary { flex-wrap: wrap; } }
 </style>
