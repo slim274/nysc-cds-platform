@@ -109,5 +109,40 @@ openssl rand -hex 32
 
 Set `TRUST_PROXY_HEADERS=true` only when the API is behind a trusted reverse proxy that removes any incoming client-supplied `X-Forwarded-For` header and writes its own. Otherwise, leave it false; the API will rate-limit using the socket peer address.
 
-The challenge token is intended for the next OTP verification stage. Do not treat it as proof of verified email/phone ownership or as an authenticated session. OTP delivery, challenge consumption, account creation and facial/biometric verification are not implemented by this endpoint.
+The challenge token is intended for the OTP onboarding stage. Do not treat it as proof of verified email/phone ownership or as an authenticated session. Facial/biometric verification is not implemented.
 
+
+
+## OTP contact verification and Corps Member registration
+
+The onboarding web route is `/register/corps-member`. It guides a Corps Member through identity matching, contact OTP and password setup.
+
+API sequence:
+
+1. `POST /auth/verify-corps-member` with State Code, Date of Birth and Call-up Number. The generic response includes a 10-minute identity challenge token.
+2. `POST /auth/send-corps-member-otp` with `challengeToken` and `channel` (`email` or `sms`). The OTP is sent only to the corresponding contact already stored on the eligible Corps Member record. Re-sends are subject to a 60-second cooldown and a maximum of three sends per challenge. Public responses are intentionally generic even when no eligible record/contact exists.
+3. `POST /auth/verify-corps-member-otp` with the challenge token and six-digit code. The code expires after five minutes and is limited to five verification attempts.
+4. `POST /auth/register-corps-member` with the challenge token and a password of at least 12 characters. In one database transaction the API creates the user, links it to the existing `corps_members` row, assigns the `CORPS_MEMBER` role, and consumes the OTP and identity challenge. A session cookie is then created.
+
+The OTP is generated using a cryptographically secure random source. Only an HMAC digest of the code is persisted, with a key derived from the separate `OTP_HASH_PEPPER` secret (at least 32 bytes). Keep this secret distinct from `IDENTITY_VERIFICATION_PEPPER`. Never commit either secret.
+
+### Local development delivery
+
+Set these values in the repository-root `.env` file:
+
+```env
+OTP_DELIVERY_MODE=console
+OTP_HASH_PEPPER=<a unique random secret of at least 32 bytes>
+```
+
+Generate the secret with `openssl rand -hex 32`. In console mode the OTP is written to the API terminal for local testing only; the destination is masked. Console delivery is explicitly disabled when `NODE_ENV=production`.
+
+### Provider delivery
+
+For transactional email, set `OTP_DELIVERY_MODE=provider`, `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. The email adapter calls the Resend email API. Use a sender address/domain authorised in the Resend account.
+
+For SMS, set `OTP_DELIVERY_MODE=provider`, `TERMII_API_KEY`, `TERMII_SENDER_ID`, and (when required by the account) `TERMII_BASE_URL`. The SMS adapter uses Termii's `/api/sms/send` endpoint and normalises common Nigerian local-format phone numbers to international format. The Sender ID must be enabled for the Termii account. Do not place provider keys in source control.
+
+The Corps Member record must contain the selected email or phone contact before OTP can be delivered. LGI users should maintain these contact fields in the member record. Phone-based accounts may sign in with their phone number; email-based accounts may sign in with their email address.
+
+The registration endpoint refuses to create a second account for a member who is already linked. The member link, role assignment, and challenge consumption are transactionally coupled to prevent partial registration. Duplicate email/phone values are rejected by the database unique constraints.
