@@ -1,6 +1,6 @@
 CREATE TABLE "corps_member_verification_challenges" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "corps_member_id" uuid NOT NULL,
+  "corps_member_id" uuid,
   "token_hash" varchar(64) NOT NULL,
   "expires_at" timestamp with time zone NOT NULL,
   "consumed_at" timestamp with time zone,
