@@ -270,6 +270,68 @@ export async function updateCdsGroup(
   return response.data;
 }
 
+export interface CdsGroupMember {
+  membershipId: string;
+  memberId: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  courseName: string | null;
+  profileStatus: string;
+  assignedAt: string;
+}
+
+export interface CdsGroupEligibleMember {
+  id: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  courseName: string | null;
+  profileStatus: string;
+}
+
+export interface CdsGroupRoster {
+  group: CdsGroupSummary;
+  members: CdsGroupMember[];
+  eligibleMembers: CdsGroupEligibleMember[];
+}
+
+export async function getCdsGroupRoster(
+  groupId: string,
+  search?: string
+): Promise<CdsGroupRoster> {
+  const query = new URLSearchParams();
+  if (search?.trim()) query.set('search', search.trim());
+  const suffix = query.size ? `?${query.toString()}` : '';
+  const response = await request<{
+    success: boolean;
+    data: CdsGroupRoster;
+  }>(`/lgi/cds-groups/${encodeURIComponent(groupId)}/members${suffix}`);
+  return response.data;
+}
+
+export async function assignCdsGroupMember(
+  groupId: string,
+  memberId: string
+): Promise<void> {
+  await request(`/lgi/cds-groups/${encodeURIComponent(groupId)}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ memberId })
+  });
+}
+
+export async function endCdsGroupMemberMembership(
+  groupId: string,
+  memberId: string
+): Promise<void> {
+  await request(
+    `/lgi/cds-groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
+    { method: 'DELETE' }
+  );
+}
+
 export interface CourseCategory {
   code: string;
   label: string;
