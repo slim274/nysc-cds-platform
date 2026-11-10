@@ -21,9 +21,6 @@ import {
   coordinatorSelfServiceRoutes
 } from './modules/coordinators/coordinators.routes';
 
-import {
-  coordinatorWorkspaceRoutes
-} from './modules/coordinators/coordinator-workspace.routes';
 
 import {
   corpsMemberRoutes
@@ -87,7 +84,6 @@ app.route('/lgi', coordinatorRoutes);
 
 // Coordinator-facing handover inbox and acceptance.
 app.route('/coordinator', coordinatorSelfServiceRoutes);
-app.route('/coordinator', coordinatorWorkspaceRoutes);
 
 // LGI corps member management routes.
 app.route('/lgi', corpsMemberRoutes);
