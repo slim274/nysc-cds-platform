@@ -54,12 +54,12 @@ function maskDestination(channel: OtpChannel, destination: string): string {
     const [name, domain] = destination.split('@');
     return name && domain ? `${name.slice(0, 1)}***@${domain}` : '***';
   }
-  const digits = destination.replace(/\\D/g, '');
+  const digits = destination.replace(/\D/g, '');
   return digits.length >= 4 ? `***${digits.slice(-4)}` : '***';
 }
 
 function normalizeTermiiPhone(value: string): string {
-  const phone = value.replace(/[\\s().-]/g, '');
+  const phone = value.replace(/[\s().-]/g, '');
   if (phone.startsWith('+')) return phone.slice(1);
   if (phone.startsWith('0') && phone.length === 11) return `234${phone.slice(1)}`;
   return phone;
