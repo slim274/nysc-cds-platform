@@ -83,7 +83,7 @@
   }
 
   function label(value: string) {
-    return value.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+    return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 </script>
 
