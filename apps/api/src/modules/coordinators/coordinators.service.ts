@@ -1,5 +1,6 @@
 import {
   and,
+  desc,
   eq,
   inArray,
   isNull
@@ -12,7 +13,8 @@ import {
   userRoleAssignments,
   cdsGroups,
   authTokens,
-  authSessions
+  authSessions,
+  cdsGroupHandovers
 } from '@nysc/database';
 
 import {
@@ -541,6 +543,330 @@ export async function updateCoordinator(
             ? (user.passwordHash ? 'active' : 'pending_activation')
             : user.status)
           : 'disabled'
+    };
+  });
+}
+
+
+import type {
+  CreateCoordinatorHandoverInput,
+  AcceptCoordinatorHandoverInput
+} from './coordinators.schema';
+
+export async function listLgiCoordinatorHandovers(lgaIds: string[]) {
+  assertLgaScope(lgaIds);
+
+  return db
+    .select({
+      id: cdsGroupHandovers.id,
+      groupId: cdsGroupHandovers.cdsGroupId,
+      groupCode: cdsGroups.code,
+      groupName: cdsGroups.name,
+      outgoingCoordinatorId: cdsGroupHandovers.outgoingCoordinatorId,
+      outgoingCoordinatorEmail: cdsGroupHandovers.outgoingCoordinatorEmail,
+      incomingCoordinatorId: cdsGroupHandovers.incomingCoordinatorId,
+      incomingCoordinatorEmail: cdsGroupHandovers.incomingCoordinatorEmail,
+      status: cdsGroupHandovers.status,
+      reason: cdsGroupHandovers.reason,
+      handoverNotes: cdsGroupHandovers.handoverNotes,
+      pendingActivities: cdsGroupHandovers.pendingActivities,
+      upcomingEvents: cdsGroupHandovers.upcomingEvents,
+      outstandingTasks: cdsGroupHandovers.outstandingTasks,
+      acceptanceNotes: cdsGroupHandovers.acceptanceNotes,
+      acceptedAt: cdsGroupHandovers.acceptedAt,
+      createdAt: cdsGroupHandovers.createdAt
+    })
+    .from(cdsGroupHandovers)
+    .innerJoin(cdsGroups, eq(cdsGroupHandovers.cdsGroupId, cdsGroups.id))
+    .where(inArray(cdsGroups.lgaId, lgaIds))
+    .orderBy(desc(cdsGroupHandovers.createdAt));
+}
+
+export async function createCoordinatorHandover(
+  input: CreateCoordinatorHandoverInput,
+  lgaIds: string[],
+  initiatedByUserId: string
+) {
+  assertLgaScope(lgaIds);
+
+  return db.transaction(async (tx) => {
+    const [group] = await tx
+      .select({
+        id: cdsGroups.id,
+        lgaId: cdsGroups.lgaId,
+        code: cdsGroups.code,
+        name: cdsGroups.name,
+        isActive: cdsGroups.isActive
+      })
+      .from(cdsGroups)
+      .where(eq(cdsGroups.id, input.groupId))
+      .for('update')
+      .limit(1);
+
+    if (!group || !lgaIds.includes(group.lgaId)) {
+      throw new CoordinatorServiceError(
+        'CDS group not found in your assigned LGA(s).',
+        404,
+        'HANDOVER_GROUP_NOT_FOUND'
+      );
+    }
+    if (!group.isActive) {
+      throw new CoordinatorServiceError(
+        'A handover can only be started for an active CDS group.',
+        409,
+        'HANDOVER_GROUP_INACTIVE'
+      );
+    }
+
+    const roleId = await getCoordinatorRoleId(tx);
+    const [outgoingAssignment] = await tx
+      .select({
+        id: userRoleAssignments.id,
+        email: users.email,
+        status: users.status
+      })
+      .from(userRoleAssignments)
+      .innerJoin(users, eq(userRoleAssignments.userId, users.id))
+      .where(and(
+        eq(userRoleAssignments.cdsGroupId, group.id),
+        eq(userRoleAssignments.userId, input.outgoingCoordinatorId),
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.isActive, true),
+        eq(userRoleAssignments.lgaId, group.lgaId)
+      ))
+      .limit(1);
+
+    if (!outgoingAssignment) {
+      throw new CoordinatorServiceError(
+        'The outgoing coordinator is not the current active coordinator for this group.',
+        409,
+        'HANDOVER_OUTGOING_NOT_ASSIGNED'
+      );
+    }
+
+    const [incomingUser] = await tx
+      .select({
+        id: users.id,
+        email: users.email,
+        status: users.status
+      })
+      .from(users)
+      .where(eq(users.id, input.incomingCoordinatorId))
+      .limit(1);
+
+    if (!incomingUser || incomingUser.status !== 'active' || !incomingUser.email) {
+      throw new CoordinatorServiceError(
+        'The incoming coordinator must have an active account.',
+        409,
+        'HANDOVER_INCOMING_ACCOUNT_INACTIVE'
+      );
+    }
+
+    if (input.outgoingCoordinatorId === input.incomingCoordinatorId) {
+      throw new CoordinatorServiceError(
+        'Choose a different incoming coordinator.',
+        400,
+        'HANDOVER_COORDINATORS_MUST_DIFFER'
+      );
+    }
+
+    const [incomingRoleAssignment] = await tx
+      .select({ id: userRoleAssignments.id })
+      .from(userRoleAssignments)
+      .where(and(
+        eq(userRoleAssignments.userId, incomingUser.id),
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.isActive, true)
+      ))
+      .limit(1);
+
+    if (!incomingRoleAssignment) {
+      throw new CoordinatorServiceError(
+        'The incoming person must already have an active CDS Coordinator assignment. Invite and activate them first.',
+        409,
+        'HANDOVER_INCOMING_NOT_COORDINATOR'
+      );
+    }
+
+    const [existingPending] = await tx
+      .select({ id: cdsGroupHandovers.id })
+      .from(cdsGroupHandovers)
+      .where(and(
+        eq(cdsGroupHandovers.cdsGroupId, group.id),
+        eq(cdsGroupHandovers.status, 'pending_acceptance')
+      ))
+      .limit(1);
+
+    if (existingPending) {
+      throw new CoordinatorServiceError(
+        'This CDS group already has a handover awaiting acceptance.',
+        409,
+        'HANDOVER_ALREADY_PENDING'
+      );
+    }
+
+    // Transfer operational responsibility atomically while preserving the
+    // outgoing assignment row and all group-owned records.
+    await tx
+      .update(userRoleAssignments)
+      .set({ isActive: false })
+      .where(eq(userRoleAssignments.id, outgoingAssignment.id));
+
+    const [priorIncomingAssignment] = await tx
+      .select({ id: userRoleAssignments.id })
+      .from(userRoleAssignments)
+      .where(and(
+        eq(userRoleAssignments.userId, incomingUser.id),
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.cdsGroupId, group.id)
+      ))
+      .limit(1);
+
+    if (priorIncomingAssignment) {
+      await tx
+        .update(userRoleAssignments)
+        .set({ lgaId: group.lgaId, isActive: true })
+        .where(eq(userRoleAssignments.id, priorIncomingAssignment.id));
+    } else {
+      await tx.insert(userRoleAssignments).values({
+        userId: incomingUser.id,
+        roleId,
+        lgaId: group.lgaId,
+        cdsGroupId: group.id
+      });
+    }
+
+    const [handover] = await tx
+      .insert(cdsGroupHandovers)
+      .values({
+        cdsGroupId: group.id,
+        outgoingCoordinatorId: input.outgoingCoordinatorId,
+        incomingCoordinatorId: incomingUser.id,
+        outgoingCoordinatorEmail: outgoingAssignment.email,
+        incomingCoordinatorEmail: incomingUser.email,
+        reason: input.reason,
+        handoverNotes: input.handoverNotes,
+        pendingActivities: input.pendingActivities,
+        upcomingEvents: input.upcomingEvents,
+        outstandingTasks: input.outstandingTasks,
+        outgoingConfirmedAt: new Date(),
+        initiatedByUserId
+      })
+      .returning({ id: cdsGroupHandovers.id, status: cdsGroupHandovers.status });
+
+    if (!handover) {
+      throw new CoordinatorServiceError(
+        'The handover record could not be created.',
+        500,
+        'HANDOVER_CREATE_FAILED'
+      );
+    }
+
+    return {
+      id: handover.id,
+      status: handover.status,
+      groupCode: group.code,
+      groupName: group.name,
+      outgoingCoordinatorEmail: outgoingAssignment.email,
+      incomingCoordinatorEmail: incomingUser.email
+    };
+  });
+}
+
+export async function listMyCoordinatorHandovers(coordinatorId: string) {
+  return db
+    .select({
+      id: cdsGroupHandovers.id,
+      groupId: cdsGroupHandovers.cdsGroupId,
+      groupCode: cdsGroups.code,
+      groupName: cdsGroups.name,
+      outgoingCoordinatorEmail: cdsGroupHandovers.outgoingCoordinatorEmail,
+      incomingCoordinatorEmail: cdsGroupHandovers.incomingCoordinatorEmail,
+      status: cdsGroupHandovers.status,
+      reason: cdsGroupHandovers.reason,
+      handoverNotes: cdsGroupHandovers.handoverNotes,
+      pendingActivities: cdsGroupHandovers.pendingActivities,
+      upcomingEvents: cdsGroupHandovers.upcomingEvents,
+      outstandingTasks: cdsGroupHandovers.outstandingTasks,
+      acceptanceNotes: cdsGroupHandovers.acceptanceNotes,
+      acceptedAt: cdsGroupHandovers.acceptedAt,
+      createdAt: cdsGroupHandovers.createdAt
+    })
+    .from(cdsGroupHandovers)
+    .innerJoin(cdsGroups, eq(cdsGroupHandovers.cdsGroupId, cdsGroups.id))
+    .where(eq(cdsGroupHandovers.incomingCoordinatorId, coordinatorId))
+    .orderBy(desc(cdsGroupHandovers.createdAt));
+}
+
+export async function acceptCoordinatorHandover(
+  handoverId: string,
+  coordinatorId: string,
+  input: AcceptCoordinatorHandoverInput
+) {
+  return db.transaction(async (tx) => {
+    const [handover] = await tx
+      .select({
+        id: cdsGroupHandovers.id,
+        groupId: cdsGroupHandovers.cdsGroupId,
+        incomingCoordinatorId: cdsGroupHandovers.incomingCoordinatorId,
+        status: cdsGroupHandovers.status
+      })
+      .from(cdsGroupHandovers)
+      .where(eq(cdsGroupHandovers.id, handoverId))
+      .for('update')
+      .limit(1);
+
+    if (!handover || handover.incomingCoordinatorId !== coordinatorId) {
+      throw new CoordinatorServiceError(
+        'Handover not found for your coordinator account.',
+        404,
+        'HANDOVER_NOT_FOUND'
+      );
+    }
+    if (handover.status !== 'pending_acceptance') {
+      throw new CoordinatorServiceError(
+        'This handover is no longer awaiting acceptance.',
+        409,
+        'HANDOVER_NOT_PENDING'
+      );
+    }
+
+    const roleId = await getCoordinatorRoleId(tx);
+    const [assignment] = await tx
+      .select({ id: userRoleAssignments.id })
+      .from(userRoleAssignments)
+      .where(and(
+        eq(userRoleAssignments.userId, coordinatorId),
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.cdsGroupId, handover.groupId),
+        eq(userRoleAssignments.isActive, true)
+      ))
+      .limit(1);
+
+    if (!assignment) {
+      throw new CoordinatorServiceError(
+        'Your active assignment to this CDS group is required to accept its handover.',
+        403,
+        'HANDOVER_GROUP_ASSIGNMENT_REQUIRED'
+      );
+    }
+
+    const acceptedAt = new Date();
+    await tx
+      .update(cdsGroupHandovers)
+      .set({
+        status: 'accepted',
+        acceptanceNotes: input.acceptanceNotes || null,
+        acceptedByUserId: coordinatorId,
+        acceptedAt,
+        updatedAt: acceptedAt
+      })
+      .where(eq(cdsGroupHandovers.id, handoverId));
+
+    return {
+      handoverId,
+      status: 'accepted',
+      acceptedAt
     };
   });
 }
