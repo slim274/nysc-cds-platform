@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import LgiSidebar from '#lib/components/LgiSidebar.svelte';
   import { goto } from '$app/navigation';
 
   import {
@@ -113,82 +114,7 @@
 
   <div class="dashboard">
 
-    {#if mobileNavOpen}
-      <button
-        class="sidebar-backdrop"
-        type="button"
-        aria-label="Close navigation menu"
-        onclick={closeMobileNavigation}
-      ></button>
-    {/if}
-
-    <aside id="lgi-sidebar" class="sidebar" class:open={mobileNavOpen} aria-label="LGI administration">
-
-      <div class="brand">
-        <div class="brand-icon">N</div>
-
-        <div>
-          <h2>NYSC CDS</h2>
-          <span>Management Platform</span>
-        </div>
-
-        <button
-          class="sidebar-close"
-          type="button"
-          aria-label="Close navigation menu"
-          onclick={closeMobileNavigation}
-        >
-          ×
-        </button>
-      </div>
-
-      <div class="nav-label">ADMINISTRATION</div>
-
-      <nav aria-label="Primary navigation">
-        {#each navigation as item}
-          {#if item.label === 'CDS Groups' || item.label === 'Course Catalogue' || item.label === 'CDS Coordinators'}
-            <a
-              href={item.label === 'CDS Groups'
-                ? '/lgi/cds-groups'
-                : item.label === 'Course Catalogue'
-                  ? '/lgi/course-catalogue'
-                  : '/lgi/coordinators'}
-              class="nav-item"
-              onclick={closeMobileNavigation}
-            >
-              <span class="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </a>
-          {:else}
-            <div class:active={item.active} class="nav-item">
-              <span class="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-
-              {#if !item.active}
-                <small>Soon</small>
-              {/if}
-            </div>
-          {/if}
-        {/each}
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="environment-status">
-          <span class="status-indicator"></span>
-          Development Environment
-        </div>
-
-        <button
-          class="sidebar-logout-button"
-          type="button"
-          onclick={handleLogout}
-          disabled={signingOut}
-        >
-          {signingOut ? 'Signing out...' : 'Sign out'}
-        </button>
-      </div>
-
-    </aside>
+    <LgiSidebar activePath="/lgi" open={mobileNavOpen} signingOut={signingOut} onClose={closeMobileNavigation} onSignOut={handleLogout} />
 
     <section class="main-content">
 
