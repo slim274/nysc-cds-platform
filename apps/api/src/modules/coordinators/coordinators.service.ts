@@ -68,11 +68,19 @@ async function getCoordinatorRoleId(executor: typeof db | any): Promise<string> 
   return role.id;
 }
 
+type ValidatedCdsGroup = {
+  id: string;
+  lgaId: string;
+  isActive: boolean;
+  name: string;
+  code: string;
+};
+
 async function validateGroups(
   executor: typeof db | any,
   groupIds: string[],
   lgaIds: string[]
-) {
+): Promise<ValidatedCdsGroup[]> {
   const groups = await executor
     .select({
       id: cdsGroups.id,
@@ -108,7 +116,7 @@ async function validateGroups(
     );
   }
 
-  return groups;
+  return groups as ValidatedCdsGroup[];
 }
 
 export async function listCoordinators(lgaIds: string[]) {
@@ -957,6 +965,7 @@ export async function cancelCoordinatorHandover(
         groupId: cdsGroupHandovers.cdsGroupId,
         outgoingCoordinatorId: cdsGroupHandovers.outgoingCoordinatorId,
         incomingCoordinatorId: cdsGroupHandovers.incomingCoordinatorId,
+        incomingWasStandby: cdsGroupHandovers.incomingWasStandby,
         status: cdsGroupHandovers.status,
         lgaId: cdsGroups.lgaId
       })
