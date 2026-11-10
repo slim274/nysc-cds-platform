@@ -525,6 +525,7 @@ export interface CorpsMemberRecord {
   institutionName: string | null;
   courseName: string | null;
   profileStatus: CorpsProfileStatus;
+  hasPassportPhoto: boolean;
   createdAt: string;
   updatedAt: string;
 }
