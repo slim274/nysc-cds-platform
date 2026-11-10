@@ -5,10 +5,14 @@
     ApiError,
     getCurrentUser,
     getCorpsMemberPortal,
+    getCorpsMemberDocuments,
+    uploadCorpsMemberDocument,
     declineAssignedCdsGroup,
     logout,
     type CurrentUserResponse,
-    type CorpsMemberPortalData
+    type CorpsMemberPortalData,
+    type CorpsMemberDocumentDashboard,
+    type CorpsMemberDocumentRequirement
   } from '#lib/api/client.ts';
 
   type DeclineReason =
@@ -20,6 +24,8 @@
 
   let session = $state<CurrentUserResponse | null>(null);
   let portal = $state<CorpsMemberPortalData | null>(null);
+  let documentDashboard = $state<CorpsMemberDocumentDashboard | null>(null);
+  let uploadingRequirementId = $state('');
   let loading = $state(true);
   let saving = $state(false);
   let declineOpen = $state(false);
@@ -43,7 +49,7 @@
         return;
       }
       session = current;
-      portal = await getCorpsMemberPortal();
+      await loadMemberData();
     } catch (error) {
       if (error instanceof ApiError && error.status !== 401) {
         errorMessage = error.message;
@@ -53,6 +59,52 @@
     } finally {
       loading = false;
     }
+  }
+
+  async function loadMemberData() {
+    const [portalData, documentsData] = await Promise.all([
+      getCorpsMemberPortal(),
+      getCorpsMemberDocuments()
+    ]);
+    portal = portalData;
+    documentDashboard = documentsData;
+  }
+
+  async function uploadDocument(requirement: CorpsMemberDocumentRequirement, event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    uploadingRequirementId = requirement.id;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      const result = await uploadCorpsMemberDocument(requirement.id, file);
+      if (result.matching?.assigned && result.matching.groupName) {
+        noticeMessage = `Your document was verified and you have been automatically matched to ${result.matching.groupName}.`;
+      } else if (result.status === 'verified') {
+        noticeMessage = 'Document verified. The system will match your course after every mandatory document is verified.';
+      } else if (result.status === 'needs_resubmission') {
+        noticeMessage = 'This document did not pass verification. Read the verification note and upload a corrected copy.';
+      } else {
+        noticeMessage = 'Document received. It has been sent for exception review before CDS matching can continue.';
+      }
+      await loadMemberData();
+    } catch (error) {
+      errorMessage = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to upload this document.';
+    } finally {
+      uploadingRequirementId = '';
+      input.value = '';
+    }
+  }
+
+  function documentStatusLabel(status: string | undefined) {
+    if (!status) return 'Not submitted';
+    if (status === 'verified') return 'AI verified';
+    if (status === 'needs_resubmission') return 'Resubmission required';
+    if (status === 'manual_review') return 'Exception review';
+    return 'Verifying';
   }
 
   async function submitDecline(event: SubmitEvent) {
@@ -71,7 +123,7 @@
       declineOpen = false;
       declineNotes = '';
       noticeMessage = `Your assignment to ${declinedGroupName} has been declined. Your LGI can now place you in another suitable CDS group.`;
-      await loadPortal();
+      await loadMemberData();
     } catch (error) {
       errorMessage = error instanceof ApiError || error instanceof Error
         ? error.message
@@ -142,6 +194,63 @@
       <article class="summary-item"><span>Academic Course</span><strong>{portal.member.courseName ?? 'Not recorded'}</strong></article>
     </section>
 
+    {#if documentDashboard}
+      <section class="documents-card">
+        <div class="documents-heading">
+          <div>
+            <span class="eyebrow">DOCUMENT CHECKLIST</span>
+            <h2>Required documents</h2>
+            <p>{documentDashboard.message}</p>
+          </div>
+          {#if documentDashboard.requiredDocumentsVerified}
+            <span class="documents-complete">REQUIREMENTS VERIFIED</span>
+          {/if}
+        </div>
+
+        {#if documentDashboard.requirements.length === 0}
+          <div class="documents-empty">Your LGI has not configured the required documents for this LGA yet. You can continue using your account while the checklist is prepared.</div>
+        {:else}
+          <div class="document-list">
+            {#each documentDashboard.requirements as requirement (requirement.id)}
+              <article class="document-row">
+                <div class="document-copy">
+                  <div class="document-title">
+                    <strong>{requirement.name}</strong>
+                    <span class:optional={!requirement.isRequired} class="required-badge">{requirement.isRequired ? 'Mandatory' : 'Optional'}</span>
+                  </div>
+                  {#if requirement.description}<p>{requirement.description}</p>{/if}
+                  <small>Accepted: {requirement.allowedMimeTypes.replaceAll('application/pdf','PDF').replaceAll('image/jpeg','JPEG').replaceAll('image/png','PNG')} · Max {Math.round(requirement.maxFileSizeBytes / (1024 * 1024))} MB</small>
+                  {#if requirement.submission}
+                    <div class="submission-detail">
+                      <span class:status-verified={requirement.submission.status === 'verified'} class:status-warning={requirement.submission.status === 'manual_review' || requirement.submission.status === 'needs_resubmission'} class="submission-status">{documentStatusLabel(requirement.submission.status)}</span>
+                      <span>{requirement.submission.originalFileName} · {new Date(requirement.submission.submittedAt).toLocaleDateString()}</span>
+                    </div>
+                    {#if requirement.submission.verificationReason}
+                      <p class="verification-note">{requirement.submission.verificationReason}</p>
+                    {/if}
+                  {:else}
+                    <div class="submission-detail"><span class="submission-status status-missing">Not submitted</span></div>
+                  {/if}
+                </div>
+                {#if requirement.canResubmit}
+                  <label class="document-upload">
+                    {uploadingRequirementId === requirement.id ? 'Uploading…' : requirement.submission ? 'Upload corrected copy' : 'Upload document'}
+                    <input type="file" accept={requirement.allowedMimeTypes} onchange={(event) => void uploadDocument(requirement, event)} disabled={Boolean(uploadingRequirementId)} />
+                  </label>
+                {:else}
+                  <span class="verified-mark">✓ Verified</span>
+                {/if}
+              </article>
+            {/each}
+          </div>
+        {/if}
+        <div class="matching-note">
+          <strong>Automatic CDS matching</strong>
+          <span>Your academic course is matched to an eligible CDS group only after all mandatory documents have passed verification.</span>
+        </div>
+      </section>
+    {/if}
+
     {#if portal.cdsGroup}
       <section class="group-card">
         <div class="group-card-header">
@@ -202,10 +311,14 @@
         <div class="unassigned-icon">◎</div>
         <span class="eyebrow">CDS PLACEMENT PENDING</span>
         <h2>You haven't been assigned to a CDS group yet</h2>
-        <p>Automatic matching could not find an eligible group with available capacity for your LGA and academic course. Your account is active; your LGI can review the exception and place you in a suitable group.</p>
+        <p>{documentDashboard?.requiredDocumentsVerified
+          ? 'Your mandatory documents are verified. The system could not find an eligible group with available capacity for your academic course. Your LGI can review the exception.'
+          : 'Complete the required document checklist above. Once every mandatory document is verified, the system will match your academic course to an eligible CDS group automatically.'}</p>
         <div class="unassigned-detail">
           <span>What happens next?</span>
-          <strong>Your LGI can manually assign you to an eligible group.</strong>
+          <strong>{documentDashboard?.requiredDocumentsVerified
+            ? 'Your LGI can review the unassigned case and use manual placement only if needed.'
+            : 'Submit your required documents. You do not need to select a CDS group yourself.'}</strong>
         </div>
       </section>
     {/if}
@@ -304,6 +417,36 @@
   .unassigned-detail { display: grid; gap: 5px; width: min(100%, 530px); padding: 14px; margin: 20px auto 0; border-radius: 9px; background: #f3f7f4; text-align: left; }
   .unassigned-detail span { color: #718078; font-size: 10px; }
   .unassigned-detail strong { color: #245c3c; font-size: 11px; }
+
+  .documents-card { width: min(100%, 1120px); padding: 24px; margin: 0 auto 18px; border: 1px solid #e4ebe6; border-radius: 14px; background: #fff; }
+  .documents-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+  .documents-heading h2 { margin: 7px 0 5px; font-size: 18px; color: #183d29; }
+  .documents-heading p { max-width: 700px; margin: 0; color: #718078; font-size: 11px; line-height: 1.6; }
+  .documents-complete { padding: 7px 10px; border-radius: 18px; background: #e8f5ec; color: #0a6841; font-size: 8px; font-weight: 800; white-space: nowrap; }
+  .document-list { display: grid; }
+  .document-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 2px; border-bottom: 1px solid #edf1ed; }
+  .document-row:last-child { border-bottom: 0; }
+  .document-copy { display: grid; gap: 6px; min-width: 0; }
+  .document-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .document-title strong { color: #263d30; font-size: 11px; }
+  .required-badge { padding: 4px 7px; border-radius: 14px; background: #fff1e9; color: #92521e; font-size: 8px; font-weight: 800; }
+  .required-badge.optional { background: #f0f3f1; color: #66756b; }
+  .document-copy p { margin: 0; color: #718078; font-size: 10px; line-height: 1.5; }
+  .document-copy small { color: #89948c; font-size: 9px; }
+  .submission-detail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #819087; font-size: 9px; }
+  .submission-status { padding: 5px 8px; border-radius: 14px; background: #f0f3f1; color: #66756b; font-size: 8px; font-weight: 800; }
+  .submission-status.status-verified { background: #e8f5ec; color: #0a6841; }
+  .submission-status.status-warning { background: #fff3e5; color: #92571b; }
+  .submission-status.status-missing { background: #fff1e9; color: #92521e; }
+  .verification-note { max-width: 760px; color: #96622e !important; font-size: 9px !important; }
+  .document-upload { position: relative; flex: 0 0 auto; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 8px 11px; border: 1px solid #dce5de; border-radius: 7px; background: #fff; color: #355442; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .document-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .document-upload:has(input:disabled) { opacity: .55; cursor: wait; }
+  .verified-mark { padding: 8px 10px; color: #0a6841; font-size: 9px; font-weight: 800; white-space: nowrap; }
+  .documents-empty { padding: 18px; border: 1px dashed #dce7de; border-radius: 8px; background: #fafcfa; color: #718078; font-size: 10px; line-height: 1.6; }
+  .matching-note { display: grid; gap: 5px; padding: 13px 15px; margin-top: 14px; border-radius: 9px; background: #f3f7f4; }
+  .matching-note strong { color: #245c3c; font-size: 10px; }
+  .matching-note span { color: #718078; font-size: 9px; line-height: 1.5; }
   .coming-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
   .coming-grid article { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
   .coming-icon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; background: #edf5ef; color: #0a6841; font-size: 14px; }
