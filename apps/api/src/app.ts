@@ -16,6 +16,10 @@ import {
   lgiCourseCatalogueRoutes
 } from './modules/course-catalogue/course-catalogue.routes';
 
+import {
+  coordinatorRoutes
+} from './modules/coordinators/coordinators.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -68,5 +72,8 @@ app.route('/lgi', lgiRoutes);
 
 // Shared course catalogue management for authorised LGI administrators.
 app.route('/lgi', lgiCourseCatalogueRoutes);
+
+// CDS Coordinator lifecycle and group assignments.
+app.route('/lgi', coordinatorRoutes);
 
 export default app;
