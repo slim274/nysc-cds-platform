@@ -229,6 +229,7 @@ export async function listCorpsMembers(
     institutionName: institutions.name,
     courseName: courses.name,
     profileStatus: corpsMembers.profileStatus,
+    passportObjectKey: corpsMembers.passportObjectKey,
     createdAt: corpsMembers.createdAt,
     updatedAt: corpsMembers.updatedAt
   })
