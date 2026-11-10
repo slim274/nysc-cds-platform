@@ -463,10 +463,10 @@ export async function createCoordinatorHandover(input: {
   pendingActivities: string[];
   upcomingEvents: string[];
   outstandingTasks: string[];
-}): Promise<CoordinatorHandover> {
+}): Promise<Pick<CoordinatorHandover, 'id' | 'status' | 'groupCode' | 'groupName' | 'outgoingCoordinatorEmail' | 'incomingCoordinatorEmail'>> {
   const response = await request<{
     success: boolean;
-    data: CoordinatorHandover;
+    data: Pick<CoordinatorHandover, 'id' | 'status' | 'groupCode' | 'groupName' | 'outgoingCoordinatorEmail' | 'incomingCoordinatorEmail'>;
   }>('/lgi/coordinators/handovers', {
     method: 'POST',
     body: JSON.stringify(input)
