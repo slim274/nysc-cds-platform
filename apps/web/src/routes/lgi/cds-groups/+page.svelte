@@ -11,6 +11,9 @@
     getCdsGroup,
     createCdsGroup,
     updateCdsGroup,
+    getCdsGroupRoster,
+    assignCdsGroupMember,
+    endCdsGroupMemberMembership,
     listLgiCourses,
     getCourseDisciplineLabel,
     logout
@@ -21,7 +24,8 @@
     CdsGroupSummary,
     CdsGroupReferenceData,
     CdsGroupDetail,
-    CreateCdsGroupInput
+    CreateCdsGroupInput,
+    CdsGroupRoster
   } from '#lib/api/client.ts';
 
   let currentUser = $state<AuthUser | null>(null);
@@ -40,6 +44,13 @@
   let statusFilter = $state('all');
   let courseSearch = $state('');
   let courseCategory = $state('all');
+  let rosterGroup = $state<CdsGroupSummary | null>(null);
+  let roster = $state<CdsGroupRoster | null>(null);
+  let rosterSearch = $state('');
+  let rosterLoading = $state(false);
+  let rosterSavingMemberId = $state('');
+  let rosterError = $state('');
+  let rosterNotice = $state('');
 
   let form = $state({
     lgaId: '',
@@ -259,6 +270,81 @@
     }
   }
 
+  async function openRoster(group: CdsGroupSummary) {
+    rosterGroup = group;
+    roster = null;
+    rosterSearch = '';
+    rosterError = '';
+    rosterNotice = '';
+    await loadRoster();
+  }
+
+  async function loadRoster() {
+    if (!rosterGroup) return;
+    rosterLoading = true;
+    rosterError = '';
+    try {
+      roster = await getCdsGroupRoster(rosterGroup.id, rosterSearch);
+      groups = groups.map((group) => group.id === rosterGroup?.id
+        ? { ...group, currentMemberCount: roster!.group.currentMemberCount, availableCapacity: roster!.group.availableCapacity }
+        : group);
+    } catch (error) {
+      rosterError = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to load the group roster.';
+    } finally {
+      rosterLoading = false;
+    }
+  }
+
+  async function assignMember(memberId: string) {
+    if (!rosterGroup) return;
+    rosterSavingMemberId = memberId;
+    rosterError = '';
+    rosterNotice = '';
+    try {
+      await assignCdsGroupMember(rosterGroup.id, memberId);
+      rosterNotice = 'Corps Member assigned successfully.';
+      await loadRoster();
+      await loadGroups();
+    } catch (error) {
+      rosterError = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to assign this Corps Member.';
+    } finally {
+      rosterSavingMemberId = '';
+    }
+  }
+
+  async function removeMember(memberId: string) {
+    if (!rosterGroup) return;
+    const confirmed = window.confirm('End this Corps Member’s active membership in the selected CDS group?');
+    if (!confirmed) return;
+    rosterSavingMemberId = memberId;
+    rosterError = '';
+    rosterNotice = '';
+    try {
+      await endCdsGroupMemberMembership(rosterGroup.id, memberId);
+      rosterNotice = 'Membership ended. The member can now be assigned to another eligible CDS group.';
+      await loadRoster();
+      await loadGroups();
+    } catch (error) {
+      rosterError = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to end this membership.';
+    } finally {
+      rosterSavingMemberId = '';
+    }
+  }
+
+  function closeRoster() {
+    if (rosterSavingMemberId) return;
+    rosterGroup = null;
+    roster = null;
+    rosterError = '';
+    rosterNotice = '';
+  }
+
   function capacityPercent(group: CdsGroupSummary) {
     return Math.min(100, Math.round((group.currentMemberCount / group.maxCapacity) * 100));
   }
@@ -392,6 +478,7 @@
 
                   <div class="card-actions">
                     <button type="button" class="secondary-button" onclick={() => void openEditForm(group)}>View / Edit</button>
+                    <button type="button" class="primary-button" onclick={() => void openRoster(group)}>Manage members</button>
                   </div>
                 </article>
               {/each}
@@ -521,7 +608,132 @@
   </div>
 {/if}
 
+{#if rosterGroup}
+  <div class="modal-layer roster-layer">
+    <button class="modal-scrim" type="button" aria-label="Close member roster" onclick={closeRoster}></button>
+    <section class="group-modal roster-modal" role="dialog" aria-modal="true" aria-labelledby="roster-title">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">CDS GROUP ROSTER</span>
+          <h2 id="roster-title">{rosterGroup.name}</h2>
+          <p>{rosterGroup.code} · {rosterGroup.lgaName}, {rosterGroup.stateName}</p>
+        </div>
+        <button class="modal-close" type="button" aria-label="Close roster" onclick={closeRoster} disabled={Boolean(rosterSavingMemberId)}>×</button>
+      </div>
+
+      {#if rosterError}<div class="inline-error" role="alert">{rosterError}</div>{/if}
+      {#if rosterNotice}<div class="roster-success" role="status">{rosterNotice}</div>{/if}
+
+      {#if roster}
+        <div class="roster-summary">
+          <div><span>Active members</span><strong>{roster.group.currentMemberCount} / {roster.group.maxCapacity}</strong></div>
+          <div><span>Available spaces</span><strong>{roster.group.availableCapacity}</strong></div>
+          <div><span>Eligible to add</span><strong>{roster.eligibleMembers.length}</strong></div>
+        </div>
+
+        <section class="roster-section">
+          <div class="roster-section-heading">
+            <div><h3>Current members</h3><p>Active Corps Members assigned to this group.</p></div>
+          </div>
+          {#if roster.members.length === 0}
+            <div class="roster-empty">No Corps Members have been assigned to this group yet.</div>
+          {:else}
+            <div class="roster-list">
+              {#each roster.members as member (member.membershipId)}
+                <article class="roster-row">
+                  <div class="roster-person">
+                    <strong>{member.lastName}, {member.firstName} {member.middleName ?? ''}</strong>
+                    <span>{member.stateCode} · {member.courseName ?? 'Course not recorded'}</span>
+                    <small>Added {new Date(member.assignedAt).toLocaleDateString()}</small>
+                  </div>
+                  <div class="roster-actions">
+                    <span class="roster-status">{member.profileStatus}</span>
+                    <button class="text-danger" type="button" onclick={() => void removeMember(member.memberId)} disabled={Boolean(rosterSavingMemberId)}>
+                      {rosterSavingMemberId === member.memberId ? 'Updating…' : 'End membership'}
+                    </button>
+                  </div>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+
+        <section class="roster-section">
+          <div class="roster-section-heading">
+            <div><h3>Add Corps Members</h3><p>Only unassigned members in this LGA whose course matches this group’s eligibility are listed.</p></div>
+          </div>
+          <form class="roster-search" onsubmit={(event) => { event.preventDefault(); void loadRoster(); }}>
+            <input bind:value={rosterSearch} placeholder="Search by name or state code…" aria-label="Search eligible Corps Members" />
+            <button class="secondary-button" type="submit" disabled={rosterLoading}>Search</button>
+          </form>
+          {#if !roster.group.isActive}
+            <div class="roster-empty">This group is inactive. Reactivate it before adding members.</div>
+          {:else if roster.group.availableCapacity <= 0}
+            <div class="roster-empty">This group has reached its maximum capacity.</div>
+          {:else if roster.eligibleMembers.length === 0}
+            <div class="roster-empty">No eligible unassigned Corps Members found. Check their LGA, academic course and profile status.</div>
+          {:else}
+            <div class="roster-list eligible-list">
+              {#each roster.eligibleMembers as member (member.id)}
+                <article class="roster-row">
+                  <div class="roster-person">
+                    <strong>{member.lastName}, {member.firstName} {member.middleName ?? ''}</strong>
+                    <span>{member.stateCode} · {member.courseName ?? 'Course not recorded'}</span>
+                    <small>Profile: {member.profileStatus}</small>
+                  </div>
+                  <button class="primary-button add-member-button" type="button" onclick={() => void assignMember(member.id)} disabled={Boolean(rosterSavingMemberId)}>
+                    {rosterSavingMemberId === member.id ? 'Adding…' : 'Add to group'}
+                  </button>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {:else if rosterLoading}
+        <div class="roster-empty">Loading group roster…</div>
+      {/if}
+
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" onclick={closeRoster} disabled={Boolean(rosterSavingMemberId)}>Close</button>
+      </div>
+    </section>
+  </div>
+{/if}
+
 <style>
+  .roster-modal { width: min(100%, 900px); }
+  .roster-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+  .roster-summary > div { display: grid; gap: 6px; padding: 13px 15px; border: 1px solid #e7eee8; border-radius: 9px; background: #f8fbf8; }
+  .roster-summary span { color: #718078; font-size: 10px; }
+  .roster-summary strong { color: #0a5c37; font-size: 19px; }
+  .roster-section { margin-top: 21px; }
+  .roster-section-heading h3 { margin: 0 0 4px; color: #1d3426; font-size: 14px; }
+  .roster-section-heading p { margin: 0 0 12px; color: #819087; font-size: 10px; line-height: 1.5; }
+  .roster-list { display: grid; border: 1px solid #e8eee9; border-radius: 9px; overflow: hidden; }
+  .roster-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #edf1ed; }
+  .roster-row:last-child { border-bottom: 0; }
+  .roster-person { display: grid; gap: 4px; min-width: 0; }
+  .roster-person strong { color: #263d30; font-size: 11px; }
+  .roster-person span, .roster-person small { color: #718078; font-size: 9px; overflow-wrap: anywhere; }
+  .roster-actions { display: flex; align-items: center; gap: 12px; }
+  .roster-status { padding: 5px 8px; border-radius: 14px; background: #edf6ef; color: #16633b; font-size: 8px; font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+  .text-danger { border: 0; background: transparent; color: #a33b32; font-size: 9px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .text-danger:disabled { opacity: .5; cursor: wait; }
+  .roster-search { display: flex; gap: 8px; margin-bottom: 10px; }
+  .roster-search input { flex: 1; min-width: 0; min-height: 40px; padding: 9px 12px; border: 1px solid #dce5de; border-radius: 8px; font-size: 11px; }
+  .roster-search button { min-width: 90px; }
+  .add-member-button { min-height: 35px; padding: 8px 11px; font-size: 9px; white-space: nowrap; }
+  .roster-empty { padding: 18px 14px; border: 1px dashed #dce7de; border-radius: 8px; background: #fafcfa; color: #718078; font-size: 10px; line-height: 1.6; text-align: center; }
+  .roster-success { padding: 10px 12px; margin-top: 14px; border: 1px solid #cce6d3; border-radius: 8px; background: #eef8f0; color: #16633b; font-size: 10px; }
+  @media (max-width: 600px) {
+    .roster-summary { grid-template-columns: 1fr; }
+    .roster-row { align-items: flex-start; flex-direction: column; }
+    .roster-actions { width: 100%; justify-content: space-between; }
+    .add-member-button { width: 100%; }
+    .roster-search { flex-direction: column; }
+    .roster-search button { width: 100%; }
+  }
+
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; overflow-x: hidden; background: #f5f7f5; color: #19251e; font-family: Inter, Arial, sans-serif; }
   :global(button), :global(input), :global(select), :global(textarea) { font: inherit; }
