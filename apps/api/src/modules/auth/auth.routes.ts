@@ -9,7 +9,10 @@ import {
 import {
   activateAccountSchema,
   loginSchema,
-  verifyCorpsMemberIdentitySchema
+  verifyCorpsMemberIdentitySchema,
+  sendCorpsMemberOtpSchema,
+  verifyCorpsMemberOtpSchema,
+  registerCorpsMemberSchema
 } from './schemas/auth.schema';
 
 import {
@@ -28,6 +31,14 @@ import {
   SESSION_COOKIE,
   SESSION_TTL_SECONDS
 } from './services/session.service';
+
+import {
+  sendCorpsMemberOtp,
+  verifyCorpsMemberOtp,
+  registerCorpsMemberAccount
+} from './services/corps-member-otp.service';
+
+import { hashPassword } from './utils/password';
 
 import {
   requireAuth,
@@ -115,6 +126,129 @@ authRoutes.post('/verify-corps-member', async (c) => {
     return c.json({
       success: false,
       message: 'Unable to process identity verification.'
+    }, 500);
+  }
+});
+
+// Send (or safely resend) a one-time code to the contact already on the matched member record.
+authRoutes.post('/send-corps-member-otp', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = sendCorpsMemberOtpSchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({ success: false, message: 'Invalid OTP request.' }, 400);
+  }
+
+  try {
+    await sendCorpsMemberOtp(validation.data.challengeToken, validation.data.channel);
+    return c.json({
+      success: true,
+      message: 'If the identity details matched an eligible record with the selected contact method, a verification code has been sent.'
+    }, 202);
+  } catch (error) {
+    console.error('Corps member OTP request failed:', error);
+    return c.json({
+      success: false,
+      message: 'Unable to process the verification request.'
+    }, 503);
+  }
+});
+
+// Verify the one-time code. The identity challenge remains the registration credential.
+authRoutes.post('/verify-corps-member-otp', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = verifyCorpsMemberOtpSchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({ success: false, message: 'Enter the six-digit verification code.' }, 400);
+  }
+
+  try {
+    const verified = await verifyCorpsMemberOtp(
+      validation.data.challengeToken,
+      validation.data.code
+    );
+
+    if (!verified) {
+      return c.json({
+        success: false,
+        message: 'The verification code is invalid, expired, or unavailable.'
+      }, 400);
+    }
+
+    return c.json({
+      success: true,
+      message: 'Contact verification completed. You can now create your account.'
+    });
+  } catch (error) {
+    console.error('Corps member OTP verification failed:', error);
+    return c.json({ success: false, message: 'Unable to verify the code.' }, 503);
+  }
+});
+
+// Create the account and link it to the existing corps member record atomically.
+authRoutes.post('/register-corps-member', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = registerCorpsMemberSchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({
+      success: false,
+      message: 'Choose a password containing at least 12 characters.'
+    }, 400);
+  }
+
+  try {
+    const passwordHash = await hashPassword(validation.data.password);
+    const user = await registerCorpsMemberAccount(
+      validation.data.challengeToken,
+      passwordHash
+    );
+
+    const session = await createSession(user.id, c.req.header('user-agent'));
+
+    setCookie(c, SESSION_COOKIE, session.token, {
+      httpOnly: true,
+      secure: Bun.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: SESSION_TTL_SECONDS,
+      expires: session.expiresAt
+    });
+
+    return c.json({
+      success: true,
+      message: 'Your Corps Member account has been created.',
+      user,
+      expiresAt: session.expiresAt.toISOString()
+    }, 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? String(error.code)
+      : '';
+
+    if (code === '23505') {
+      return c.json({
+        success: false,
+        message: 'The registered email address or phone number is already associated with an account. Contact your LGI.'
+      }, 409);
+    }
+
+    if (message.startsWith('REGISTRATION_')) {
+      const conflict = message === 'REGISTRATION_MEMBER_UNAVAILABLE';
+      return c.json({
+        success: false,
+        message: conflict
+          ? 'This Corps Member record is no longer available for registration.'
+          : 'Registration cannot continue. Check your verification code and registered contact details.'
+      }, conflict ? 409 : 400);
+    }
+
+    console.error('Corps member account registration failed:', error);
+    return c.json({
+      success: false,
+      message: 'Unable to create the Corps Member account.'
     }, 500);
   }
 });
