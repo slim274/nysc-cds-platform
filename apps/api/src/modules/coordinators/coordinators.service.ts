@@ -3,6 +3,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull
 } from 'drizzle-orm';
 
@@ -677,6 +678,7 @@ export async function createCoordinatorHandover(
         eq(userRoleAssignments.userId, incomingUser.id),
         eq(userRoleAssignments.roleId, roleId),
         eq(userRoleAssignments.lgaId, group.lgaId),
+        isNotNull(userRoleAssignments.cdsGroupId),
         eq(userRoleAssignments.isActive, true)
       ))
       .limit(1);
