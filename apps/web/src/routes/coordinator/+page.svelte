@@ -104,7 +104,7 @@
               <h3>{group.name}</h3>
               <p class="location">{group.lgaName}, {group.stateName}</p>
               {#if group.description}<p class="description">{group.description}</p>{:else}<p class="description">No group description has been added.</p>{/if}
-              <div class="capacity"><div><span>Members</span><strong>{group.currentMemberCount} / {group.maxCapacity}</strong></div><div class="bar"><span style:width="{Math.min(100, group.maxCapacity > 0 ? group.currentMemberCount / group.maxCapacity * 100 : 0)}%"></span></div><small>{group.availableCapacity} spaces available</small></div>
+              <div class="capacity"><div><span>Members</span><strong>{group.currentMemberCount} / {group.maxCapacity}</strong></div><div class="bar"><span style="width: {Math.min(100, group.maxCapacity > 0 ? group.currentMemberCount / group.maxCapacity * 100 : 0)}%"></span></div><small>{group.availableCapacity} spaces available</small></div>
               <a class="card-link" href="/coordinator/groups/{group.id}">View group details <span aria-hidden="true">→</span></a>
             </article>
           {/each}
