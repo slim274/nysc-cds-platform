@@ -21,6 +21,10 @@ import {
   coordinatorSelfServiceRoutes
 } from './modules/coordinators/coordinators.routes';
 
+import {
+  coordinatorWorkspaceRoutes
+} from './modules/coordinators/coordinator-workspace.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -78,6 +82,7 @@ app.route('/lgi', lgiCourseCatalogueRoutes);
 app.route('/lgi', coordinatorRoutes);
 
 // Coordinator-facing handover inbox and acceptance.
-app.route('/coordinator', coordinatorSelfServiceRoutes);\napp.route('/coordinator', coordinatorWorkspaceRoutes);
+app.route('/coordinator', coordinatorSelfServiceRoutes);
+app.route('/coordinator', coordinatorWorkspaceRoutes);
 
 export default app;
