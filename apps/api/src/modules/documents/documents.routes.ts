@@ -223,7 +223,7 @@ lgiDocumentRoutes.get('/document-submissions/:submissionId/file', async (c) => {
   try {
     const file = await getDocumentSubmissionFileForLgi(id.data, getAssignedLgaIds(c));
     setPrivateFileHeaders(c, file.contentType, file.fileName);
-    return c.body(file.bytes);
+    return c.body(file.bytes.buffer.slice(file.bytes.byteOffset, file.bytes.byteOffset + file.bytes.byteLength) as ArrayBuffer);
   } catch (error) {
     return handleDocumentError(c, error);
   }
@@ -291,11 +291,14 @@ corpsMemberDocumentRoutes.post('/documents/:requirementId', async (c) => {
       file.type,
       file.name
     );
-    const assigned = result.matching?.assigned === true;
+    const assignedGroupName =
+      result.matching && result.matching.assigned
+        ? result.matching.groupName
+        : null;
     return c.json({
       success: true,
-      message: assigned
-        ? `Document verified. You have been automatically matched to ${result.matching.groupName}.`
+      message: assignedGroupName
+        ? `Document verified. You have been automatically matched to ${assignedGroupName}.`
         : result.status === 'verified'
           ? 'Document verified. Your other mandatory documents will be checked before CDS matching.'
           : result.status === 'needs_resubmission'
