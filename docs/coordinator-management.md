@@ -61,7 +61,7 @@ Suspended accounts cannot be reactivated through the coordinator management scre
 
 ## API
 
-All endpoints require an authenticated `LGI_ADMIN` account with at least one active LGA assignment.
+The `/lgi/coordinators...` endpoints require an authenticated `LGI_ADMIN` account with at least one active LGA assignment. The `/coordinator/handovers` endpoints require an authenticated `CDS_COORDINATOR` account; the API restricts handover records to the authenticated incoming Coordinator and verifies their active group assignment before acceptance.
 
 - `GET /lgi/coordinators` — list coordinators and their assignment history within the caller's LGA scope.
 - `POST /lgi/coordinators` — create/invite a coordinator or extend an existing coordinator's group assignments.
@@ -76,7 +76,13 @@ The API validates every group against the caller's assigned LGA(s). It rejects i
 
 ## Local development
 
-Apply the new `0004_cds_group_handovers` migration before testing the handover screens. Start the API and web app, sign in as an LGI administrator, open `/lgi/coordinators`, and use **Transfer responsibility** on an active group assignment. The incoming Coordinator must already have an active account and Coordinator role assignment in the same LGA. Sign in as that Coordinator to review and accept the handover at `/coordinator/handovers`.
+Apply the new `0004_cds_group_handovers` migration before testing the handover screens:
+
+```bash
+bun run --filter @nysc/database db:migrate
+```
+
+Start the API and web app, sign in as an LGI administrator, open `/lgi/coordinators`, and use **Transfer responsibility** on an active group assignment. The incoming Coordinator must already have an active account and Coordinator role assignment in the same LGA. Sign in as that Coordinator to review and accept the handover at `/coordinator/handovers`.
 
 The transfer changes the active assignment immediately when the LGI submits it; acceptance records that the incoming Coordinator has reviewed and acknowledged the handover. Do not interpret acceptance as an NYSC clearance or official approval.
 
