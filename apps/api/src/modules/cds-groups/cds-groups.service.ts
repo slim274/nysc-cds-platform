@@ -29,6 +29,8 @@ import type {
   UpdateCdsGroupInput
 } from './cds-groups.schema';
 
+import { hasVerifiedMandatoryDocuments } from './cds-matching.service';
+
 export class CdsGroupServiceError extends Error {
   constructor(
     message: string,
@@ -533,7 +535,7 @@ export async function listCdsGroupMembers(
     const conditions = [
       eq(corpsMembers.lgaId, group.lgaId),
       inArray(corpsMembers.courseId, eligibleCourseIds),
-      ne(corpsMembers.profileStatus, 'rejected'),
+      eq(corpsMembers.profileStatus, 'approved'),
       notExists(
         db
           .select({ id: cdsGroupMemberships.id })
@@ -682,6 +684,19 @@ export async function assignCdsGroupMember(
         'A rejected Corps Member profile cannot be assigned to a CDS group.',
         409,
         'CORPS_MEMBER_PROFILE_REJECTED'
+      );
+    }
+
+    const documentsVerified = await hasVerifiedMandatoryDocuments(
+      tx,
+      member.id,
+      group.lgaId
+    );
+    if (!documentsVerified) {
+      throw new CdsGroupServiceError(
+        'All mandatory documents must be verified before a Corps Member can be placed in a CDS group.',
+        409,
+        'CORPS_MEMBER_DOCUMENTS_NOT_VERIFIED'
       );
     }
 
