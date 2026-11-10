@@ -290,7 +290,7 @@
               <span class="eyebrow">DEVELOPMENT INVITATION</span>
               <h2>Activation token generated</h2>
               <p>Account: <strong>{activationEmail}</strong>. Email delivery is not configured in this development environment.</p>
-              <p>Share this one-time token securely. It expires after 24 hours and must not be committed or posted publicly.</p>
+              <p>Share this one-time token securely. It expires after 24 hours and must not be committed or posted publicly. The Coordinator workspace is a later implementation step; this screen currently manages invitations and group assignments.</p>
             </div>
             <code>{activationToken}</code>
             <div class="token-actions">
@@ -307,7 +307,7 @@
 
         <section class="summary-grid" aria-label="Coordinator summary">
           <article class="summary-card"><span>Coordinators</span><strong>{coordinators.length}</strong><small>Accounts assigned in your LGA scope</small></article>
-          <article class="summary-card"><span>Active accounts</span><strong>{coordinators.filter((item) => item.accountStatus === 'active').length}</strong><small>Can sign in and manage groups</small></article>
+          <article class="summary-card"><span>Active accounts</span><strong>{coordinators.filter((item) => item.accountStatus === 'active').length}</strong><small>Account credentials are activated</small></article>
           <article class="summary-card"><span>Pending activation</span><strong>{coordinators.filter((item) => item.accountStatus === 'pending_activation').length}</strong><small>Invitation awaiting activation</small></article>
           <article class="summary-card"><span>Assigned groups</span><strong>{coordinators.reduce((total, item) => total + item.assignments.filter((assignment) => assignment.isActive && assignment.groupId).length, 0)}</strong><small>Active coordinator-to-group assignments</small></article>
         </section>
@@ -357,7 +357,7 @@
 
         <section class="info-panel">
           <h3>Coordinator access rules</h3>
-          <p>Disabling an account revokes its active sessions but preserves group assignments. Reactivating restores access using the existing password. Group assignment changes are restricted to your assigned LGA(s).</p>
+          <p>Disabling an account revokes its active sessions and releases its groups while preserving inactive assignment history. Reactivating restores the account but does not reclaim groups; assign available groups again. All changes are restricted to your assigned LGA(s).</p>
         </section>
       </main>
 
