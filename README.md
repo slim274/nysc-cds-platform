@@ -124,11 +124,11 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | LGI course catalogue interface | Implemented on the development branch; local Svelte check and browser tests pending |
 | CSV catalogue import and template | Implemented on the development branch; local import tests pending |
 | LGI shared course catalogue and searchable CDS-group picker | Implemented on the development branch; local integration tests pending |
-| CDS Coordinator account management and group assignments | Implemented on the development branch; GitHub Actions API typecheck, Svelte checks and frontend build passed; email delivery and runtime integration tests remain pending |
+| CDS Coordinator account and group assignment management | Implemented on the development branch; GitHub Actions API typecheck, Svelte checks and frontend build passed; email delivery and runtime integration tests remain pending |\n| CDS group handover records, transfer and successor acknowledgement | Implemented on the development branch; migration, API and UI added; CI and runtime database testing pending |
 
 ## CDS Coordinator management
 
-LGI administrators manage Coordinator invitations, group assignments, account disable/reactivate and session revocation from `/lgi/coordinators`. Coordinators can be assigned to multiple groups within the LGI's assigned LGA scope; each active group has one active coordinator. Disabling an account releases its group assignments while preserving inactive history. See [Coordinator Management documentation](docs/coordinator-management.md) for lifecycle rules and remaining email-delivery work.
+LGI administrators manage Coordinator invitations, group assignments, account disable/reactivate and session revocation from `/lgi/coordinators`. Coordinators can be assigned to multiple groups within the LGI's assigned LGA scope; each active group has one active coordinator. Disabling an account releases its group assignments while preserving inactive history. For a unit-level resignation or replacement, the LGI can transfer an individual CDS group, record pending activities, upcoming events and outstanding tasks, and require the successor to acknowledge the handover from `/coordinator/handovers`. Group membership and historical records remain with the CDS group. The full group-operations workspace is still future work. See [Coordinator Management documentation](docs/coordinator-management.md) for lifecycle rules, handover details and remaining email-delivery work.
 
 ## Shared course catalogue
 
@@ -164,6 +164,6 @@ bun run --filter @nysc/api typecheck
 2. Generate, review and apply the course-alias migration, then run the development seed.
 3. Test LGI course catalogue management, CSV import and shared catalogue search from CDS Group Management.
 4. Polish CDS Group Management and the searchable course picker.
-5. Integrate email delivery and complete runtime tests for CDS Coordinator invitations, group assignment, disable/reactivate and session revocation.
+5. Integrate email delivery and complete runtime tests for CDS Coordinator invitations, group assignment, handover transfer/acceptance, disable/reactivate and session revocation.
 6. Build corps-member administration and NYSC cohort/reference-data management.
 7. Add Coordinator-scoped President designation, meeting attendance and reports.
