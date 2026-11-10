@@ -35,6 +35,8 @@ export const cdsGroupHandovers = pgTable(
 
     incomingCoordinatorEmail: varchar('incoming_coordinator_email', { length: 320 }).notNull(),
 
+    incomingWasStandby: boolean('incoming_was_standby').notNull().default(false),
+
     status: cdsHandoverStatusEnum('status')
       .notNull()
       .default('pending_acceptance'),
