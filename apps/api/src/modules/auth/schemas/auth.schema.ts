@@ -16,15 +16,32 @@ export const activateAccountSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string()
+  identifier: z.string()
     .trim()
-    .email()
+    .min(3, 'Enter your email address or phone number.')
     .max(320)
-    .transform((email) => email.toLowerCase()),
+    .transform((value) => value.includes('@') ? value.toLowerCase() : value),
 
   password: z.string()
     .min(1, 'Password is required')
     .max(128)
+});
+
+export const sendCorpsMemberOtpSchema = z.object({
+  challengeToken: z.string().regex(/^[a-f0-9]{64}$/i),
+  channel: z.enum(['email', 'sms'])
+});
+
+export const verifyCorpsMemberOtpSchema = z.object({
+  challengeToken: z.string().regex(/^[a-f0-9]{64}$/i),
+  code: z.string().regex(/^\\d{6}$/)
+});
+
+export const registerCorpsMemberSchema = z.object({
+  challengeToken: z.string().regex(/^[a-f0-9]{64}$/i),
+  password: z.string()
+    .min(12, 'Password must contain at least 12 characters')
+    .max(128, 'Password is too long')
 });
 
 const isValidPastDate = (value: string): boolean => {
@@ -50,3 +67,12 @@ export type ActivateAccountInput =
 
 export type LoginInput =
   z.infer<typeof loginSchema>;
+
+export type SendCorpsMemberOtpInput =
+  z.infer<typeof sendCorpsMemberOtpSchema>;
+
+export type VerifyCorpsMemberOtpInput =
+  z.infer<typeof verifyCorpsMemberOtpSchema>;
+
+export type RegisterCorpsMemberInput =
+  z.infer<typeof registerCorpsMemberSchema>;
