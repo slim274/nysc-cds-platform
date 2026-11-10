@@ -6,12 +6,18 @@ import {
   createCoordinator,
   listCoordinators,
   updateCoordinator,
+  listLgiCoordinatorHandovers,
+  createCoordinatorHandover,
+  listMyCoordinatorHandovers,
+  acceptCoordinatorHandover,
   CoordinatorServiceError
 } from './coordinators.service';
 
 import {
   createCoordinatorSchema,
-  updateCoordinatorSchema
+  updateCoordinatorSchema,
+  createCoordinatorHandoverSchema,
+  acceptCoordinatorHandoverSchema
 } from './coordinators.schema';
 
 import {
@@ -112,6 +118,90 @@ coordinatorRoutes.post('/coordinators', async (c) => {
         activationToken: isDevelopment ? result.activationToken : null
       }
     }, result.created ? 201 : 200);
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+
+  
+// Handover history and transfers are restricted to the LGI's assigned LGA(s).
+coordinatorRoutes.get('/coordinators/handovers', async (c) => {
+  try {
+    const data = await listLgiCoordinatorHandovers(getAssignedLgaIds(c));
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorRoutes.post('/coordinators/handovers', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = createCoordinatorHandoverSchema.safeParse(body);
+  if (!validation.success) {
+    return c.json({
+      success: false,
+      message: 'Invalid handover details.',
+      errors: validation.error.issues
+    }, 400);
+  }
+
+  try {
+    const data = await createCoordinatorHandover(
+      validation.data,
+      getAssignedLgaIds(c),
+      c.get('authUser').id
+    );
+    return c.json({
+      success: true,
+      message: 'Coordinator responsibility transferred. The incoming coordinator must review and accept the handover.',
+      data
+    }, 201);
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+// Coordinator-only handover inbox. The service filters by the authenticated user ID.
+export const coordinatorSelfServiceRoutes = new Hono<AuthEnv>();
+coordinatorSelfServiceRoutes.use('*', requireAuth, requireRole('CDS_COORDINATOR'));
+
+coordinatorSelfServiceRoutes.get('/handovers', async (c) => {
+  try {
+    const data = await listMyCoordinatorHandovers(c.get('authUser').id);
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorSelfServiceRoutes.post('/handovers/:handoverId/accept', async (c) => {
+  const id = coordinatorIdSchema.safeParse(c.req.param('handoverId'));
+  if (!id.success) {
+    return c.json({ success: false, message: 'Invalid handover ID.' }, 400);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const validation = acceptCoordinatorHandoverSchema.safeParse(body);
+  if (!validation.success) {
+    return c.json({
+      success: false,
+      message: 'Invalid handover acceptance details.',
+      errors: validation.error.issues
+    }, 400);
+  }
+
+  try {
+    const data = await acceptCoordinatorHandover(
+      id.data,
+      c.get('authUser').id,
+      validation.data
+    );
+    return c.json({
+      success: true,
+      message: 'Handover accepted. You are now recorded as having acknowledged the group responsibilities.',
+      data
+    });
   } catch (error) {
     return handleCoordinatorError(c, error);
   }
