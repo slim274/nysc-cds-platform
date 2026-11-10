@@ -4,6 +4,14 @@ const uuidSchema = z.string().uuid();
 
 const groupIdsSchema = z
   .array(uuidSchema)
+  .min(1, 'Select at least one CDS group.')
+  .max(50)
+  .refine((ids) => new Set(ids).size === ids.length, {
+    message: 'A CDS group can only be selected once.'
+  });
+
+const optionalGroupIdsSchema = z
+  .array(uuidSchema)
   .max(50)
   .refine((ids) => new Set(ids).size === ids.length, {
     message: 'A CDS group can only be selected once.'
@@ -15,9 +23,8 @@ export const createCoordinatorSchema = z.object({
     .email()
     .max(320)
     .transform((email) => email.toLowerCase()),
-  // An empty group list creates an LGA-scoped standby Coordinator.
-  // The Coordinator receives a CDS group assignment when selected as a successor.
-  groupIds: groupIdsSchema.default([]),
+  // Empty group list creates an LGA-scoped standby Coordinator.
+  groupIds: optionalGroupIdsSchema.default([]),
   lgaId: uuidSchema.optional()
 }).refine((input) => input.groupIds.length > 0 || Boolean(input.lgaId), {
   path: ['lgaId'],
