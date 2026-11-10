@@ -9,3 +9,4 @@ export * from './cds-groups';
 export * from './cds-group-handovers';
 export * from './user-role-assignments';
 export * from './course-aliases';
+export * from './corps-member-otp';
