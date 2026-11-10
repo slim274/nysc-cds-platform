@@ -31,6 +31,10 @@ export const users = pgTable(
       withTimezone: true
     }),
 
+    phoneVerifiedAt: timestamp('phone_verified_at', {
+      withTimezone: true
+    }),
+
     lastLoginAt: timestamp('last_login_at', {
       withTimezone: true
     }),
