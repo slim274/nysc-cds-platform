@@ -35,7 +35,7 @@
     { label: 'CDS Groups', icon: '◎', active: false },
     { label: 'Course Catalogue', icon: '▤', active: false },
     { label: 'Course Mapping', icon: '⌘', active: false },
-    { label: 'CDS Officials', icon: '♧', active: false },
+    { label: 'CDS Coordinators', icon: '♧', active: false },
     { label: 'Attendance', icon: '✓', active: false },
     { label: 'Monthly Clearance', icon: '▣', active: false },
     { label: 'Reports', icon: '▥', active: false }
@@ -146,9 +146,13 @@
 
       <nav aria-label="Primary navigation">
         {#each navigation as item}
-          {#if item.label === 'CDS Groups' || item.label === 'Course Catalogue'}
+          {#if item.label === 'CDS Groups' || item.label === 'Course Catalogue' || item.label === 'CDS Coordinators'}
             <a
-              href={item.label === 'CDS Groups' ? '/lgi/cds-groups' : '/lgi/course-catalogue'}
+              href={item.label === 'CDS Groups'
+                ? '/lgi/cds-groups'
+                : item.label === 'Course Catalogue'
+                  ? '/lgi/course-catalogue'
+                  : '/lgi/coordinators'}
               class="nav-item"
               onclick={closeMobileNavigation}
             >
@@ -276,6 +280,18 @@
             </p>
             <a class="feature-link" href="/lgi/course-catalogue">
               Manage course catalogue →
+            </a>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon purple">♧</div>
+            <h3>CDS Coordinators</h3>
+            <p>
+              Invite CDS Coordinators and assign them to
+              the groups they are responsible for.
+            </p>
+            <a class="feature-link" href="/lgi/coordinators">
+              Manage coordinators →
             </a>
           </article>
 
