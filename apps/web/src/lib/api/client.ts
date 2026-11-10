@@ -332,6 +332,56 @@ export async function endCdsGroupMemberMembership(
   );
 }
 
+export interface CorpsMemberPortalData {
+  member: {
+    id: string;
+    stateCode: string;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    lgaName: string | null;
+    courseName: string | null;
+  };
+  cdsGroup: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    source: 'automatic' | 'manual';
+    assignedAt: string;
+  } | null;
+  coordinator: {
+    userId: string;
+    email: string | null;
+  } | null;
+  president: {
+    userId: string;
+    email: string | null;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    stateCode: string;
+  } | null;
+}
+
+export async function getCorpsMemberPortal(): Promise<CorpsMemberPortalData> {
+  const response = await request<{
+    success: boolean;
+    data: CorpsMemberPortalData;
+  }>('/corps-member/portal');
+  return response.data;
+}
+
+export async function declineAssignedCdsGroup(input: {
+  reason: 'schedule_conflict' | 'accessibility' | 'location' | 'personal' | 'other';
+  notes?: string;
+}): Promise<void> {
+  await request('/corps-member/cds-group/decline', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+}
+
 export interface CourseCategory {
   code: string;
   label: string;
