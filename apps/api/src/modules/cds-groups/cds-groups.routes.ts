@@ -8,6 +8,9 @@ import {
   getCdsGroup,
   createCdsGroup,
   updateCdsGroup,
+  listCdsGroupMembers,
+  assignCdsGroupMember,
+  endCdsGroupMemberMembership,
   CdsGroupServiceError
 } from './cds-groups.service';
 
@@ -27,6 +30,13 @@ const lgiRoutes = new Hono<AuthEnv>();
 lgiRoutes.use('*', requireAuth, requireRole('LGI_ADMIN'));
 
 const groupIdSchema = z.string().uuid();
+const memberIdSchema = z.string().uuid();
+const assignmentSchema = z.object({
+  memberId: memberIdSchema
+});
+const memberSearchSchema = z.object({
+  search: z.string().trim().max(100).optional()
+});
 
 const listQuerySchema = z.object({
   lgaId: z.string().uuid().optional(),
@@ -134,6 +144,89 @@ lgiRoutes.post('/cds-groups', async (c) => {
       message: 'CDS group created successfully.',
       data: group
     }, 201);
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+
+// List the current roster and eligible unassigned Corps Members for a group.
+lgiRoutes.get('/cds-groups/:groupId/members', async (c) => {
+  const id = groupIdSchema.safeParse(c.req.param('groupId'));
+  const query = memberSearchSchema.safeParse(c.req.query());
+
+  if (!id.success || !query.success) {
+    return c.json({
+      success: false,
+      message: 'Invalid CDS group or member search filters.'
+    }, 400);
+  }
+
+  try {
+    const data = await listCdsGroupMembers(
+      id.data,
+      getAssignedLgaIds(c),
+      query.data.search
+    );
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// Assign an eligible Corps Member to a CDS group.
+lgiRoutes.post('/cds-groups/:groupId/members', async (c) => {
+  const id = groupIdSchema.safeParse(c.req.param('groupId'));
+  const body = await c.req.json().catch(() => null);
+  const validation = assignmentSchema.safeParse(body);
+
+  if (!id.success || !validation.success) {
+    return c.json({
+      success: false,
+      message: 'Provide a valid CDS group ID and Corps Member ID.'
+    }, 400);
+  }
+
+  try {
+    const data = await assignCdsGroupMember(
+      id.data,
+      validation.data.memberId,
+      getAssignedLgaIds(c),
+      c.get('authUser').id
+    );
+    return c.json({
+      success: true,
+      message: 'Corps Member assigned to the CDS group successfully.',
+      data
+    }, 201);
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// End an active membership without deleting the historical assignment.
+lgiRoutes.delete('/cds-groups/:groupId/members/:memberId', async (c) => {
+  const id = groupIdSchema.safeParse(c.req.param('groupId'));
+  const memberId = memberIdSchema.safeParse(c.req.param('memberId'));
+
+  if (!id.success || !memberId.success) {
+    return c.json({
+      success: false,
+      message: 'Invalid CDS group or Corps Member ID.'
+    }, 400);
+  }
+
+  try {
+    const data = await endCdsGroupMemberMembership(
+      id.data,
+      memberId.data,
+      getAssignedLgaIds(c)
+    );
+    return c.json({
+      success: true,
+      message: 'Corps Member removed from the active CDS group roster.',
+      data
+    });
   } catch (error) {
     return handleServiceError(c, error);
   }
