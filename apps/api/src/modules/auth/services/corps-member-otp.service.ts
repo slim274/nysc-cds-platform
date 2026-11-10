@@ -165,7 +165,6 @@ export async function sendCorpsMemberOtp(
     if (existing) {
       if (
         existing.verifiedAt ||
-        existing.consumedAt ||
         existing.attemptCount >= OTP_MAX_ATTEMPTS ||
         existing.sendCount >= OTP_MAX_SENDS ||
         now.getTime() - existing.lastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
