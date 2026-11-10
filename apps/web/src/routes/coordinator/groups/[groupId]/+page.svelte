@@ -29,7 +29,8 @@
         return;
       }
       currentUser = session.user;
-      const pathSegments = window.location.pathname.split('/').filter(Boolean);\n      const groupId = pathSegments[pathSegments.length - 1];
+      const pathSegments = window.location.pathname.split('/').filter(Boolean);
+      const groupId = pathSegments[pathSegments.length - 1];
       if (!groupId) throw new Error('A CDS group ID is required.');
       group = await getMyCoordinatorGroup(groupId);
     } catch (error) {
