@@ -104,7 +104,7 @@ export async function readCorpsMemberPhoto(memberId: string, lgaIds: string[]) {
     throw new CorpsMemberPhotoError('This corps member has no uploaded profile photo.', 404, 'PHOTO_NOT_FOUND');
   }
 
-  const detectedExtension = member.passportObjectKey.split('.').at(-1);
+  const detectedExtension = photoKey.split('.').at(-1);
   const contentType = detectedExtension === 'jpg'
     ? 'image/jpeg'
     : detectedExtension === 'png'
