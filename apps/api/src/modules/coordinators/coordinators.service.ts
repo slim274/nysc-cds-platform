@@ -502,6 +502,18 @@ export async function updateCoordinator(
         .set({ status: 'disabled', updatedAt: new Date() })
         .where(eq(users.id, coordinatorId));
 
+      // Preserve assignment rows for history, but release their groups so
+      // another coordinator can be assigned while this account is disabled.
+      await tx
+        .update(userRoleAssignments)
+        .set({ isActive: false })
+        .where(and(
+          eq(userRoleAssignments.userId, coordinatorId),
+          eq(userRoleAssignments.roleId, roleId),
+          inArray(userRoleAssignments.lgaId, lgaIds),
+          eq(userRoleAssignments.isActive, true)
+        ));
+
       await tx
         .update(authSessions)
         .set({ revokedAt: new Date() })
