@@ -64,13 +64,13 @@
   function updateOtp(value: string) {
     // Keep only six digits so pasted spaces or other characters cannot
     // trigger the browser's native pattern-validation tooltip.
-    code = value.replace(/\\D/g, '').slice(0, 6);
+    code = value.replace(/\D/g, '').slice(0, 6);
   }
 
   async function confirmOtp(event: SubmitEvent) {
     event.preventDefault();
     errorMessage = '';
-    if (!/^\\d{6}$/.test(code)) {
+    if (!/^\d{6}$/.test(code)) {
       errorMessage = 'Enter the six-digit verification code.';
       return;
     }
