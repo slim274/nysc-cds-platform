@@ -71,6 +71,13 @@
       "when": 1794325000000,
       "tag": "0009_cds_member_declines",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794326000000,
+      "tag": "0010_backfill_existing_cds_group_assignments",
+      "breakpoints": true
     }
   ]
 }
