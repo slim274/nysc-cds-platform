@@ -676,6 +676,7 @@ export async function createCoordinatorHandover(
       .where(and(
         eq(userRoleAssignments.userId, incomingUser.id),
         eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.lgaId, group.lgaId),
         eq(userRoleAssignments.isActive, true)
       ))
       .limit(1);
