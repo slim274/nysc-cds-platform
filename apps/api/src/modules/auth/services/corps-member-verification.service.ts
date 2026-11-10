@@ -4,6 +4,7 @@ import {
   eq,
   isNull,
   lt,
+  ne,
   sql
 } from 'drizzle-orm';
 
@@ -153,7 +154,8 @@ export async function initiateCorpsMemberIdentityVerification(
       eq(corpsMembers.stateCode, input.stateCode),
       eq(corpsMembers.dateOfBirth, input.dateOfBirth),
       sql`upper(trim(coalesce(${corpsMembers.callUpNumber}, ''))) = ${input.callUpNumber}`,
-      isNull(corpsMembers.userId)
+      isNull(corpsMembers.userId),
+      ne(corpsMembers.profileStatus, 'rejected')
     ))
     .limit(1);
 
