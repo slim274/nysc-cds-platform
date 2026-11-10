@@ -50,9 +50,6 @@
     }
   }
 
-  function memberName(member: { firstName: string | null; middleName: string | null; lastName: string | null }) {
-    return [member.firstName, member.middleName, member.lastName].filter(Boolean).join(' ') || 'Unnamed member';
-  }
 </script>
 
 <svelte:head>
