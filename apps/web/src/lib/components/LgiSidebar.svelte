@@ -21,7 +21,7 @@
     { label: 'Batches & Streams', href: null, icon: '▤' },
     { label: 'CDS Groups', href: '/lgi/cds-groups', icon: '◎' },
     { label: 'Course Catalogue', href: '/lgi/course-catalogue', icon: '▤' },
-    { label: 'Course Mapping', href: null, icon: '⌘' },
+    { label: 'Course Mapping', href: '/lgi/course-mapping', icon: '⌘' },
     { label: 'CDS Coordinators', href: '/lgi/coordinators', icon: '♧' },
     { label: 'Attendance', href: null, icon: '✓' },
     { label: 'Monthly Clearance', href: null, icon: '▣' },
