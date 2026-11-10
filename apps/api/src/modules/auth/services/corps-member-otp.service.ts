@@ -3,7 +3,8 @@ import {
   and,
   eq,
   gt,
-  isNull
+  isNull,
+  isNotNull
 } from 'drizzle-orm';
 
 import {
@@ -325,7 +326,7 @@ export async function registerCorpsMemberAccount(
       gt(corpsMemberVerificationChallenges.expiresAt, now),
       isNull(corpsMemberOtpChallenges.consumedAt),
       gt(corpsMemberOtpChallenges.expiresAt, now),
-      // verified_at is checked in the transaction below as well.
+      isNotNull(corpsMemberOtpChallenges.verifiedAt)
     ))
     .limit(1);
 
