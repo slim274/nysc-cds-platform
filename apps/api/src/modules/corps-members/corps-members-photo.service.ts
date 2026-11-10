@@ -1,4 +1,4 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -77,6 +77,7 @@ export async function saveCorpsMemberPhoto(
 
   const previousKey = await getCorpsMemberPhotoKey(memberId, lgaIds);
   await mkdir(PHOTO_DIRECTORY, { recursive: true, mode: 0o700 });
+  await chmod(PHOTO_DIRECTORY, 0o700);
 
   const key = `${randomUUID()}.${detected.extension}`;
   const path = join(PHOTO_DIRECTORY, key);
