@@ -290,6 +290,12 @@ export interface CdsGroupEligibleMember {
   lastName: string;
   courseName: string | null;
   profileStatus: string;
+  previousDecline: {
+    groupName: string;
+    reason: string | null;
+    notes: string | null;
+    declinedAt: string | null;
+  } | null;
 }
 
 export interface CdsGroupRoster {
