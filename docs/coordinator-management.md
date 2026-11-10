@@ -18,7 +18,8 @@ CDS Coordinator accounts are managed by an LGI administrator from the existing L
 The LGI submits a coordinator email and one or more active CDS group IDs.
 
 - A new user is created with `pending_activation` status.
-- The account receives the `CDS_COORDINATOR` role scoped to each selected group and its LGA.
+- The LGI can either assign one or more active CDS groups immediately, or create the account as a standby Coordinator with an LGA-scoped role assignment and no CDS group yet.
+- A standby Coordinator can be selected for a handover to a group in that same LGA. When the transfer completes, the LGA-only standby assignment is retired and replaced by the group-scoped Coordinator assignment.
 - An account-activation token is stored as a hash and expires after 24 hours.
 - In the current local development environment, the one-time token is returned to the LGI screen because an email delivery provider has not yet been integrated.
 - In production, creating a new or pending coordinator account is rejected until email delivery is configured. Tokens are never returned by production responses.
@@ -37,7 +38,7 @@ The LGI can replace the coordinator's group assignments within the LGI's LGA sco
 
 Use the transfer action on the specific CDS group assignment when a Coordinator resigns from a unit, moves to another unit, or needs a temporary replacement. This is different from disabling the person's entire account.
 
-- The LGI selects the outgoing Coordinator, an active incoming Coordinator already assigned within the same LGA, the reason, and handover details.
+- The LGI selects the outgoing Coordinator, an active incoming Coordinator with an active Coordinator assignment in the same LGA, the reason, and handover details. The incoming Coordinator may be a standby account with no CDS group assignment; they do not need to be assigned to a different group first.
 - The handover record stores notes, pending activities, upcoming events and outstanding tasks against the CDS group. The LGI records the information supplied during the handover; it is not represented as a digitally signed statement from the outgoing Coordinator.
 - The transfer atomically deactivates the outgoing Coordinator's assignment for that group and activates the incoming Coordinator's assignment. Other group assignments held by the outgoing Coordinator are untouched.
 - The group's membership, course mappings and other group-owned records are not deleted or recreated.
@@ -82,7 +83,7 @@ Apply the new `0004_cds_group_handovers` migration before testing the handover s
 bun run --filter @nysc/database db:migrate
 ```
 
-Start the API and web app, sign in as an LGI administrator, open `/lgi/coordinators`, and use **Transfer responsibility** on an active group assignment. The incoming Coordinator must already have an active account and Coordinator role assignment in the same LGA. Sign in as that Coordinator to review and accept the handover at `/coordinator/handovers`.
+Start the API and web app, sign in as an LGI administrator, open `/lgi/coordinators`, and use **Transfer responsibility** on an active group assignment. The incoming Coordinator must have an active account and an active Coordinator role assignment in the same LGA. They may be a standby Coordinator with no group assignment; a different CDS group is not required. Sign in as that Coordinator to review and accept the handover at `/coordinator/handovers`.
 
 The transfer changes the active assignment immediately when the LGI submits it; acceptance records that the incoming Coordinator has reviewed and acknowledged the handover. Do not interpret acceptance as an NYSC clearance or official approval.
 
