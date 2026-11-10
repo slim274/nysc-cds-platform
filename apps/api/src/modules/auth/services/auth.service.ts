@@ -9,7 +9,8 @@ import {
 import {
   db,
   users,
-  authTokens
+  authTokens,
+  corpsMembers
 } from '@nysc/database';
 
 import {
@@ -126,7 +127,9 @@ export async function authenticateUser(
       id: users.id,
       email: users.email,
       passwordHash: users.passwordHash,
-      status: users.status
+      status: users.status,
+      emailVerifiedAt: users.emailVerifiedAt,
+      phoneVerifiedAt: users.phoneVerifiedAt
     })
     .from(users)
     .where(or(
@@ -141,6 +144,20 @@ export async function authenticateUser(
     !user.passwordHash
   ) {
     return null;
+  }
+
+  // Corps Member accounts can only use the contact channel they verified.
+  // Existing LGI/coordinator accounts retain their pre-existing login behaviour.
+  const [linkedMember] = await db
+    .select({ id: corpsMembers.id })
+    .from(corpsMembers)
+    .where(eq(corpsMembers.userId, user.id))
+    .limit(1);
+
+  if (linkedMember) {
+    const emailLogin = identifier.includes('@');
+    if (emailLogin && !user.emailVerifiedAt) return null;
+    if (!emailLogin && !user.phoneVerifiedAt) return null;
   }
 
   const passwordIsValid = await verifyPassword(
