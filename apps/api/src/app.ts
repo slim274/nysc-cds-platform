@@ -78,6 +78,6 @@ app.route('/lgi', lgiCourseCatalogueRoutes);
 app.route('/lgi', coordinatorRoutes);
 
 // Coordinator-facing handover inbox and acceptance.
-app.route('/coordinator', coordinatorSelfServiceRoutes);
+app.route('/coordinator', coordinatorSelfServiceRoutes);\napp.route('/coordinator', coordinatorWorkspaceRoutes);
 
 export default app;
