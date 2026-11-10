@@ -873,3 +873,128 @@ export async function acceptCoordinatorHandover(
     };
   });
 }
+
+
+export async function cancelCoordinatorHandover(
+  handoverId: string,
+  lgaIds: string[]
+) {
+  assertLgaScope(lgaIds);
+
+  return db.transaction(async (tx) => {
+    const [handover] = await tx
+      .select({
+        id: cdsGroupHandovers.id,
+        groupId: cdsGroupHandovers.cdsGroupId,
+        outgoingCoordinatorId: cdsGroupHandovers.outgoingCoordinatorId,
+        incomingCoordinatorId: cdsGroupHandovers.incomingCoordinatorId,
+        status: cdsGroupHandovers.status,
+        lgaId: cdsGroups.lgaId
+      })
+      .from(cdsGroupHandovers)
+      .innerJoin(cdsGroups, eq(cdsGroupHandovers.cdsGroupId, cdsGroups.id))
+      .where(eq(cdsGroupHandovers.id, handoverId))
+      .for('update')
+      .limit(1);
+
+    if (!handover || !lgaIds.includes(handover.lgaId)) {
+      throw new CoordinatorServiceError(
+        'Handover not found in your assigned LGA(s).',
+        404,
+        'HANDOVER_NOT_FOUND'
+      );
+    }
+    if (handover.status !== 'pending_acceptance') {
+      throw new CoordinatorServiceError(
+        'Only a handover awaiting acceptance can be cancelled.',
+        409,
+        'HANDOVER_NOT_PENDING'
+      );
+    }
+
+    const roleId = await getCoordinatorRoleId(tx);
+    const activeAssignments = await tx
+      .select({
+        id: userRoleAssignments.id,
+        userId: userRoleAssignments.userId
+      })
+      .from(userRoleAssignments)
+      .where(and(
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.cdsGroupId, handover.groupId),
+        eq(userRoleAssignments.isActive, true)
+      ));
+
+    const unexpectedOwner = activeAssignments.find((assignment) =>
+      assignment.userId !== handover.incomingCoordinatorId &&
+      assignment.userId !== handover.outgoingCoordinatorId
+    );
+    if (unexpectedOwner) {
+      throw new CoordinatorServiceError(
+        'The group has since been assigned to another Coordinator. Review the current assignment before cancelling this handover.',
+        409,
+        'HANDOVER_GROUP_REASSIGNED'
+      );
+    }
+
+    const incomingAssignment = activeAssignments.find(
+      (assignment) => assignment.userId === handover.incomingCoordinatorId
+    );
+    if (incomingAssignment) {
+      await tx
+        .update(userRoleAssignments)
+        .set({ isActive: false })
+        .where(eq(userRoleAssignments.id, incomingAssignment.id));
+    }
+
+    const [outgoingUser] = await tx
+      .select({
+        status: users.status
+      })
+      .from(users)
+      .where(eq(users.id, handover.outgoingCoordinatorId))
+      .limit(1);
+
+    if (outgoingUser?.status === 'active') {
+      const [previousAssignment] = await tx
+        .select({ id: userRoleAssignments.id })
+        .from(userRoleAssignments)
+        .where(and(
+          eq(userRoleAssignments.userId, handover.outgoingCoordinatorId),
+          eq(userRoleAssignments.roleId, roleId),
+          eq(userRoleAssignments.cdsGroupId, handover.groupId)
+        ))
+        .limit(1);
+
+      if (previousAssignment) {
+        await tx
+          .update(userRoleAssignments)
+          .set({ lgaId: handover.lgaId, isActive: true })
+          .where(eq(userRoleAssignments.id, previousAssignment.id));
+      } else {
+        await tx.insert(userRoleAssignments).values({
+          userId: handover.outgoingCoordinatorId,
+          roleId,
+          lgaId: handover.lgaId,
+          cdsGroupId: handover.groupId
+        });
+      }
+    }
+
+    const cancelledAt = new Date();
+    await tx
+      .update(cdsGroupHandovers)
+      .set({
+        status: 'cancelled',
+        updatedAt: cancelledAt
+      })
+      .where(eq(cdsGroupHandovers.id, handoverId));
+
+    return {
+      handoverId,
+      status: 'cancelled',
+      previousCoordinatorRestored: outgoingUser?.status === 'active',
+      cancelledAt
+    };
+  });
+}
