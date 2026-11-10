@@ -354,7 +354,7 @@ export async function createCoordinator(
         .where(and(
           eq(userRoleAssignments.userId, user.id),
           eq(userRoleAssignments.roleId, roleId),
-          eq(userRoleAssignments.lgaId, targetLgaId!),
+          inArray(userRoleAssignments.lgaId, [...new Set(groups.map((group) => group.lgaId))]),
           isNull(userRoleAssignments.cdsGroupId),
           eq(userRoleAssignments.isActive, true)
         ));
