@@ -636,7 +636,7 @@ export async function createCoordinatorHandover(
       ))
       .limit(1);
 
-    if (!outgoingAssignment) {
+    if (!outgoingAssignment || outgoingAssignment.status !== 'active') {
       throw new CoordinatorServiceError(
         'The outgoing coordinator is not the current active coordinator for this group.',
         409,
@@ -749,7 +749,7 @@ export async function createCoordinatorHandover(
         pendingActivities: input.pendingActivities,
         upcomingEvents: input.upcomingEvents,
         outstandingTasks: input.outstandingTasks,
-        outgoingConfirmedAt: new Date(),
+        preparedAt: new Date(),
         initiatedByUserId
       })
       .returning({ id: cdsGroupHandovers.id, status: cdsGroupHandovers.status });
