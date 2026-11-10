@@ -30,6 +30,11 @@ import {
   corpsMemberPortalRoutes
 } from './modules/corps-members/corps-member-portal.routes';
 
+import {
+  lgiDocumentRoutes,
+  corpsMemberDocumentRoutes
+} from './modules/documents/documents.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -94,5 +99,11 @@ app.route('/lgi', corpsMemberRoutes);
 
 // Corps Member self-service portal and CDS group decline.
 app.route('/corps-member', corpsMemberPortalRoutes);
+
+// LGI document requirements and exception review queue.
+app.route('/lgi', lgiDocumentRoutes);
+
+// Corps Member document submission and verification.
+app.route('/corps-member', corpsMemberDocumentRoutes);
 
 export default app;
