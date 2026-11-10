@@ -249,8 +249,13 @@ export async function listCorpsMembers(
     .limit(filters.pageSize)
     .offset((filters.page - 1) * filters.pageSize);
 
+  const safeRows = rows.map(({ passportObjectKey, ...row }) => ({
+    ...row,
+    hasPassportPhoto: Boolean(passportObjectKey)
+  }));
+
   return {
-    data: rows,
+    data: safeRows,
     pagination: {
       page: filters.page,
       pageSize: filters.pageSize,
@@ -279,6 +284,7 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
     qualification: corpsMembers.qualification,
     graduationYear: corpsMembers.graduationYear,
     profileStatus: corpsMembers.profileStatus,
+    passportObjectKey: corpsMembers.passportObjectKey,
     createdAt: corpsMembers.createdAt,
     updatedAt: corpsMembers.updatedAt
   }).from(corpsMembers).where(and(
