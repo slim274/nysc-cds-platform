@@ -37,7 +37,7 @@ const isValidPastDate = (value: string): boolean => {
 export const verifyCorpsMemberIdentitySchema = z.object({
   stateCode: z.string().trim().toUpperCase().min(3).max(50),
   dateOfBirth: z.string()
-    .regex(/^\\d{4}-\\d{2}-\\d{2}$/, 'Date of birth must use YYYY-MM-DD.')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must use YYYY-MM-DD.')
     .refine(isValidPastDate, 'Enter a valid date of birth.'),
   callUpNumber: z.string().trim().toUpperCase().min(1).max(100)
 });
