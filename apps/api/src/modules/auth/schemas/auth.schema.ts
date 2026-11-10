@@ -34,7 +34,7 @@ export const sendCorpsMemberOtpSchema = z.object({
 
 export const verifyCorpsMemberOtpSchema = z.object({
   challengeToken: z.string().regex(/^[a-f0-9]{64}$/i),
-  code: z.string().regex(/^\\d{6}$/)
+  code: z.string().regex(/^\d{6}$/)
 });
 
 export const registerCorpsMemberSchema = z.object({
