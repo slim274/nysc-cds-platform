@@ -243,14 +243,20 @@
         ? await updateCorpsMember(editingMember.id, input)
         : await createCorpsMember(input);
 
-      if (selectedPhotoFile) {
-        await uploadCorpsMemberPhoto(savedMember.id, selectedPhotoFile);
-      }
-
       noticeMessage = wasEditing
         ? 'Corps member record updated successfully.'
         : 'Corps member record created successfully.';
-      if (selectedPhotoFile) noticeMessage += ' Profile photo uploaded.';
+
+      if (selectedPhotoFile) {
+        try {
+          await uploadCorpsMemberPhoto(savedMember.id, selectedPhotoFile);
+          noticeMessage += ' Profile photo uploaded.';
+        } catch (photoError) {
+          const reason = photoError instanceof Error ? photoError.message : 'Photo upload failed.';
+          errorMessage = `The member record was saved, but the profile photo could not be uploaded: ${reason}`;
+        }
+      }
+
       formOpen = false;
       await loadMembers(wasEditing ? pagination.page : 1);
       resetForm();
