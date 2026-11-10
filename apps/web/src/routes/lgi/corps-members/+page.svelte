@@ -394,7 +394,15 @@
 
         <section class="intro">
           <div><span class="eyebrow">CORPS MEMBER RECORDS</span><h2>Manage corps members</h2><p>Create, search and maintain member profiles for the LGA(s) assigned to your administrator account.</p></div>
-          <button class="primary-button" type="button" onclick={openCreateForm}>＋ Add corps member</button>
+          <div class="intro-actions">
+            <label class="secondary-button upload-button" class:busy={importing}>
+              {importing ? 'Importing...' : '↑ Bulk upload CSV'}
+              <input type="file" accept=".csv,text/csv" onchange={handleCsvImport} disabled={importing} />
+            </label>
+            <a class="secondary-button" href="/api/lgi/corps-members/template">Download template</a>
+            <button class="secondary-button" type="button" onclick={exportCsv} disabled={exporting || pagination.total === 0}>{exporting ? 'Exporting...' : '↓ Export CSV'}</button>
+            <button class="primary-button" type="button" onclick={openCreateForm}>＋ Add corps member</button>
+          </div>
         </section>
 
         <section class="summary-grid" aria-label="Corps member summary">
@@ -486,6 +494,25 @@
           <label><span>Graduation year</span><input type="number" min="1950" max="2100" bind:value={form.graduationYear} /></label>
           <label><span>Profile status</span><select bind:value={form.profileStatus}><option value="preloaded">Preloaded</option><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
         </div>
+        <div class="form-section-title">Profile photograph</div>
+        <div class="photo-upload-panel">
+          <div class="photo-preview">
+            {#if photoPreviewUrl}
+              <img src={photoPreviewUrl} alt="Corps member profile photograph preview" />
+            {:else}
+              <span aria-hidden="true">♙</span>
+            {/if}
+          </div>
+          <div class="photo-upload-copy">
+            <label class="secondary-button photo-select-button">
+              {selectedPhotoFile ? 'Choose a different photo' : 'Upload profile photo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" onchange={selectPhoto} />
+            </label>
+            <small>JPEG, PNG or WebP · Maximum 5 MB.</small>
+            <small>Profile photograph only. The platform does not perform facial recognition.</small>
+            {#if selectedPhotoFile}<small class="selected-file">{selectedPhotoFile.name}</small>{/if}
+          </div>
+        </div>
         <div class="modal-actions"><button class="cancel-button" type="button" onclick={() => (formOpen = false)}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving...' : editingMember ? 'Save changes' : 'Create record'}</button></div>
       </form>
     </section>
@@ -571,6 +598,19 @@
   .member-form { display: grid; gap: 15px; padding-top: 15px; }
   .form-section-title { padding-bottom: 7px; border-bottom: 1px solid #edf1ed; color: #0a6a41; font-size: 9px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
   .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+  .intro-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+  .secondary-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 9px 13px; border: 1px solid #d7e2da; border-radius: 8px; background: #fff; color: #27553b; font-size: 9px; font-weight: 700; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .secondary-button:hover:not(:disabled) { background: #eff6f1; }
+  .secondary-button:disabled { opacity: .55; cursor: wait; }
+  .upload-button { position: relative; overflow: hidden; }
+  .upload-button input, .photo-select-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .photo-upload-panel { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px solid #e6ede7; border-radius: 9px; background: #fafcfa; }
+  .photo-preview { width: 92px; height: 92px; flex: 0 0 92px; display: grid; place-items: center; overflow: hidden; border: 1px dashed #cbd9ce; border-radius: 10px; background: #edf5ef; color: #0a8050; font-size: 33px; }
+  .photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-upload-copy { display: grid; justify-items: start; gap: 6px; }
+  .photo-upload-copy small { color: #819087; font-size: 9px; line-height: 1.5; }
+  .photo-upload-copy .selected-file { color: #17613c; font-weight: 700; }
+  .photo-select-button { position: relative; overflow: hidden; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 14px; border-top: 1px solid #edf1ed; }
   .cancel-button { min-width: 100px; }
   .state-screen { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 20px; color: #53665a; font: 13px Inter, Arial, sans-serif; text-align: center; }
@@ -584,7 +624,7 @@
     .account-copy { display: none; }
     .page-content { padding: 22px 15px; }
     .intro { align-items: flex-start; flex-direction: column; }
-    .intro .primary-button { width: 100%; }
+    .intro-actions { width: 100%; justify-content: stretch; }\n    .intro-actions > * { flex: 1 1 calc(50% - 8px); }
     .filters { grid-template-columns: 1fr 1fr; }
     .filters .search-field { grid-column: 1 / -1; }
     .filter-actions { grid-column: 1 / -1; }
@@ -599,7 +639,7 @@
     .member-card small { color: #819087; font-size: 8px; }
     .member-card .text-button { justify-self: start; padding: 5px 0 0; }
     .modal-layer { place-items: end center; padding: 0; }
-    .member-modal { width: 100%; max-height: 94dvh; padding: 19px 16px calc(20px + env(safe-area-inset-bottom)); border-radius: 15px 15px 0 0; }
+    .member-modal { width: 100%; max-height: 94dvh; padding: 19px 16px calc(20px + env(safe-area-inset-bottom)); border-radius: 15px 15px 0 0; }\n    .photo-upload-panel { align-items: flex-start; flex-direction: column; }
   }
   @media (max-width: 480px) {
     .page-content { padding-inline: 12px; }
