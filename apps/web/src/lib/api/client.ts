@@ -78,6 +78,59 @@ export async function login(
   });
 }
 
+export interface CorpsMemberIdentityInput {
+  stateCode: string;
+  dateOfBirth: string;
+  callUpNumber: string;
+}
+
+export async function verifyCorpsMemberIdentity(
+  input: CorpsMemberIdentityInput
+): Promise<{ challengeToken: string; expiresInSeconds: number }> {
+  const response = await request<{
+    success: boolean;
+    data: { challengeToken: string; expiresInSeconds: number };
+  }>('/auth/verify-corps-member', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function sendCorpsMemberOtp(
+  challengeToken: string,
+  channel: 'email' | 'sms'
+): Promise<void> {
+  await request('/auth/send-corps-member-otp', {
+    method: 'POST',
+    body: JSON.stringify({ challengeToken, channel })
+  });
+}
+
+export async function verifyCorpsMemberOtp(
+  challengeToken: string,
+  code: string
+): Promise<void> {
+  await request('/auth/verify-corps-member-otp', {
+    method: 'POST',
+    body: JSON.stringify({ challengeToken, code })
+  });
+}
+
+export async function registerCorpsMember(
+  challengeToken: string,
+  password: string
+): Promise<{ id: string; email: string | null }> {
+  const response = await request<{
+    success: boolean;
+    user: { id: string; email: string | null };
+  }>('/auth/register-corps-member', {
+    method: 'POST',
+    body: JSON.stringify({ challengeToken, password })
+  });
+  return response.user;
+}
+
 export async function getCurrentUser(): Promise<CurrentUserResponse> {
   return request<CurrentUserResponse>('/auth/me', {
     method: 'GET'
