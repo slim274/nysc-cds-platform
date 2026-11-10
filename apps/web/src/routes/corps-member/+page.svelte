@@ -1,13 +1,40 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { getCurrentUser, logout, type CurrentUserResponse } from '#lib/api/client.ts';
+  import {
+    ApiError,
+    getCurrentUser,
+    getCorpsMemberPortal,
+    declineAssignedCdsGroup,
+    logout,
+    type CurrentUserResponse,
+    type CorpsMemberPortalData
+  } from '#lib/api/client.ts';
+
+  type DeclineReason =
+    | 'schedule_conflict'
+    | 'accessibility'
+    | 'location'
+    | 'personal'
+    | 'other';
 
   let session = $state<CurrentUserResponse | null>(null);
+  let portal = $state<CorpsMemberPortalData | null>(null);
   let loading = $state(true);
+  let saving = $state(false);
+  let declineOpen = $state(false);
   let errorMessage = $state('');
+  let noticeMessage = $state('');
+  let declineReason = $state<DeclineReason>('personal');
+  let declineNotes = $state('');
 
-  onMount(async () => {
+  onMount(() => {
+    void loadPortal();
+  });
+
+  async function loadPortal() {
+    loading = true;
+    errorMessage = '';
     try {
       const current = await getCurrentUser();
       if (!current.roles.some((role) => role.code === 'CORPS_MEMBER')) {
@@ -16,57 +43,320 @@
         return;
       }
       session = current;
-    } catch {
-      await goto('/login');
+      portal = await getCorpsMemberPortal();
+    } catch (error) {
+      if (error instanceof ApiError && error.status !== 401) {
+        errorMessage = error.message;
+      } else {
+        await goto('/login');
+      }
     } finally {
       loading = false;
     }
-  });
+  }
+
+  async function submitDecline(event: SubmitEvent) {
+    event.preventDefault();
+    if (!portal?.cdsGroup) return;
+
+    saving = true;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      const declinedGroupName = portal.cdsGroup.name;
+      await declineAssignedCdsGroup({
+        reason: declineReason,
+        notes: declineNotes.trim() || undefined
+      });
+      declineOpen = false;
+      declineNotes = '';
+      noticeMessage = `Your assignment to ${declinedGroupName} has been declined. Your LGI can now place you in another suitable CDS group.`;
+      await loadPortal();
+    } catch (error) {
+      errorMessage = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to decline this CDS group assignment.';
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function signOut() {
+    await logout();
+    await goto('/login');
+  }
+
+  function fullName(person: { firstName: string; middleName: string | null; lastName: string }) {
+    return [person.firstName, person.middleName, person.lastName].filter(Boolean).join(' ');
+  }
 </script>
 
 <svelte:head>
   <title>Corps Member Portal | NYSC CDS Platform</title>
-  <meta name="description" content="Your NYSC CDS Corps Member portal." />
+  <meta name="description" content="View your assigned CDS group, Coordinator, President and member information." />
 </svelte:head>
 
 <main class="page">
-  <header>
+  <header class="topbar">
     <a href="/" class="brand">NYSC CDS <span>Corps Member Portal</span></a>
-    <button class="signout" onclick={async () => { await logout(); await goto('/login'); }}>Sign out</button>
+    <div class="topbar-actions">
+      {#if portal}
+        <span class="member-code">{portal.member.stateCode}</span>
+      {/if}
+      <button class="signout" onclick={signOut}>Sign out</button>
+    </div>
   </header>
 
   {#if loading}
-    <section class="card"><p>Loading your account…</p></section>
-  {:else if session}
-    <section class="card">
-      <div class="badge">ACCOUNT ACTIVE</div>
-      <h1>Welcome to the Corps Member Portal</h1>
-      <p>Your Corps Member account has been created and linked to your existing NYSC record.</p>
-      <div class="account">
-        <span>Signed-in account</span>
-        <strong>{session.user.email ?? 'Phone-based account'}</strong>
+    <section class="card state-card"><div class="loader"></div><p>Loading your CDS assignment…</p></section>
+  {:else if errorMessage && !portal}
+    <section class="card state-card">
+      <div class="badge badge-warning">PORTAL UNAVAILABLE</div>
+      <h1>We couldn't load your member information</h1>
+      <p>{errorMessage}</p>
+      <button class="primary" onclick={() => void loadPortal()}>Try again</button>
+    </section>
+  {:else if portal}
+    <section class="welcome">
+      <div>
+        <span class="eyebrow">CORPS MEMBER DASHBOARD</span>
+        <h1>Welcome, {fullName(portal.member)}</h1>
+        <p>Your NYSC record is connected. Your CDS group assignment and group contacts are shown below.</p>
       </div>
-      <div class="next">
-        Your dashboard will show CDS group information, document requests, attendance and announcements as those modules are released.
+      <div class="account-chip">
+        <span>Signed in as</span>
+        <strong>{session?.user.email ?? 'Phone-based account'}</strong>
       </div>
+    </section>
+
+    {#if noticeMessage}
+      <div class="message success" role="status">{noticeMessage}</div>
+    {/if}
+    {#if errorMessage}
+      <div class="message error" role="alert">{errorMessage}</div>
+    {/if}
+
+    <section class="member-summary" aria-label="Member information">
+      <article class="summary-item"><span>NYSC State Code</span><strong>{portal.member.stateCode}</strong></article>
+      <article class="summary-item"><span>Local Government Area</span><strong>{portal.member.lgaName ?? 'Not available'}</strong></article>
+      <article class="summary-item"><span>Academic Course</span><strong>{portal.member.courseName ?? 'Not recorded'}</strong></article>
+    </section>
+
+    {#if portal.cdsGroup}
+      <section class="group-card">
+        <div class="group-card-header">
+          <div>
+            <span class="eyebrow">YOUR CDS PLACEMENT</span>
+            <h2>{portal.cdsGroup.name}</h2>
+            <p class="group-code">{portal.cdsGroup.code}</p>
+          </div>
+          <span class="status-pill">ASSIGNED</span>
+        </div>
+        {#if portal.cdsGroup.description}
+          <p class="group-description">{portal.cdsGroup.description}</p>
+        {/if}
+        <div class="assignment-meta">
+          <span>Assigned {new Date(portal.cdsGroup.assignedAt).toLocaleDateString()}</span>
+          <span class:automatic={portal.cdsGroup.source === 'automatic'} class="source-pill">
+            {portal.cdsGroup.source === 'automatic' ? 'Automatically matched' : 'LGI placement'}
+          </span>
+        </div>
+        <div class="contacts-grid">
+          <article class="contact-card">
+            <span class="contact-icon">C</span>
+            <div>
+              <span class="contact-label">CDS Coordinator</span>
+              {#if portal.coordinator}
+                <strong>{portal.coordinator.email ?? 'Coordinator account active'}</strong>
+                <small>Responsible for coordinating your CDS group.</small>
+              {:else}
+                <strong>Not yet assigned</strong>
+                <small>Your LGI has not assigned a Coordinator to this group yet.</small>
+              {/if}
+            </div>
+          </article>
+          <article class="contact-card">
+            <span class="contact-icon">P</span>
+            <div>
+              <span class="contact-label">CDS President</span>
+              {#if portal.president}
+                <strong>{fullName(portal.president)}</strong>
+                <small>{portal.president.stateCode}{portal.president.email ? ` · ${portal.president.email}` : ''}</small>
+              {:else}
+                <strong>Not yet designated</strong>
+                <small>Your LGI has not designated a CDS President for this group yet.</small>
+              {/if}
+            </div>
+          </article>
+        </div>
+        <div class="decline-area">
+          <div>
+            <strong>Unable to participate in this group?</strong>
+            <p>You can decline this assignment and your LGI can place you in another suitable CDS group.</p>
+          </div>
+          <button class="decline-button" type="button" onclick={() => (declineOpen = true)}>Decline assignment</button>
+        </div>
+      </section>
+    {:else}
+      <section class="unassigned-card">
+        <div class="unassigned-icon">◎</div>
+        <span class="eyebrow">CDS PLACEMENT PENDING</span>
+        <h2>You haven't been assigned to a CDS group yet</h2>
+        <p>Automatic matching could not find an eligible group with available capacity for your LGA and academic course. Your account is active; your LGI can review the exception and place you in a suitable group.</p>
+        <div class="unassigned-detail">
+          <span>What happens next?</span>
+          <strong>Your LGI can manually assign you to an eligible group.</strong>
+        </div>
+      </section>
+    {/if}
+
+    <section class="coming-grid">
+      <article><span class="coming-icon">▤</span><div><strong>Document requests</strong><p>View required credentials and track verification.</p><small>Coming next</small></div></article>
+      <article><span class="coming-icon">✓</span><div><strong>CDS attendance</strong><p>View your attendance and participation records.</p><small>Coming next</small></div></article>
+      <article><span class="coming-icon">◉</span><div><strong>Announcements</strong><p>Receive updates from your LGI and Coordinator.</p><small>Coming next</small></div></article>
     </section>
   {/if}
 </main>
 
+{#if declineOpen && portal?.cdsGroup}
+  <div class="modal-layer">
+    <button class="modal-scrim" type="button" aria-label="Close decline form" onclick={() => (declineOpen = false)}></button>
+    <section class="decline-modal" role="dialog" aria-modal="true" aria-labelledby="decline-title">
+      <div class="modal-heading">
+        <div>
+          <span class="eyebrow">CDS GROUP ASSIGNMENT</span>
+          <h2 id="decline-title">Decline {portal.cdsGroup.name}?</h2>
+          <p>Your current group seat will be released. Your LGI will be able to place you in another suitable group.</p>
+        </div>
+        <button class="close-button" type="button" aria-label="Close" onclick={() => (declineOpen = false)} disabled={saving}>×</button>
+      </div>
+      <form onsubmit={submitDecline}>
+        <label for="declineReason">Reason for declining</label>
+        <select id="declineReason" bind:value={declineReason} disabled={saving}>
+          <option value="schedule_conflict">Schedule conflict</option>
+          <option value="accessibility">Accessibility or mobility limitation</option>
+          <option value="location">Group location is not suitable</option>
+          <option value="personal">Personal circumstances</option>
+          <option value="other">Other reason</option>
+        </select>
+        <label for="declineNotes">Additional information <span>(optional)</span></label>
+        <textarea id="declineNotes" bind:value={declineNotes} maxlength="1000" rows="4" placeholder="Tell your LGI anything they should consider when assigning another group." disabled={saving}></textarea>
+        <div class="warning-note">Declining removes your active membership from this group. It does not deactivate your Corps Member account.</div>
+        <div class="modal-actions">
+          <button class="cancel-button" type="button" onclick={() => (declineOpen = false)} disabled={saving}>Keep my assignment</button>
+          <button class="confirm-decline" type="submit" disabled={saving}>{saving ? 'Submitting…' : 'Confirm decline'}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+{/if}
+
 <style>
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; background: #f3f6f4; color: #17251c; font-family: Inter, Arial, sans-serif; }
-  .page { min-height: 100vh; padding: 24px clamp(16px, 4vw, 40px); }
-  header { width: min(100%, 1080px); margin: 0 auto 50px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  :global(button), :global(input), :global(select), :global(textarea) { font: inherit; }
+  .page { min-height: 100vh; padding: 24px clamp(16px, 4vw, 48px) 50px; }
+  .topbar { width: min(100%, 1120px); margin: 0 auto 34px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
   .brand { display: flex; flex-direction: column; gap: 3px; color: #0a5c37; text-decoration: none; font-weight: 800; }
   .brand span { color: #718078; font-size: 12px; font-weight: 400; }
+  .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .member-code { padding: 8px 11px; border-radius: 20px; background: #e7f3eb; color: #0a5c37; font-size: 11px; font-weight: 700; }
   .signout { border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: #314238; padding: 10px 16px; font-weight: 600; cursor: pointer; }
-  .card { width: min(100%, 680px); margin: 0 auto; background: #fff; border: 1px solid #e4ebe6; border-radius: 16px; padding: clamp(24px, 5vw, 44px); box-shadow: 0 12px 40px rgba(20,50,30,.07); }
-  .badge { display: inline-block; border-radius: 999px; background: #e8f5ec; color: #0a5c37; padding: 7px 11px; font-size: 10px; letter-spacing: 1px; font-weight: 800; }
-  h1 { font-size: clamp(25px, 5vw, 34px); margin: 18px 0 10px; }
-  p { color: #718078; line-height: 1.7; font-size: 14px; }
-  .account { margin-top: 28px; border: 1px solid #edf0ed; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 7px; }
-  .account span { color: #718078; font-size: 11px; }
-  .account strong { font-size: 14px; overflow-wrap: anywhere; }
-  .next { margin-top: 18px; background: #f4f8f5; border-radius: 10px; padding: 16px; color: #526259; font-size: 13px; line-height: 1.6; }
+  .welcome,.member-summary,.group-card,.unassigned-card,.coming-grid,.message,.state-card { width: min(100%, 1120px); margin-left: auto; margin-right: auto; }
+  .welcome { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 30px; margin-bottom: 18px; border: 1px solid #dcebe0; border-radius: 14px; background: #eaf4ed; }
+  .eyebrow { color: #0a8050; font-size: 10px; font-weight: 800; letter-spacing: 1.3px; }
+  h1 { margin: 9px 0 7px; font-size: clamp(24px, 4vw, 32px); }
+  .welcome p,.unassigned-card > p { max-width: 630px; margin: 0; color: #718078; font-size: 13px; line-height: 1.7; }
+  .account-chip { display: grid; gap: 5px; min-width: 220px; padding: 12px 14px; border: 1px solid #dce7df; border-radius: 9px; background: #fff; }
+  .account-chip span,.summary-item span { color: #718078; font-size: 10px; }
+  .account-chip strong { color: #263d30; font-size: 11px; overflow-wrap: anywhere; }
+  .message { padding: 12px 14px; margin-bottom: 16px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
+  .message.success { border: 1px solid #cce6d3; background: #eff8f1; color: #155b37; }
+  .message.error { border: 1px solid #efceca; background: #fff3f2; color: #a32920; }
+  .member-summary { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
+  .summary-item { display: grid; gap: 7px; padding: 15px 17px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
+  .summary-item strong { font-size: 13px; color: #263d30; }
+  .group-card { padding: 26px; margin-bottom: 18px; border: 1px solid #e0e9e2; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px #1936240a; }
+  .group-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .group-card h2,.unassigned-card h2 { margin: 8px 0 4px; font-size: 23px; color: #183d29; }
+  .group-code { margin: 0; color: #718078; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+  .status-pill,.source-pill { display: inline-flex; align-items: center; padding: 7px 10px; border-radius: 18px; background: #e8f5ec; color: #0a6841; font-size: 9px; font-weight: 800; white-space: nowrap; }
+  .group-description { margin: 17px 0 0; color: #718078; font-size: 12px; line-height: 1.6; }
+  .assignment-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px 0 17px; margin-top: 12px; border-bottom: 1px solid #edf1ed; color: #819087; font-size: 10px; }
+  .source-pill { background: #f2f5f3; color: #647268; font-size: 8px; }
+  .source-pill.automatic { background: #e8f5ec; color: #0a6841; }
+  .contacts-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; padding-top: 18px; }
+  .contact-card { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e8eee9; border-radius: 10px; background: #fbfdfb; }
+  .contact-icon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; background: #e8f4ec; color: #0a6841; font-size: 12px; font-weight: 800; }
+  .contact-card > div { display: grid; min-width: 0; gap: 6px; }
+  .contact-label { color: #718078; font-size: 10px; }
+  .contact-card strong { color: #263d30; font-size: 12px; overflow-wrap: anywhere; }
+  .contact-card small { color: #819087; font-size: 10px; line-height: 1.5; }
+  .decline-area { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-top: 18px; margin-top: 20px; border-top: 1px solid #edf1ed; }
+  .decline-area strong { color: #34483b; font-size: 11px; }
+  .decline-area p { margin: 5px 0 0; color: #819087; font-size: 10px; line-height: 1.5; }
+  .decline-button { flex: 0 0 auto; min-height: 39px; padding: 9px 13px; border: 1px solid #ead5d1; border-radius: 8px; background: #fff; color: #a34238; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .decline-button:hover { background: #fff5f3; }
+  .unassigned-card { padding: 30px; margin-bottom: 18px; border: 1px solid #e4ebe6; border-radius: 14px; background: #fff; text-align: center; }
+  .unassigned-icon { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 13px; background: #f0f5f1; color: #0a8050; font-size: 23px; }
+  .unassigned-card h2 { margin-bottom: 9px; }
+  .unassigned-card > p { margin: 0 auto; }
+  .unassigned-detail { display: grid; gap: 5px; width: min(100%, 530px); padding: 14px; margin: 20px auto 0; border-radius: 9px; background: #f3f7f4; text-align: left; }
+  .unassigned-detail span { color: #718078; font-size: 10px; }
+  .unassigned-detail strong { color: #245c3c; font-size: 11px; }
+  .coming-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+  .coming-grid article { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
+  .coming-icon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; background: #edf5ef; color: #0a6841; font-size: 14px; }
+  .coming-grid strong { color: #34483b; font-size: 11px; }
+  .coming-grid p { margin: 5px 0 8px; color: #819087; font-size: 10px; line-height: 1.5; }
+  .coming-grid small { color: #0a8050; font-size: 9px; font-weight: 700; }
+  .state-card { display: grid; justify-items: center; padding: 45px 20px; text-align: center; }
+  .state-card h1 { font-size: 24px; }
+  .state-card p { color: #718078; font-size: 13px; }
+  .badge-warning { padding: 7px 11px; border-radius: 20px; background: #fff3e5; color: #92571b; font-size: 9px; font-weight: 800; }
+  .primary { border: 0; border-radius: 8px; background: #0a5c37; color: white; padding: 11px 17px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .loader { width: 27px; height: 27px; border: 3px solid #dce8df; border-top-color: #0a8050; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .modal-layer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow-y: auto; padding: 18px; }
+  .modal-scrim { position: fixed; inset: 0; border: 0; background: #071b10a8; cursor: default; }
+  .decline-modal { position: relative; width: min(100%, 520px); padding: 25px; border-radius: 14px; background: #fff; box-shadow: 0 22px 70px #071e1250; }
+  .modal-heading { display: flex; justify-content: space-between; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid #edf1ed; }
+  .modal-heading h2 { margin: 8px 0 5px; font-size: 19px; }
+  .modal-heading p { margin: 0; color: #718078; font-size: 11px; line-height: 1.6; }
+  .close-button { width: 32px; height: 32px; flex: 0 0 32px; border: 1px solid #e0e8e1; border-radius: 8px; background: #fff; color: #44554a; font-size: 21px; cursor: pointer; }
+  .decline-modal form { display: grid; gap: 9px; padding-top: 16px; }
+  .decline-modal label { margin-top: 8px; color: #44554a; font-size: 11px; font-weight: 700; }
+  .decline-modal label span { color: #819087; font-weight: 400; }
+  .decline-modal select,.decline-modal textarea { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: #223328; font-size: 11px; }
+  .decline-modal textarea { resize: vertical; }
+  .warning-note { padding: 11px; border-radius: 8px; background: #fff8ed; color: #895c20; font-size: 10px; line-height: 1.5; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+  .cancel-button,.confirm-decline { min-height: 39px; padding: 9px 13px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .cancel-button { border: 1px solid #dce5de; background: #fff; color: #44554a; }
+  .confirm-decline { border: 1px solid #a34238; background: #a34238; color: #fff; }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  @media (max-width: 760px) {
+    .welcome { align-items: flex-start; flex-direction: column; padding: 22px; }
+    .account-chip { width: 100%; }
+    .member-summary { grid-template-columns: 1fr; }
+    .contacts-grid { grid-template-columns: 1fr; }
+    .coming-grid { grid-template-columns: 1fr; }
+    .group-card { padding: 20px; }
+    .decline-area { align-items: flex-start; flex-direction: column; }
+    .decline-button { width: 100%; }
+  }
+  @media (max-width: 480px) {
+    .page { padding-inline: 12px; }
+    .topbar { margin-bottom: 20px; }
+    .topbar-actions { gap: 7px; }
+    .member-code { font-size: 9px; }
+    .signout { padding: 9px 11px; font-size: 10px; }
+    .group-card-header { flex-direction: column; }
+    .assignment-meta { align-items: flex-start; flex-direction: column; }
+    .modal-layer { padding: 10px; }
+    .decline-modal { padding: 19px; }
+    .modal-actions { flex-direction: column-reverse; }
+    .modal-actions button { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
 </style>
