@@ -163,7 +163,7 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
   return records.slice(1).map((cells, index) => {
     const line = index + 2;
     const get = (name: string) => cells[positions.get(name) ?? -1] ?? '';
-    const stateCode = get('statecode').trim();
+    const stateCode = get('statecode').trim().toUpperCase();
     const firstName = get('firstname').trim();
     const lastName = get('lastname').trim();
     const lgaName = get('lganame').trim();
@@ -198,8 +198,21 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
     }
 
     const dateOfBirth = optional(get('dateofbirth'));
-    if (dateOfBirth && (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) || Number.isNaN(Date.parse(dateOfBirth)))) {
-      throw new CorpsMemberImportError(`Line ${line}: date of birth must use YYYY-MM-DD format.`, 400, 'INVALID_IMPORT_ROW');
+    if (dateOfBirth) {
+      const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(dateOfBirth);
+      const year = match ? Number(match[1]) : 0;
+      const month = match ? Number(match[2]) : 0;
+      const day = match ? Number(match[3]) : 0;
+      const parsedDate = new Date(Date.UTC(year, month - 1, day));
+      const validDate = Boolean(
+        match &&
+        parsedDate.getUTCFullYear() === year &&
+        parsedDate.getUTCMonth() === month - 1 &&
+        parsedDate.getUTCDate() === day
+      );
+      if (!validDate) {
+        throw new CorpsMemberImportError(`Line ${line}: date of birth must be a real date in YYYY-MM-DD format.`, 400, 'INVALID_IMPORT_ROW');
+      }
     }
 
     const profileStatus = (optional(get('profilestatus')) ?? 'preloaded').toLowerCase();
