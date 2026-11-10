@@ -244,6 +244,9 @@
             {/each}
           </div>
         {/if}
+        <div class="verification-disclosure">
+          Your uploaded documents are processed by the platform's document-verification service. Depending on configuration, document content may be sent to an external AI provider to compare the document type, reference sample and visible details against your NYSC record. Do not upload documents that were not requested.
+        </div>
         <div class="matching-note">
           <strong>Automatic CDS matching</strong>
           <span>Your academic course is matched to an eligible CDS group only after all mandatory documents have passed verification.</span>
@@ -444,6 +447,7 @@
   .document-upload:has(input:disabled) { opacity: .55; cursor: wait; }
   .verified-mark { padding: 8px 10px; color: #0a6841; font-size: 9px; font-weight: 800; white-space: nowrap; }
   .documents-empty { padding: 18px; border: 1px dashed #dce7de; border-radius: 8px; background: #fafcfa; color: #718078; font-size: 10px; line-height: 1.6; }
+  .verification-disclosure { padding: 11px 13px; margin-top: 14px; border: 1px solid #e9e5d7; border-radius: 8px; background: #fffaf0; color: #75684c; font-size: 9px; line-height: 1.6; }
   .matching-note { display: grid; gap: 5px; padding: 13px 15px; margin-top: 14px; border-radius: 9px; background: #f3f7f4; }
   .matching-note strong { color: #245c3c; font-size: 10px; }
   .matching-note span { color: #718078; font-size: 9px; line-height: 1.5; }
