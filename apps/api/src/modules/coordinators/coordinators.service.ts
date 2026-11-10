@@ -871,6 +871,7 @@ export async function acceptCoordinatorHandover(
         id: cdsGroupHandovers.id,
         groupId: cdsGroupHandovers.cdsGroupId,
         incomingCoordinatorId: cdsGroupHandovers.incomingCoordinatorId,
+        incomingWasStandby: cdsGroupHandovers.incomingWasStandby,
         status: cdsGroupHandovers.status
       })
       .from(cdsGroupHandovers)
@@ -1004,6 +1005,33 @@ export async function cancelCoordinatorHandover(
         .update(userRoleAssignments)
         .set({ isActive: false })
         .where(eq(userRoleAssignments.id, incomingAssignment.id));
+    }
+
+    if (handover.incomingWasStandby) {
+      const [standbyAssignment] = await tx
+        .select({ id: userRoleAssignments.id })
+        .from(userRoleAssignments)
+        .where(and(
+          eq(userRoleAssignments.userId, handover.incomingCoordinatorId),
+          eq(userRoleAssignments.roleId, roleId),
+          eq(userRoleAssignments.lgaId, handover.lgaId),
+          isNull(userRoleAssignments.cdsGroupId)
+        ))
+        .limit(1);
+
+      if (standbyAssignment) {
+        await tx
+          .update(userRoleAssignments)
+          .set({ isActive: true })
+          .where(eq(userRoleAssignments.id, standbyAssignment.id));
+      } else {
+        await tx.insert(userRoleAssignments).values({
+          userId: handover.incomingCoordinatorId,
+          roleId,
+          lgaId: handover.lgaId,
+          cdsGroupId: null
+        });
+      }
     }
 
     const [outgoingUser] = await tx
