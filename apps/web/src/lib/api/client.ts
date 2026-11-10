@@ -388,6 +388,223 @@ export async function declineAssignedCdsGroup(input: {
   });
 }
 
+export type DocumentVerificationStatus =
+  | 'pending_verification'
+  | 'verified'
+  | 'needs_resubmission'
+  | 'manual_review';
+
+export interface CorpsMemberDocumentSubmission {
+  id: string;
+  originalFileName: string;
+  status: DocumentVerificationStatus;
+  verificationConfidence: number | null;
+  verificationReason: string | null;
+  submittedAt: string;
+  verifiedAt: string | null;
+}
+
+export interface CorpsMemberDocumentRequirement {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isRequired: boolean;
+  allowedMimeTypes: string;
+  maxFileSizeBytes: number;
+  submission: CorpsMemberDocumentSubmission | null;
+  canResubmit: boolean;
+}
+
+export interface CorpsMemberDocumentDashboard {
+  profileStatus: string;
+  requirements: CorpsMemberDocumentRequirement[];
+  requiredDocumentsVerified: boolean;
+  message: string;
+}
+
+export async function getCorpsMemberDocuments(): Promise<CorpsMemberDocumentDashboard> {
+  const response = await request<{
+    success: boolean;
+    data: CorpsMemberDocumentDashboard;
+  }>('/corps-member/documents');
+  return response.data;
+}
+
+export async function uploadCorpsMemberDocument(
+  requirementId: string,
+  file: File
+): Promise<{
+  submissionId: string;
+  status: DocumentVerificationStatus;
+  verificationConfidence: number | null;
+  verificationReason: string;
+  matching: {
+    assigned: boolean;
+    groupId?: string;
+    groupCode?: string;
+    groupName?: string;
+    reason?: string;
+  } | null;
+}> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(
+    `/api/corps-member/documents/${encodeURIComponent(requirementId)}`,
+    {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+      ? data.message
+      : 'Unable to upload this document.';
+    throw new ApiError(message, response.status);
+  }
+  return data.data;
+}
+
+export interface LgiDocumentRequirement {
+  id: string;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isRequired: boolean;
+  allowedMimeTypes: string;
+  maxFileSizeBytes: number;
+  hasReferenceSample: string | null;
+  referenceFileName: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LgiDocumentSubmission {
+  id: string;
+  requirementId: string;
+  requirementName: string;
+  memberId: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  fileName: string;
+  mimeType: string;
+  status: DocumentVerificationStatus;
+  confidence: number | null;
+  reason: string | null;
+  submittedAt: string;
+}
+
+export async function listLgiDocumentRequirements(): Promise<LgiDocumentRequirement[]> {
+  const response = await request<{ success: boolean; data: LgiDocumentRequirement[] }>('/lgi/document-requirements');
+  return response.data;
+}
+
+export async function createLgiDocumentRequirement(input: {
+  lgaId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  isRequired: boolean;
+  allowedMimeTypes: string[];
+  maxFileSizeBytes: number;
+  isActive?: boolean;
+}): Promise<void> {
+  await request('/lgi/document-requirements', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateLgiDocumentRequirement(
+  requirementId: string,
+  input: Partial<{
+    code: string;
+    name: string;
+    description: string | null;
+    isRequired: boolean;
+    allowedMimeTypes: string[];
+    maxFileSizeBytes: number;
+    isActive: boolean;
+  }>
+): Promise<void> {
+  await request(`/lgi/document-requirements/${encodeURIComponent(requirementId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+}
+
+export async function uploadDocumentReferenceSample(
+  requirementId: string,
+  file: File
+): Promise<void> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(
+    `/api/lgi/document-requirements/${encodeURIComponent(requirementId)}/reference-sample`,
+    {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+      ? data.message
+      : 'Unable to upload the reference sample.';
+    throw new ApiError(message, response.status);
+  }
+}
+
+export async function listLgiDocumentSubmissions(
+  status?: DocumentVerificationStatus
+): Promise<LgiDocumentSubmission[]> {
+  const query = new URLSearchParams();
+  if (status) query.set('status', status);
+  const suffix = query.size ? `?${query.toString()}` : '';
+  const response = await request<{ success: boolean; data: LgiDocumentSubmission[] }>(
+    `/lgi/document-submissions${suffix}`
+  );
+  return response.data;
+}
+
+export async function decideLgiDocumentManualReview(
+  submissionId: string,
+  decision: 'verified' | 'needs_resubmission',
+  reason: string
+): Promise<void> {
+  await request(`/lgi/document-submissions/${encodeURIComponent(submissionId)}/decision`, {
+    method: 'POST',
+    body: JSON.stringify({ decision, reason })
+  });
+}
+
+export async function downloadLgiDocumentSubmission(submissionId: string): Promise<Blob> {
+  const response = await fetch(
+    `/api/lgi/document-submissions/${encodeURIComponent(submissionId)}/file`,
+    { credentials: 'same-origin' }
+  );
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+      ? data.message
+      : 'Unable to download the document.';
+    throw new ApiError(message, response.status);
+  }
+  return response.blob();
+}
+
+
 export interface CourseCategory {
   code: string;
   label: string;
