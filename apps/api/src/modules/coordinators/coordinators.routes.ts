@@ -9,6 +9,8 @@ import {
   listLgiCoordinatorHandovers,
   createCoordinatorHandover,
   listMyCoordinatorHandovers,
+  listMyCoordinatorCourseMappings,
+  updateMyCoordinatorCourseMapping,
   acceptCoordinatorHandover,
   cancelCoordinatorHandover,
   CoordinatorServiceError
@@ -192,6 +194,49 @@ coordinatorRoutes.post('/coordinators/handovers/:handoverId/cancel', async (c) =
 // Coordinator-only handover inbox. The service filters by the authenticated user ID.
 export const coordinatorSelfServiceRoutes = new Hono<AuthEnv>();
 coordinatorSelfServiceRoutes.use('*', requireAuth, requireRole('CDS_COORDINATOR'));
+
+const coordinatorCourseMappingSchema = z.object({
+  courseIds: z.array(z.string().uuid()).min(1).max(80)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: 'A course can only be selected once.'
+    })
+});
+
+coordinatorSelfServiceRoutes.get('/course-mappings', async (c) => {
+  try {
+    const data = await listMyCoordinatorCourseMappings(c.get('authUser').id);
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorSelfServiceRoutes.patch('/course-mappings/:groupId', async (c) => {
+  const id = coordinatorIdSchema.safeParse(c.req.param('groupId'));
+  const body = await c.req.json().catch(() => null);
+  const validation = coordinatorCourseMappingSchema.safeParse(body);
+  if (!id.success || !validation.success) {
+    return c.json({
+      success: false,
+      message: 'Provide a valid group ID and unique course mappings.',
+      errors: validation.success ? undefined : validation.error.issues
+    }, 400);
+  }
+  try {
+    const data = await updateMyCoordinatorCourseMapping(
+      c.get('authUser').id,
+      id.data,
+      validation.data.courseIds
+    );
+    return c.json({
+      success: true,
+      message: 'Course mapping updated for your assigned CDS group.',
+      data
+    });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
 
 coordinatorSelfServiceRoutes.get('/handovers', async (c) => {
   try {
