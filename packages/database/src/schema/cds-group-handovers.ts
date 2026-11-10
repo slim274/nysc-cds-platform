@@ -58,7 +58,7 @@ export const cdsGroupHandovers = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
 
-    outgoingConfirmedAt: timestamp('outgoing_confirmed_at', {
+    preparedAt: timestamp('prepared_at', {
       withTimezone: true
     }).notNull(),
 
