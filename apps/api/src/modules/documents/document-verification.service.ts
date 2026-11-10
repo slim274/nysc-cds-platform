@@ -602,7 +602,7 @@ export async function getCorpsMemberDocumentDashboard(userId: string) {
     return {
       ...requirement,
       submission,
-      canResubmit: !submission || submission.status !== 'verified'
+      canResubmit: !submission || submission.status === 'needs_resubmission'
     };
   });
 
