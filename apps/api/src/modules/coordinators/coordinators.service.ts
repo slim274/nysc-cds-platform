@@ -716,15 +716,24 @@ export async function createCoordinatorHandover(
     }
 
     const [incomingRoleAssignment] = await tx
-      .select({
-        id: userRoleAssignments.id,
-        cdsGroupId: userRoleAssignments.cdsGroupId
-      })
+      .select({ id: userRoleAssignments.id })
       .from(userRoleAssignments)
       .where(and(
         eq(userRoleAssignments.userId, incomingUser.id),
         eq(userRoleAssignments.roleId, roleId),
         eq(userRoleAssignments.lgaId, group.lgaId),
+        eq(userRoleAssignments.isActive, true)
+      ))
+      .limit(1);
+
+    const [incomingStandbyAssignment] = await tx
+      .select({ id: userRoleAssignments.id })
+      .from(userRoleAssignments)
+      .where(and(
+        eq(userRoleAssignments.userId, incomingUser.id),
+        eq(userRoleAssignments.roleId, roleId),
+        eq(userRoleAssignments.lgaId, group.lgaId),
+        isNull(userRoleAssignments.cdsGroupId),
         eq(userRoleAssignments.isActive, true)
       ))
       .limit(1);
@@ -810,7 +819,7 @@ export async function createCoordinatorHandover(
         pendingActivities: input.pendingActivities,
         upcomingEvents: input.upcomingEvents,
         outstandingTasks: input.outstandingTasks,
-        incomingWasStandby: incomingRoleAssignment.cdsGroupId === null,
+        incomingWasStandby: Boolean(incomingStandbyAssignment),
         preparedAt: new Date(),
         initiatedByUserId
       })
