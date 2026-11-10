@@ -491,3 +491,10 @@ export async function acceptMyCoordinatorHandover(
     body: JSON.stringify({ acceptanceNotes })
   });
 }
+
+
+export async function cancelCoordinatorHandover(handoverId: string): Promise<void> {
+  await request('/lgi/coordinators/handovers/' + encodeURIComponent(handoverId) + '/cancel', {
+    method: 'POST'
+  });
+}
