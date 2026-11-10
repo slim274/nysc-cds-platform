@@ -12,6 +12,9 @@ import {
   roles,
   userRoleAssignments,
   cdsGroups,
+  cdsGroupCourses,
+  courses,
+  lgas,
   authTokens,
   authSessions,
   cdsGroupHandovers
@@ -849,6 +852,154 @@ export async function createCoordinatorHandover(
       outgoingCoordinatorEmail: outgoingAssignment.email,
       incomingCoordinatorEmail: incomingUser.email
     };
+  });
+}
+
+
+
+export async function listMyCoordinatorCourseMappings(userId: string) {
+  const groups = await db
+    .select({
+      id: cdsGroups.id,
+      code: cdsGroups.code,
+      name: cdsGroups.name,
+      lgaName: lgas.name,
+      stateName: lgas.stateName,
+      isActive: cdsGroups.isActive,
+      maxCapacity: cdsGroups.maxCapacity
+    })
+    .from(userRoleAssignments)
+    .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+    .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+    .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
+    .where(and(
+      eq(userRoleAssignments.userId, userId),
+      eq(userRoleAssignments.isActive, true),
+      eq(roles.code, 'CDS_COORDINATOR')
+    ))
+    .orderBy(asc(cdsGroups.name));
+
+  const activeCourses = await db
+    .select({
+      id: courses.id,
+      name: courses.name,
+      disciplineCategory: courses.disciplineCategory
+    })
+    .from(courses)
+    .where(eq(courses.isActive, true))
+    .orderBy(asc(courses.name));
+
+  if (groups.length === 0) {
+    return { groups: [], courses: activeCourses };
+  }
+
+  const mappings = await db
+    .select({
+      groupId: cdsGroupCourses.cdsGroupId,
+      courseId: courses.id,
+      courseName: courses.name,
+      disciplineCategory: courses.disciplineCategory
+    })
+    .from(cdsGroupCourses)
+    .innerJoin(courses, eq(cdsGroupCourses.courseId, courses.id))
+    .where(inArray(cdsGroupCourses.cdsGroupId, groups.map((group) => group.id)))
+    .orderBy(asc(courses.name));
+
+  const byGroup = new Map<string, typeof mappings>();
+  for (const mapping of mappings) {
+    const current = byGroup.get(mapping.groupId) ?? [];
+    current.push(mapping);
+    byGroup.set(mapping.groupId, current);
+  }
+
+  return {
+    groups: groups.map((group) => ({
+      ...group,
+      courses: (byGroup.get(group.id) ?? []).map((mapping) => ({
+        id: mapping.courseId,
+        name: mapping.courseName,
+        disciplineCategory: mapping.disciplineCategory
+      }))
+    })),
+    courses: activeCourses
+  };
+}
+
+export async function updateMyCoordinatorCourseMapping(
+  userId: string,
+  groupId: string,
+  courseIds: string[]
+) {
+  if (courseIds.length === 0 || new Set(courseIds).size !== courseIds.length) {
+    throw new CoordinatorServiceError(
+      'Map at least one unique academic course to this CDS group.',
+      400,
+      'COORDINATOR_COURSE_MAPPING_INVALID'
+    );
+  }
+
+  return db.transaction(async (tx) => {
+    const [assignment] = await tx
+      .select({
+        assignmentId: userRoleAssignments.id,
+        groupId: cdsGroups.id,
+        isActive: cdsGroups.isActive
+      })
+      .from(userRoleAssignments)
+      .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+      .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+      .where(and(
+        eq(userRoleAssignments.userId, userId),
+        eq(userRoleAssignments.cdsGroupId, groupId),
+        eq(userRoleAssignments.isActive, true),
+        eq(roles.code, 'CDS_COORDINATOR')
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!assignment) {
+      throw new CoordinatorServiceError(
+        'You can only configure course mappings for your actively assigned CDS groups.',
+        403,
+        'COORDINATOR_GROUP_SCOPE_FORBIDDEN'
+      );
+    }
+
+    if (!assignment.isActive) {
+      throw new CoordinatorServiceError(
+        'This CDS group is inactive. Ask your LGI to reactivate it before changing its mapping.',
+        409,
+        'COORDINATOR_GROUP_INACTIVE'
+      );
+    }
+
+    const activeCourses = await tx
+      .select({ id: courses.id })
+      .from(courses)
+      .where(and(
+        inArray(courses.id, courseIds),
+        eq(courses.isActive, true)
+      ));
+
+    if (activeCourses.length !== courseIds.length) {
+      throw new CoordinatorServiceError(
+        'One or more selected academic courses are unavailable.',
+        400,
+        'COORDINATOR_COURSE_UNAVAILABLE'
+      );
+    }
+
+    await tx.delete(cdsGroupCourses)
+      .where(eq(cdsGroupCourses.cdsGroupId, groupId));
+
+    await tx.insert(cdsGroupCourses).values(
+      courseIds.map((courseId) => ({
+        cdsGroupId: groupId,
+        courseId
+      }))
+    );
+
+    return { groupId, mappedCourseCount: courseIds.length };
   });
 }
 
