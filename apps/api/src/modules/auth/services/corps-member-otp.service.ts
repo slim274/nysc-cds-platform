@@ -1,8 +1,11 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import {
   and,
+  asc,
+  count,
   eq,
   gt,
+  inArray,
   isNull,
   isNotNull
 } from 'drizzle-orm';
@@ -14,7 +17,10 @@ import {
   corpsMemberOtpChallenges,
   users,
   roles,
-  userRoleAssignments
+  userRoleAssignments,
+  cdsGroups,
+  cdsGroupCourses,
+  cdsGroupMemberships
 } from '@nysc/database';
 
 import { hashPassword } from '../utils/password';
@@ -25,6 +31,93 @@ const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const OTP_MAX_SENDS = 3;
 const OTP_MAX_ATTEMPTS = 5;
+
+
+type AutoCdsGroupAssignment = {
+  groupId: string;
+  groupName: string;
+  groupCode: string;
+};
+
+async function autoAssignCorpsMemberToCdsGroup(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  member: { id: string; lgaId: string; courseId: string | null }
+): Promise<AutoCdsGroupAssignment | null> {
+  // A missing course or unmatched group is not a registration failure.
+  if (!member.courseId) return null;
+
+  // Lock all matching active groups in a stable order. This serializes
+  // registrations competing for the same group capacity.
+  const matchingGroups = await tx
+    .select({
+      id: cdsGroups.id,
+      name: cdsGroups.name,
+      code: cdsGroups.code,
+      maxCapacity: cdsGroups.maxCapacity,
+      createdAt: cdsGroups.createdAt
+    })
+    .from(cdsGroups)
+    .innerJoin(cdsGroupCourses, eq(cdsGroupCourses.cdsGroupId, cdsGroups.id))
+    .where(and(
+      eq(cdsGroups.lgaId, member.lgaId),
+      eq(cdsGroups.isActive, true),
+      eq(cdsGroupCourses.courseId, member.courseId)
+    ))
+    .orderBy(asc(cdsGroups.id))
+    .for('update');
+
+  if (matchingGroups.length === 0) return null;
+
+  const groupIds = matchingGroups.map((group) => group.id);
+  const countRows = await tx
+    .select({
+      groupId: cdsGroupMemberships.cdsGroupId,
+      activeCount: count()
+    })
+    .from(cdsGroupMemberships)
+    .where(and(
+      inArray(cdsGroupMemberships.cdsGroupId, groupIds),
+      eq(cdsGroupMemberships.status, 'active')
+    ))
+    .groupBy(cdsGroupMemberships.cdsGroupId);
+
+  const counts = new Map(
+    countRows.map((row) => [row.groupId, Number(row.activeCount)])
+  );
+
+  // Prefer the least-utilised eligible group to balance distribution.
+  // Tie-breakers make the result deterministic.
+  const selected = matchingGroups
+    .map((group) => ({
+      ...group,
+      activeCount: counts.get(group.id) ?? 0
+    }))
+    .filter((group) => group.activeCount < group.maxCapacity)
+    .sort((a, b) => {
+      const utilisationDifference =
+        (a.activeCount / a.maxCapacity) - (b.activeCount / b.maxCapacity);
+      return utilisationDifference ||
+        a.activeCount - b.activeCount ||
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id.localeCompare(b.id);
+    })[0];
+
+  if (!selected) return null;
+
+  await tx.insert(cdsGroupMemberships).values({
+    cdsGroupId: selected.id,
+    corpsMemberId: member.id,
+    status: 'active',
+    source: 'automatic',
+    assignedByUserId: null
+  });
+
+  return {
+    groupId: selected.id,
+    groupName: selected.name,
+    groupCode: selected.code
+  };
+}
 
 type OtpChannel = 'email' | 'sms';
 
@@ -417,6 +510,15 @@ export async function registerCorpsMemberAccount(
       roleId: memberRole.id,
       lgaId: null,
       cdsGroupId: null
+    });
+
+    // Assign the newly registered member to the best eligible CDS group.
+    // If no eligible group has capacity, account creation still succeeds;
+    // LGI can resolve the exception from the group management screen.
+    await autoAssignCorpsMemberToCdsGroup(tx, {
+      id: member.id,
+      lgaId: member.lgaId,
+      courseId: member.courseId
     });
 
     await tx.update(corpsMemberOtpChallenges)
