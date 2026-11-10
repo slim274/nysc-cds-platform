@@ -11,6 +11,7 @@
     updateCoordinator,
     listCoordinatorHandovers,
     createCoordinatorHandover,
+    cancelCoordinatorHandover,
     logout
   } from '#lib/api/client.ts';
 
@@ -264,6 +265,24 @@
     }
   }
 
+
+  async function cancelHandover(handover: CoordinatorHandover) {
+    if (!confirm(`Cancel the pending transfer for ${handover.groupCode} — ${handover.groupName}? If the outgoing Coordinator account is still active, their assignment will be restored.`)) return;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      await cancelCoordinatorHandover(handover.id);
+      noticeMessage = 'Pending handover cancelled.';
+      await loadPage();
+    } catch (error) {
+      errorMessage = error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'Unable to cancel the handover.';
+    }
+  }
+
   function handoverReasonLabel(reason: string) {
     return reason.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
@@ -468,7 +487,11 @@
                   {#if handover.upcomingEvents.length}<p><strong>Upcoming events:</strong> {handover.upcomingEvents.join(' · ')}</p>{/if}
                   {#if handover.outstandingTasks.length}<p><strong>Outstanding tasks:</strong> {handover.outstandingTasks.join(' · ')}</p>{/if}
                   {#if handover.acceptanceNotes}<p><strong>Incoming Coordinator:</strong> {handover.acceptanceNotes}</p>{/if}
-                  {#if handover.acceptedAt}<small class="accepted-at">Acknowledged {new Date(handover.acceptedAt).toLocaleString()}</small>{:else if handover.status === 'pending_acceptance'}<small class="pending-at">Awaiting incoming Coordinator acknowledgement.</small>{/if}
+                  {#if handover.acceptedAt}
+                    <small class="accepted-at">Acknowledged {new Date(handover.acceptedAt).toLocaleString()}</small>
+                  {:else if handover.status === 'pending_acceptance'}
+                    <div class="pending-handover-actions"><small class="pending-at">Awaiting incoming Coordinator acknowledgement.</small><button class="cancel-handover-button" type="button" onclick={() => void cancelHandover(handover)}>Cancel transfer</button></div>
+                  {/if}
                 </article>
               {/each}
             </div>
@@ -590,6 +613,9 @@
   .handover-card .handover-notes { padding: 10px; border-radius: 7px; background: #f2f6f3; white-space: pre-wrap; }
   .accepted-at, .pending-at { display: block; margin-top: 10px; color: #087443; font-size: 9px; }
   .pending-at { color: #9c6500; }
+  .pending-handover-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .cancel-handover-button { min-height: 32px; padding: 6px 10px; border: 1px solid #f0c9c6; border-radius: 7px; background: #fff7f6; color: #b42318; font-size: 10px; font-weight: 700; cursor: pointer; }
+
   .handover-warning { margin: 0; padding: 10px 12px; border: 1px solid #f0dfbd; border-radius: 8px; background: #fff9eb; color: #8a5a12; font-size: 10px; line-height: 1.6; }
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; overflow-x: hidden; background: #f5f7f5; color: #19251e; font-family: Inter, Arial, sans-serif; }
