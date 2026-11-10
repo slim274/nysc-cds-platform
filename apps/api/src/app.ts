@@ -17,7 +17,8 @@ import {
 } from './modules/course-catalogue/course-catalogue.routes';
 
 import {
-  coordinatorRoutes
+  coordinatorRoutes,
+  coordinatorSelfServiceRoutes
 } from './modules/coordinators/coordinators.routes';
 
 import type {
@@ -75,5 +76,8 @@ app.route('/lgi', lgiCourseCatalogueRoutes);
 
 // CDS Coordinator lifecycle and group assignments.
 app.route('/lgi', coordinatorRoutes);
+
+// Coordinator-facing handover inbox and acceptance.
+app.route('/coordinator', coordinatorSelfServiceRoutes);
 
 export default app;
