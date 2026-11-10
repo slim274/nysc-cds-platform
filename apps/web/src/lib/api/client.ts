@@ -17,7 +17,7 @@ export interface AuthRole {
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email: string | null;
 }
 
 export interface LoginResponse {
@@ -69,12 +69,12 @@ async function request<T>(
 }
 
 export async function login(
-  email: string,
+  identifier: string,
   password: string
 ): Promise<LoginResponse> {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ identifier, password })
   });
 }
 
