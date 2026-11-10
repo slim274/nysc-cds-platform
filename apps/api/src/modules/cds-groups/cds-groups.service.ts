@@ -4,7 +4,9 @@ import {
   count,
   eq,
   ilike,
-  inArray
+  inArray,
+  ne,
+  notExists
 } from 'drizzle-orm';
 
 import {
@@ -12,6 +14,7 @@ import {
   cdsGroups,
   cdsGroupCourses,
   cdsGroupMemberships,
+  corpsMembers,
   courses,
   lgas,
   roles,
@@ -442,4 +445,352 @@ export async function updateCdsGroup(
 
     throw error;
   }
+}
+
+export async function listCdsGroupMembers(
+  groupId: string,
+  lgaIds: string[],
+  search?: string
+) {
+  assertLgaScope(lgaIds);
+
+  const [group] = await db
+    .select({
+      id: cdsGroups.id,
+      lgaId: cdsGroups.lgaId,
+      code: cdsGroups.code,
+      name: cdsGroups.name,
+      isActive: cdsGroups.isActive,
+      maxCapacity: cdsGroups.maxCapacity
+    })
+    .from(cdsGroups)
+    .where(and(
+      eq(cdsGroups.id, groupId),
+      inArray(cdsGroups.lgaId, lgaIds)
+    ))
+    .limit(1);
+
+  if (!group) {
+    throw new CdsGroupServiceError(
+      'CDS group not found.',
+      404,
+      'CDS_GROUP_NOT_FOUND'
+    );
+  }
+
+  const [memberCountRow, members] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(cdsGroupMemberships)
+      .where(and(
+        eq(cdsGroupMemberships.cdsGroupId, groupId),
+        eq(cdsGroupMemberships.status, 'active')
+      )),
+    db
+      .select({
+        membershipId: cdsGroupMemberships.id,
+        memberId: corpsMembers.id,
+        stateCode: corpsMembers.stateCode,
+        firstName: corpsMembers.firstName,
+        middleName: corpsMembers.middleName,
+        lastName: corpsMembers.lastName,
+        courseName: courses.name,
+        profileStatus: corpsMembers.profileStatus,
+        assignedAt: cdsGroupMemberships.assignedAt
+      })
+      .from(cdsGroupMemberships)
+      .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+      .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+      .where(and(
+        eq(cdsGroupMemberships.cdsGroupId, groupId),
+        eq(cdsGroupMemberships.status, 'active')
+      ))
+      .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName))
+  ]);
+
+  const currentMemberCount = Number(memberCountRow[0]?.value ?? 0);
+  const availableCapacity = group.maxCapacity - currentMemberCount;
+
+  const courseMappings = await db
+    .select({ courseId: cdsGroupCourses.courseId })
+    .from(cdsGroupCourses)
+    .where(eq(cdsGroupCourses.cdsGroupId, groupId));
+
+  const eligibleCourseIds = courseMappings.map((mapping) => mapping.courseId);
+  let eligibleMembers: Array<{
+    id: string;
+    stateCode: string;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    courseName: string | null;
+    profileStatus: string;
+  }> = [];
+
+  if (group.isActive && availableCapacity > 0 && eligibleCourseIds.length > 0) {
+    const conditions = [
+      eq(corpsMembers.lgaId, group.lgaId),
+      inArray(corpsMembers.courseId, eligibleCourseIds),
+      ne(corpsMembers.profileStatus, 'rejected'),
+      notExists(
+        db
+          .select({ id: cdsGroupMemberships.id })
+          .from(cdsGroupMemberships)
+          .where(and(
+            eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id),
+            eq(cdsGroupMemberships.status, 'active')
+          ))
+      )
+    ];
+
+    if (search?.trim()) {
+      const pattern = `%${search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(corpsMembers.firstName, pattern),
+          ilike(corpsMembers.middleName, pattern),
+          ilike(corpsMembers.lastName, pattern),
+          ilike(corpsMembers.stateCode, pattern),
+          ilike(corpsMembers.callUpNumber, pattern)
+        )!
+      );
+    }
+
+    eligibleMembers = await db
+      .select({
+        id: corpsMembers.id,
+        stateCode: corpsMembers.stateCode,
+        firstName: corpsMembers.firstName,
+        middleName: corpsMembers.middleName,
+        lastName: corpsMembers.lastName,
+        courseName: courses.name,
+        profileStatus: corpsMembers.profileStatus
+      })
+      .from(corpsMembers)
+      .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+      .where(and(...conditions))
+      .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName))
+      .limit(50);
+  }
+
+  return {
+    group: {
+      ...group,
+      currentMemberCount,
+      availableCapacity
+    },
+    members,
+    eligibleMembers
+  };
+}
+
+export async function assignCdsGroupMember(
+  groupId: string,
+  memberId: string,
+  lgaIds: string[],
+  assignedByUserId: string
+) {
+  assertLgaScope(lgaIds);
+
+  return db.transaction(async (tx) => {
+    const [group] = await tx
+      .select({
+        id: cdsGroups.id,
+        lgaId: cdsGroups.lgaId,
+        isActive: cdsGroups.isActive,
+        maxCapacity: cdsGroups.maxCapacity
+      })
+      .from(cdsGroups)
+      .where(and(
+        eq(cdsGroups.id, groupId),
+        inArray(cdsGroups.lgaId, lgaIds)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!group) {
+      throw new CdsGroupServiceError('CDS group not found.', 404, 'CDS_GROUP_NOT_FOUND');
+    }
+
+    if (!group.isActive) {
+      throw new CdsGroupServiceError('This CDS group is inactive and cannot receive members.', 409, 'CDS_GROUP_INACTIVE');
+    }
+
+    const [member] = await tx
+      .select({
+        id: corpsMembers.id,
+        lgaId: corpsMembers.lgaId,
+        courseId: corpsMembers.courseId,
+        profileStatus: corpsMembers.profileStatus
+      })
+      .from(corpsMembers)
+      .where(eq(corpsMembers.id, memberId))
+      .for('update')
+      .limit(1);
+
+    if (!member || member.lgaId !== group.lgaId) {
+      throw new CdsGroupServiceError(
+        'The Corps Member record was not found in this LGA.',
+        404,
+        'CORPS_MEMBER_NOT_FOUND_IN_LGA'
+      );
+    }
+
+    if (member.profileStatus === 'rejected') {
+      throw new CdsGroupServiceError(
+        'A rejected Corps Member profile cannot be assigned to a CDS group.',
+        409,
+        'CORPS_MEMBER_PROFILE_REJECTED'
+      );
+    }
+
+    if (!member.courseId) {
+      throw new CdsGroupServiceError(
+        'Add the Corps Member’s academic course before assigning them to this group.',
+        409,
+        'CORPS_MEMBER_COURSE_REQUIRED'
+      );
+    }
+
+    const [eligibleCourse] = await tx
+      .select({ courseId: cdsGroupCourses.courseId })
+      .from(cdsGroupCourses)
+      .innerJoin(courses, eq(cdsGroupCourses.courseId, courses.id))
+      .where(and(
+        eq(cdsGroupCourses.cdsGroupId, groupId),
+        eq(cdsGroupCourses.courseId, member.courseId),
+        eq(courses.isActive, true)
+      ))
+      .limit(1);
+
+    if (!eligibleCourse) {
+      throw new CdsGroupServiceError(
+        'The Corps Member’s academic course is not eligible for this CDS group.',
+        409,
+        'CORPS_MEMBER_COURSE_NOT_ELIGIBLE'
+      );
+    }
+
+    const [existingMembership] = await tx
+      .select({
+        cdsGroupId: cdsGroupMemberships.cdsGroupId
+      })
+      .from(cdsGroupMemberships)
+      .where(and(
+        eq(cdsGroupMemberships.corpsMemberId, memberId),
+        eq(cdsGroupMemberships.status, 'active')
+      ))
+      .for('update')
+      .limit(1);
+
+    if (existingMembership) {
+      throw new CdsGroupServiceError(
+        existingMembership.cdsGroupId === groupId
+          ? 'This Corps Member is already assigned to this CDS group.'
+          : 'This Corps Member already belongs to another active CDS group. End that membership before reassigning them.',
+        409,
+        'CORPS_MEMBER_ALREADY_ASSIGNED'
+      );
+    }
+
+    const [countRow] = await tx
+      .select({ value: count() })
+      .from(cdsGroupMemberships)
+      .where(and(
+        eq(cdsGroupMemberships.cdsGroupId, groupId),
+        eq(cdsGroupMemberships.status, 'active')
+      ));
+
+    if (Number(countRow?.value ?? 0) >= group.maxCapacity) {
+      throw new CdsGroupServiceError(
+        'This CDS group has reached its maximum capacity.',
+        409,
+        'CDS_GROUP_CAPACITY_REACHED'
+      );
+    }
+
+    const [created] = await tx
+      .insert(cdsGroupMemberships)
+      .values({
+        cdsGroupId: groupId,
+        corpsMemberId: memberId,
+        status: 'active',
+        source: 'manual',
+        assignedByUserId
+      })
+      .returning({
+        id: cdsGroupMemberships.id,
+        assignedAt: cdsGroupMemberships.assignedAt
+      });
+
+    if (!created) {
+      throw new Error('The CDS group membership could not be created.');
+    }
+
+    return created;
+  });
+}
+
+export async function endCdsGroupMemberMembership(
+  groupId: string,
+  memberId: string,
+  lgaIds: string[]
+) {
+  assertLgaScope(lgaIds);
+
+  return db.transaction(async (tx) => {
+    const [group] = await tx
+      .select({
+        id: cdsGroups.id,
+        lgaId: cdsGroups.lgaId
+      })
+      .from(cdsGroups)
+      .where(and(
+        eq(cdsGroups.id, groupId),
+        inArray(cdsGroups.lgaId, lgaIds)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!group) {
+      throw new CdsGroupServiceError('CDS group not found.', 404, 'CDS_GROUP_NOT_FOUND');
+    }
+
+    const [member] = await tx
+      .select({ id: corpsMembers.id })
+      .from(corpsMembers)
+      .where(and(
+        eq(corpsMembers.id, memberId),
+        eq(corpsMembers.lgaId, group.lgaId)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!member) {
+      throw new CdsGroupServiceError('Corps Member not found in this LGA.', 404, 'CORPS_MEMBER_NOT_FOUND_IN_LGA');
+    }
+
+    const [ended] = await tx
+      .update(cdsGroupMemberships)
+      .set({
+        status: 'ended',
+        endedAt: new Date()
+      })
+      .where(and(
+        eq(cdsGroupMemberships.cdsGroupId, groupId),
+        eq(cdsGroupMemberships.corpsMemberId, memberId),
+        eq(cdsGroupMemberships.status, 'active')
+      ))
+      .returning({ id: cdsGroupMemberships.id });
+
+    if (!ended) {
+      throw new CdsGroupServiceError(
+        'This Corps Member does not have an active membership in this group.',
+        404,
+        'CDS_GROUP_MEMBERSHIP_NOT_FOUND'
+      );
+    }
+
+    return { membershipId: ended.id, status: 'ended' as const };
+  });
 }
