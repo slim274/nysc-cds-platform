@@ -9,18 +9,34 @@
     listCoordinators,
     createCoordinator,
     updateCoordinator,
+    listCoordinatorHandovers,
+    createCoordinatorHandover,
     logout
   } from '#lib/api/client.ts';
 
   import type {
     AuthUser,
     CdsGroupSummary,
-    CoordinatorRecord
+    CoordinatorRecord,
+    CoordinatorHandover,
+    CoordinatorHandoverReason
   } from '#lib/api/client.ts';
 
   let currentUser = $state<AuthUser | null>(null);
   let groups = $state<CdsGroupSummary[]>([]);
   let coordinators = $state<CoordinatorRecord[]>([]);
+  let handovers = $state<CoordinatorHandover[]>([]);
+  let handoverOpen = $state(false);
+  let handoverSaving = $state(false);
+  let handoverGroupId = $state('');
+  let handoverOutgoingId = $state('');
+  let handoverIncomingId = $state('');
+  let handoverReason = $state<CoordinatorHandoverReason>('resignation');
+  let handoverNotes = $state('');
+  let pendingActivitiesText = $state('');
+  let upcomingEventsText = $state('');
+  let outstandingTasksText = $state('');
+  let handoverError = $state('');
   let loading = $state(true);
   let saving = $state(false);
   let signingOut = $state(false);
@@ -43,6 +59,14 @@
     const matchesStatus = statusFilter === 'all' || coordinator.accountStatus === statusFilter;
     return matchesSearch && matchesStatus;
   }));
+
+  const handoverIncomingCandidates = $derived(
+    coordinators.filter((coordinator) =>
+      coordinator.userId !== handoverOutgoingId &&
+      coordinator.accountStatus === 'active' &&
+      coordinator.assignments.some((assignment) => assignment.isActive && assignment.groupId)
+    )
+  );
 
   const assignedGroupOwners = $derived.by(() => {
     const owners = new Map<string, string>();
@@ -72,12 +96,14 @@
       }
 
       currentUser = session.user;
-      const [groupRows, coordinatorRows] = await Promise.all([
+      const [groupRows, coordinatorRows, handoverRows] = await Promise.all([
         listCdsGroups({ active: true }),
-        listCoordinators()
+        listCoordinators(),
+        listCoordinatorHandovers()
       ]);
       groups = groupRows;
       coordinators = coordinatorRows;
+      handovers = handoverRows;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await goto('/login');
@@ -96,6 +122,7 @@
   function handleWindowKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       formOpen = false;
+      handoverOpen = false;
       closeMobileNavigation();
     }
   }
@@ -175,6 +202,70 @@
     } finally {
       saving = false;
     }
+  }
+
+
+  function openHandoverForm(
+    coordinator: CoordinatorRecord,
+    assignment: CoordinatorRecord['assignments'][number]
+  ) {
+    if (!assignment.groupId) return;
+    handoverGroupId = assignment.groupId;
+    handoverOutgoingId = coordinator.userId;
+    handoverIncomingId = '';
+    handoverReason = 'resignation';
+    handoverNotes = '';
+    pendingActivitiesText = '';
+    upcomingEventsText = '';
+    outstandingTasksText = '';
+    handoverError = '';
+    handoverOpen = true;
+  }
+
+  function splitHandoverItems(value: string): string[] {
+    return value.split('\\n').map((item) => item.trim()).filter(Boolean);
+  }
+
+  async function submitHandover(event: SubmitEvent) {
+    event.preventDefault();
+    handoverError = '';
+    if (!handoverIncomingId) {
+      handoverError = 'Select an active incoming Coordinator.';
+      return;
+    }
+    if (handoverNotes.trim().length < 10) {
+      handoverError = 'Provide handover notes of at least 10 characters.';
+      return;
+    }
+
+    handoverSaving = true;
+    try {
+      const result = await createCoordinatorHandover({
+        groupId: handoverGroupId,
+        outgoingCoordinatorId: handoverOutgoingId,
+        incomingCoordinatorId: handoverIncomingId,
+        reason: handoverReason,
+        handoverNotes: handoverNotes.trim(),
+        pendingActivities: splitHandoverItems(pendingActivitiesText),
+        upcomingEvents: splitHandoverItems(upcomingEventsText),
+        outstandingTasks: splitHandoverItems(outstandingTasksText)
+      });
+      noticeMessage = `Responsibility for ${result.groupCode} has been transferred. The incoming Coordinator must review and accept the handover.`;
+      handoverOpen = false;
+      await loadPage();
+    } catch (error) {
+      handoverError = error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'Unable to start the handover.';
+    } finally {
+      handoverSaving = false;
+    }
+  }
+
+  function handoverReasonLabel(reason: string) {
+    return reason.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
   }
 
   async function toggleAccount(coordinator: CoordinatorRecord) {
@@ -344,11 +435,40 @@
                     {:else}
                       <div class="group-chips">
                         {#each coordinator.assignments.filter((assignment) => assignment.isActive && assignment.groupId) as assignment}
-                          <span class="group-chip">{assignment.groupCode} · {assignment.groupName}</span>
+                          <span class="group-chip">
+                            {assignment.groupCode} · {assignment.groupName}
+                            <button class="handover-link" type="button" onclick={() => openHandoverForm(coordinator, assignment)}>Transfer responsibility</button>
+                          </span>
                         {/each}
                       </div>
                     {/if}
                   </div>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+
+
+        <section class="list-panel handover-history">
+          <div class="panel-heading"><div><h3>CDS group handover history</h3><p>Track coordinator changes and acknowledgement by the incoming Coordinator.</p></div></div>
+          {#if handovers.length === 0}
+            <p class="muted-copy history-empty">No coordinator handovers have been recorded yet.</p>
+          {:else}
+            <div class="handover-list">
+              {#each handovers as handover (handover.id)}
+                <article class="handover-card">
+                  <div class="handover-card-heading">
+                    <div><strong>{handover.groupCode} · {handover.groupName}</strong><small>{handoverReasonLabel(handover.reason)} · {new Date(handover.createdAt).toLocaleString()}</small></div>
+                    <span class:accepted={handover.status === 'accepted'} class="handover-status">{handoverReasonLabel(handover.status)}</span>
+                  </div>
+                  <p><strong>Outgoing:</strong> {handover.outgoingCoordinatorEmail ?? 'Not available'} → <strong>Incoming:</strong> {handover.incomingCoordinatorEmail}</p>
+                  <p class="handover-notes">{handover.handoverNotes}</p>
+                  {#if handover.pendingActivities.length}<p><strong>Pending activities:</strong> {handover.pendingActivities.join(' · ')}</p>{/if}
+                  {#if handover.upcomingEvents.length}<p><strong>Upcoming events:</strong> {handover.upcomingEvents.join(' · ')}</p>{/if}
+                  {#if handover.outstandingTasks.length}<p><strong>Outstanding tasks:</strong> {handover.outstandingTasks.join(' · ')}</p>{/if}
+                  {#if handover.acceptanceNotes}<p><strong>Incoming Coordinator:</strong> {handover.acceptanceNotes}</p>{/if}
+                  {#if handover.acceptedAt}<small class="accepted-at">Acknowledged {new Date(handover.acceptedAt).toLocaleString()}</small>{:else if handover.status === 'pending_acceptance'}<small class="pending-at">Awaiting incoming Coordinator acknowledgement.</small>{/if}
                 </article>
               {/each}
             </div>
@@ -363,6 +483,50 @@
 
       <footer class="page-footer">NYSC CDS Management Platform · Coordinator Management</footer>
     </section>
+  </div>
+{/if}
+
+
+{#if handoverOpen}
+  {@const selectedGroup = groups.find((group) => group.id === handoverGroupId)}
+  {@const outgoingCoordinator = coordinators.find((coordinator) => coordinator.userId === handoverOutgoingId)}
+  <div class="modal-layer">
+    <button class="modal-scrim" type="button" aria-label="Close handover form" onclick={() => (handoverOpen = false)}></button>
+    <div class="coordinator-modal handover-modal" role="dialog" aria-modal="true" aria-labelledby="handover-form-title">
+      <div class="modal-header">
+        <div><span class="eyebrow">CDS GROUP SUCCESSION</span><h2 id="handover-form-title">Transfer group responsibility</h2><p>{selectedGroup?.code} · {selectedGroup?.name}. Existing group records remain with the group.</p></div>
+        <button class="modal-close" type="button" aria-label="Close handover form" onclick={() => (handoverOpen = false)}>×</button>
+      </div>
+      {#if handoverError}<div class="message error" role="alert">{handoverError}</div>{/if}
+      <form class="coordinator-form" onsubmit={submitHandover}>
+        <div class="email-readonly"><span>Outgoing Coordinator</span><strong>{outgoingCoordinator?.email}</strong></div>
+        <label><span>Incoming Coordinator *</span>
+          <select bind:value={handoverIncomingId} required>
+            <option value="">Select an active Coordinator</option>
+            {#each handoverIncomingCandidates as candidate (candidate.userId)}
+              <option value={candidate.userId}>{candidate.email}</option>
+            {/each}
+          </select>
+        </label>
+        {#if handoverIncomingCandidates.length === 0}
+          <p class="handover-warning">No other active Coordinator accounts are available in your LGA. Invite and activate a successor before starting this transfer.</p>
+        {/if}
+        <label><span>Reason for handover *</span>
+          <select bind:value={handoverReason}>
+            <option value="resignation">Resignation</option>
+            <option value="transfer">Transfer to another unit</option>
+            <option value="temporary_replacement">Temporary replacement</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label><span>Handover notes *</span><textarea bind:value={handoverNotes} rows="4" maxlength="10000" placeholder="Summarise the current position of the CDS group, important context and items the successor should know." required></textarea></label>
+        <label><span>Pending activities (one per line)</span><textarea bind:value={pendingActivitiesText} rows="3" placeholder="Activities already started but not completed"></textarea></label>
+        <label><span>Upcoming events (one per line)</span><textarea bind:value={upcomingEventsText} rows="3" placeholder="Scheduled meetings, outreach or events"></textarea></label>
+        <label><span>Outstanding tasks (one per line)</span><textarea bind:value={outstandingTasksText} rows="3" placeholder="Actions that still need an owner or follow-up"></textarea></label>
+        <div class="handover-warning">Starting the transfer immediately changes the active Coordinator assignment. The incoming Coordinator will then review these details and acknowledge the handover from their account.</div>
+        <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (handoverOpen = false)} disabled={handoverSaving}>Cancel</button><button class="primary-button" type="submit" disabled={handoverSaving || handoverIncomingCandidates.length === 0}>{handoverSaving ? 'Transferring...' : 'Transfer responsibility'}</button></div>
+      </form>
+    </div>
   </div>
 {/if}
 
@@ -407,6 +571,26 @@
 {/if}
 
 <style>
+
+  textarea { width: 100%; min-height: 82px; resize: vertical; padding: 11px 12px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: #21372a; font: inherit; font-size: 12px; line-height: 1.5; }
+  textarea:focus { outline: 3px solid #0a80501a; border-color: #0a8050; }
+  .group-chip { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .handover-link { padding: 3px 7px; border: 1px solid #c8decf; border-radius: 5px; background: #fff; color: #0a5c37; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .handover-history { margin-top: 18px; }
+  .history-empty { padding: 20px 0; }
+  .handover-list { display: grid; gap: 10px; margin-top: 16px; }
+  .handover-card { padding: 15px; border: 1px solid #e5ebe6; border-radius: 9px; background: #fcfdfc; }
+  .handover-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .handover-card-heading strong, .handover-card-heading small { display: block; }
+  .handover-card-heading strong { color: #193b28; font-size: 12px; }
+  .handover-card-heading small { margin-top: 5px; color: #819087; font-size: 9px; }
+  .handover-status { padding: 5px 8px; border-radius: 20px; background: #fff4df; color: #9c6500; font-size: 9px; font-weight: 700; white-space: nowrap; }
+  .handover-status.accepted { background: #e7f4eb; color: #087443; }
+  .handover-card p { margin: 10px 0 0; color: #607267; font-size: 10px; line-height: 1.6; }
+  .handover-card .handover-notes { padding: 10px; border-radius: 7px; background: #f2f6f3; white-space: pre-wrap; }
+  .accepted-at, .pending-at { display: block; margin-top: 10px; color: #087443; font-size: 9px; }
+  .pending-at { color: #9c6500; }
+  .handover-warning { margin: 0; padding: 10px 12px; border: 1px solid #f0dfbd; border-radius: 8px; background: #fff9eb; color: #8a5a12; font-size: 10px; line-height: 1.6; }
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; overflow-x: hidden; background: #f5f7f5; color: #19251e; font-family: Inter, Arial, sans-serif; }
   :global(button), :global(input), :global(select) { font: inherit; }
