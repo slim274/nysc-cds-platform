@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import LgiSidebar from '#lib/components/LgiSidebar.svelte';
   import { goto } from '$app/navigation';
 
   import {
@@ -377,38 +378,7 @@
   <main class="state-screen"><h2>Coordinator management unavailable</h2><p>{errorMessage}</p><button class="primary-button" onclick={() => goto('/login')}>Return to login</button></main>
 {:else}
   <div class="admin-shell">
-    {#if mobileNavOpen}
-      <button class="drawer-backdrop" type="button" aria-label="Close navigation menu" onclick={closeMobileNavigation}></button>
-    {/if}
-
-    <aside id="coordinator-sidebar" class="sidebar" class:open={mobileNavOpen} aria-label="LGI administration">
-      <div class="brand">
-        <div class="brand-icon">N</div>
-        <div class="brand-copy"><strong>NYSC CDS</strong><span>LGI Administration</span></div>
-        <button class="drawer-close" type="button" aria-label="Close navigation menu" onclick={closeMobileNavigation}>×</button>
-      </div>
-
-      <div class="nav-label">ADMINISTRATION</div>
-      <nav aria-label="Primary navigation">
-        <a class="nav-item" href="/lgi" onclick={closeMobileNavigation}><span class="nav-icon">▦</span><span>Dashboard</span></a>
-        <div class="nav-item muted"><span class="nav-icon">♙</span><span>Corps Members</span><small>Soon</small></div>
-        <div class="nav-item muted"><span class="nav-icon">▤</span><span>Batches &amp; Streams</span><small>Soon</small></div>
-        <a class="nav-item" href="/lgi/cds-groups" onclick={closeMobileNavigation}><span class="nav-icon">◎</span><span>CDS Groups</span></a>
-        <a class="nav-item" href="/lgi/course-catalogue" onclick={closeMobileNavigation}><span class="nav-icon">▤</span><span>Course Catalogue</span></a>
-        <div class="nav-item muted"><span class="nav-icon">⌘</span><span>Course Mapping</span><small>Soon</small></div>
-        <a class="nav-item active" href="/lgi/coordinators" aria-current="page" onclick={closeMobileNavigation}><span class="nav-icon">♧</span><span>CDS Coordinators</span></a>
-        <div class="nav-item muted"><span class="nav-icon">✓</span><span>Attendance</span><small>Soon</small></div>
-        <div class="nav-item muted"><span class="nav-icon">▣</span><span>Monthly Clearance</span><small>Soon</small></div>
-        <div class="nav-item muted"><span class="nav-icon">▥</span><span>Reports</span><small>Soon</small></div>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="environment-status"><span class="status-indicator"></span>Development Environment</div>
-        <button class="sidebar-logout" type="button" onclick={handleLogout} disabled={signingOut}>
-          {signingOut ? 'Signing out...' : 'Sign out'}
-        </button>
-      </div>
-    </aside>
+    <LgiSidebar activePath="/lgi/coordinators" open={mobileNavOpen} signingOut={signingOut} onClose={closeMobileNavigation} onSignOut={handleLogout} />
 
     <section class="main-area">
       <header class="topbar">
