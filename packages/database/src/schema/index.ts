@@ -4,6 +4,7 @@ export * from './organisation';
 export * from './academics';
 export * from './identity';
 export * from './corps-members';
+export * from './corps-member-verification';
 export * from './cds-groups';
 export * from './cds-group-handovers';
 export * from './user-role-assignments';
