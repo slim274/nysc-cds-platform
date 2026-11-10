@@ -26,5 +26,26 @@ export const updateCoordinatorSchema = z.object({
   message: 'Provide group assignments or an account status change.'
 });
 
+const handoverItemsSchema = z.array(z.string().trim().min(1).max(500)).max(30);
+
+export const createCoordinatorHandoverSchema = z.object({
+  groupId: uuidSchema,
+  outgoingCoordinatorId: uuidSchema,
+  incomingCoordinatorId: uuidSchema,
+  reason: z.enum(['resignation', 'transfer', 'temporary_replacement', 'other']),
+  handoverNotes: z.string().trim().min(10).max(10000),
+  pendingActivities: handoverItemsSchema.default([]),
+  upcomingEvents: handoverItemsSchema.default([]),
+  outstandingTasks: handoverItemsSchema.default([])
+}).refine((input) => input.outgoingCoordinatorId !== input.incomingCoordinatorId, {
+  message: 'The incoming and outgoing coordinators must be different.'
+});
+
+export const acceptCoordinatorHandoverSchema = z.object({
+  acceptanceNotes: z.string().trim().max(5000).optional().default('')
+});
+
 export type CreateCoordinatorInput = z.infer<typeof createCoordinatorSchema>;
 export type UpdateCoordinatorInput = z.infer<typeof updateCoordinatorSchema>;
+export type CreateCoordinatorHandoverInput = z.infer<typeof createCoordinatorHandoverSchema>;
+export type AcceptCoordinatorHandoverInput = z.infer<typeof acceptCoordinatorHandoverSchema>;
