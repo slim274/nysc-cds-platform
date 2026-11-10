@@ -100,7 +100,7 @@
   <div class="workspace">
     <header class="topbar">
       <div class="brand"><span class="brand-icon">N</span><div><strong>NYSC CDS</strong><small>Coordinator workspace</small></div></div>
-      <div class="account"><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
+      <div class="account"><a class="workspace-link" href="/coordinator/course-mapping">Course Mapping</a><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
     </header>
 
     <main class="content">
@@ -171,6 +171,8 @@
   .brand strong, .brand small, .account strong, .account small { display: block; }
   .brand strong { color: #0a5c37; font-size: 14px; }
   .brand small, .account small { margin-top: 4px; color: #819087; font-size: 10px; }
+  .workspace-link { color: #0a6841; font-size: 10px; font-weight: 700; text-decoration: none; }
+  .workspace-link:hover { text-decoration: underline; }
   .account { gap: 16px; }
   .account strong { font-size: 11px; }
   .content { width: min(100%, 1040px); margin: 0 auto; padding: 42px 22px; flex: 1; }
