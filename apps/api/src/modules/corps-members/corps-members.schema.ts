@@ -4,7 +4,7 @@ const uuid = z.string().uuid();
 const profileStatuses = ['preloaded', 'draft', 'submitted', 'approved', 'rejected'] as const;
 
 const commonFields = {
-  stateCode: z.string().trim().min(3).max(50),
+  stateCode: z.string().trim().toUpperCase().min(3).max(50),
   callUpNumber: z.string().trim().max(100).optional().nullable(),
   firstName: z.string().trim().min(2).max(100),
   middleName: z.string().trim().max(100).optional().nullable(),
