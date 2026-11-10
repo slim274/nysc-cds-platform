@@ -6,9 +6,7 @@ import {
   asc,
   desc,
   eq,
-  inArray,
-  isNull,
-  or
+  inArray
 } from 'drizzle-orm';
 
 import {
@@ -45,6 +43,7 @@ export class DocumentWorkflowError extends Error {
 }
 
 export type CreateDocumentRequirementInput = {
+  lgaId: string;
   code: string;
   name: string;
   description?: string | null;
