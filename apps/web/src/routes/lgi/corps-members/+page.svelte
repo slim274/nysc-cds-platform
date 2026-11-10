@@ -10,6 +10,9 @@
     listCorpsMembers,
     createCorpsMember,
     updateCorpsMember,
+    importCorpsMemberCsv,
+    downloadCorpsMembersCsv,
+    uploadCorpsMemberPhoto,
     logout
   } from '#lib/api/client.ts';
   import type {
@@ -28,6 +31,10 @@
   let loading = $state(true);
   let loadingList = $state(false);
   let saving = $state(false);
+  let importing = $state(false);
+  let exporting = $state(false);
+  let selectedPhotoFile = $state<File | null>(null);
+  let photoPreviewUrl = $state('');
   let signingOut = $state(false);
   let mobileNavOpen = $state(false);
   let formOpen = $state(false);
@@ -124,7 +131,33 @@
     }
   }
 
+  function clearSelectedPhoto() {
+    if (photoPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(photoPreviewUrl);
+    photoPreviewUrl = '';
+    selectedPhotoFile = null;
+  }
+
+  function selectPhoto(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    input.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      formError = 'Choose a JPEG, PNG or WebP image.';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      formError = 'Profile photos must not exceed 5 MB.';
+      return;
+    }
+    clearSelectedPhoto();
+    selectedPhotoFile = file;
+    photoPreviewUrl = URL.createObjectURL(file);
+    formError = '';
+  }
+
   function resetForm() {
+    clearSelectedPhoto();
     editingMember = null;
     form = {
       stateCode: '',
@@ -155,6 +188,8 @@
     errorMessage = '';
     try {
       const detail = await getCorpsMember(member.id);
+      clearSelectedPhoto();
+      photoPreviewUrl = detail.hasPassportPhoto ? `/api/lgi/corps-members/${encodeURIComponent(detail.id)}/photo` : '';
       editingMember = detail;
       form = {
         stateCode: detail.stateCode,
@@ -203,15 +238,21 @@
     saving = true;
     try {
       const input = buildInput();
-      if (editingMember) {
-        await updateCorpsMember(editingMember.id, input);
-        noticeMessage = 'Corps member record updated successfully.';
-      } else {
-        await createCorpsMember(input);
-        noticeMessage = 'Corps member record created successfully.';
+      const wasEditing = Boolean(editingMember);
+      const savedMember = editingMember
+        ? await updateCorpsMember(editingMember.id, input)
+        : await createCorpsMember(input);
+
+      if (selectedPhotoFile) {
+        await uploadCorpsMemberPhoto(savedMember.id, selectedPhotoFile);
       }
+
+      noticeMessage = wasEditing
+        ? 'Corps member record updated successfully.'
+        : 'Corps member record created successfully.';
+      if (selectedPhotoFile) noticeMessage += ' Profile photo uploaded.';
       formOpen = false;
-      await loadMembers(editingMember ? pagination.page : 1);
+      await loadMembers(wasEditing ? pagination.page : 1);
       resetForm();
     } catch (error) {
       formError = error instanceof ApiError
@@ -221,6 +262,65 @@
           : 'Unable to save this corps member.';
     } finally {
       saving = false;
+    }
+  }
+
+  async function handleCsvImport(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      errorMessage = 'Select a CSV file.';
+      return;
+    }
+    if (file.size > 2_000_000) {
+      errorMessage = 'CSV files must not exceed 2 MB.';
+      return;
+    }
+    const approved = confirm(
+      'Import these corps member records? Rows with a state code already in your assigned LGA(s) will update that member. The entire import will be rejected if any row is invalid.'
+    );
+    if (!approved) return;
+
+    importing = true;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      const result = await importCorpsMemberCsv(await file.text());
+      noticeMessage = `Import completed: ${result.created} created, ${result.updated} updated (${result.totalProcessed} total).`;
+      await loadMembers(1);
+    } catch (error) {
+      errorMessage = error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Unable to import this CSV file.';
+    } finally {
+      importing = false;
+    }
+  }
+
+  async function exportCsv() {
+    exporting = true;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      const blob = await downloadCorpsMembersCsv({
+        search: search.trim() || undefined,
+        lgaId: lgaFilter === 'all' ? undefined : lgaFilter,
+        streamId: streamFilter === 'all' ? undefined : streamFilter,
+        profileStatus: statusFilter === 'all' ? undefined : statusFilter as CorpsProfileStatus
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'nysc-corps-members.csv';
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      noticeMessage = 'CSV export downloaded.';
+    } catch (error) {
+      errorMessage = error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Unable to export corps members.';
+    } finally {
+      exporting = false;
     }
   }
 
