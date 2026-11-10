@@ -450,7 +450,7 @@
         {/if}
 
         <section class="intro">
-          <div><span class="eyebrow">CDS OFFICIALS</span><h2>Manage CDS Coordinators</h2><p>Invite coordinators and assign them to active CDS groups in your assigned LGA(s). A coordinator can be assigned to more than one group, but each group can have only one active coordinator.</p></div>
+          <div><span class="eyebrow">CDS OFFICIALS</span><h2>Manage CDS Coordinators</h2><p>Invite coordinators, assign active CDS groups, or create standby Coordinators for an LGA. A standby Coordinator does not need another group before taking over a unit. Each group can have only one active Coordinator.</p></div>
           <button class="primary-button" type="button" onclick={openCreateForm}>＋ Add coordinator</button>
         </section>
 
@@ -606,7 +606,7 @@
     <button class="modal-scrim" type="button" aria-label="Close coordinator form" onclick={() => (formOpen = false)}></button>
     <div class="coordinator-modal" role="dialog" aria-modal="true" aria-labelledby="coordinator-form-title">
       <div class="modal-header">
-        <div><span class="eyebrow">CDS COORDINATOR</span><h2 id="coordinator-form-title">{editingCoordinator ? 'Update coordinator groups' : 'Invite a coordinator'}</h2><p>{editingCoordinator ? 'Change the CDS groups assigned to this coordinator.' : 'Create an account invitation and assign eligible CDS groups.'}</p></div>
+        <div><span class="eyebrow">CDS COORDINATOR</span><h2 id="coordinator-form-title">{editingCoordinator ? 'Update coordinator groups' : 'Invite a coordinator'}</h2><p>{editingCoordinator ? 'Change the CDS groups assigned to this coordinator.' : 'Create an account invitation, assign CDS groups now, or keep the Coordinator on standby for a future handover.'}</p></div>
         <button class="modal-close" type="button" aria-label="Close form" onclick={() => (formOpen = false)}>×</button>
       </div>
       {#if formError}<div class="message error" role="alert">{formError}</div>{/if}
