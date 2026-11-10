@@ -57,9 +57,6 @@
     profileStatus: 'preloaded' as CorpsProfileStatus
   });
 
-  const filteredStreamOptions = $derived(
-    references?.streams.filter((stream) => !form.lgaId || true) ?? []
-  );
   const pageStart = $derived(pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1);
   const pageEnd = $derived(Math.min(pagination.page * pagination.pageSize, pagination.total));
 
@@ -310,8 +307,8 @@
 
           <form class="filters" onsubmit={applyFilters}>
             <label class="search-field"><span>Search</span><input bind:value={search} placeholder="Name, state code or call-up number" /></label>
-            <label><span>LGA</span><select bind:value={lgaFilter}><option value="all">All assigned LGAs</option>{#each references?.lgas ?? [] as lga}<option value={lga.id}>{lga.name}, {lga.stateName}</option>{/each}</select></label>
-            <label><span>Batch / Stream</span><select bind:value={streamFilter}><option value="all">All batches and streams</option>{#each references?.streams ?? [] as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
+            <label><span>LGA</span><select bind:value={lgaFilter}><option value="all">All assigned LGAs</option>{#each (references?.lgas ?? []) as lga}<option value={lga.id}>{lga.name}, {lga.stateName}</option>{/each}</select></label>
+            <label><span>Batch / Stream</span><select bind:value={streamFilter}><option value="all">All batches and streams</option>{#each (references?.streams ?? []) as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
             <label><span>Profile status</span><select bind:value={statusFilter}><option value="all">All statuses</option><option value="preloaded">Preloaded</option><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
             <div class="filter-actions"><button class="filter-button" type="submit" disabled={loadingList}>{loadingList ? 'Loading...' : 'Apply filters'}</button><button class="reset-button" type="button" onclick={clearFilters}>Reset</button></div>
           </form>
@@ -381,10 +378,10 @@
 
         <div class="form-section-title">Deployment details</div>
         <div class="form-grid">
-          <label><span>Assigned LGA *</span><select bind:value={form.lgaId} required>{#each references?.lgas ?? [] as lga}<option value={lga.id}>{lga.name}, {lga.stateName}</option>{/each}</select></label>
-          <label><span>Batch / Stream *</span><select bind:value={form.streamId} required><option value="">Select batch and stream</option>{#each references?.streams ?? [] as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
-          <label><span>Institution</span><select bind:value={form.institutionId}><option value="">Select institution</option>{#each references?.institutions ?? [] as institution}<option value={institution.id}>{institution.name}{institution.abbreviation ? ` (${institution.abbreviation})` : ''}</option>{/each}</select></label>
-          <label><span>Course of study</span><select bind:value={form.courseId}><option value="">Select course</option>{#each references?.courses ?? [] as course}<option value={course.id}>{course.name}</option>{/each}</select></label>
+          <label><span>Assigned LGA *</span><select bind:value={form.lgaId} required>{#each (references?.lgas ?? []) as lga}<option value={lga.id}>{lga.name}, {lga.stateName}</option>{/each}</select></label>
+          <label><span>Batch / Stream *</span><select bind:value={form.streamId} required><option value="">Select batch and stream</option>{#each (references?.streams ?? []) as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
+          <label><span>Institution</span><select bind:value={form.institutionId}><option value="">Select institution</option>{#each (references?.institutions ?? []) as institution}<option value={institution.id}>{institution.name}{institution.abbreviation ? ` (${institution.abbreviation})` : ''}</option>{/each}</select></label>
+          <label><span>Course of study</span><select bind:value={form.courseId}><option value="">Select course</option>{#each (references?.courses ?? []) as course}<option value={course.id}>{course.name}</option>{/each}</select></label>
           <label><span>Qualification</span><input bind:value={form.qualification} maxlength="100" placeholder="e.g. B.Sc." /></label>
           <label><span>Graduation year</span><input type="number" min="1950" max="2100" bind:value={form.graduationYear} /></label>
           <label><span>Profile status</span><select bind:value={form.profileStatus}><option value="preloaded">Preloaded</option><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
