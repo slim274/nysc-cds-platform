@@ -80,7 +80,7 @@ coordinatorRoutes.get('/coordinators', async (c) => {
   }
 });
 
-// Create or extend a coordinator account's group assignments.
+// Create/invite a Coordinator with group assignments or an LGA-scoped standby assignment.
 // In development, a newly created/pending account receives a one-time token
 // in the response because no email delivery provider is configured yet.
 coordinatorRoutes.post('/coordinators', async (c) => {
@@ -110,7 +110,9 @@ coordinatorRoutes.post('/coordinators', async (c) => {
       success: true,
       message: result.activationToken
         ? 'Coordinator account created. Share the development activation token securely with the coordinator.'
-        : 'Coordinator group assignments saved.',
+        : validation.data.groupIds.length === 0
+          ? 'Standby Coordinator is available for future group assignments.'
+          : 'Coordinator group assignments saved.',
       data: {
         userId: result.userId,
         email: result.email,
