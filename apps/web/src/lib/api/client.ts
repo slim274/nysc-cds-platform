@@ -499,3 +499,130 @@ export async function cancelCoordinatorHandover(handoverId: string): Promise<voi
     method: 'POST'
   });
 }
+
+export type CorpsProfileStatus = 'preloaded' | 'draft' | 'submitted' | 'approved' | 'rejected';
+
+export interface CorpsMemberRecord {
+  id: string;
+  stateCode: string;
+  callUpNumber: string | null;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  gender: string | null;
+  lgaId: string;
+  lgaName: string;
+  streamId: string;
+  streamName: string;
+  streamCode: string;
+  batchName: string;
+  batchCode: string;
+  serviceYear: number;
+  institutionName: string | null;
+  courseName: string | null;
+  profileStatus: CorpsProfileStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CorpsMemberDetail {
+  id: string;
+  userId: string | null;
+  stateCode: string;
+  callUpNumber: string | null;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+  lgaId: string;
+  streamId: string;
+  institutionId: string | null;
+  courseId: string | null;
+  qualification: string | null;
+  graduationYear: number | null;
+  profileStatus: CorpsProfileStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CorpsMemberReferenceData {
+  lgas: Array<{ id: string; name: string; stateName: string }>;
+  streams: Array<{
+    id: string;
+    code: string;
+    name: string;
+    batchId: string;
+    batchCode: string;
+    batchName: string;
+    serviceYearId: string;
+    serviceYear: number;
+  }>;
+  institutions: Array<{ id: string; name: string; abbreviation: string | null }>;
+  courses: Array<{ id: string; name: string; disciplineCategory: string }>;
+}
+
+export interface CorpsMemberInput {
+  stateCode: string;
+  callUpNumber?: string | null;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  lgaId: string;
+  streamId: string;
+  institutionId?: string | null;
+  courseId?: string | null;
+  qualification?: string | null;
+  graduationYear?: number | null;
+  profileStatus?: CorpsProfileStatus;
+}
+
+export async function getCorpsMemberReferenceData(): Promise<CorpsMemberReferenceData> {
+  const response = await request<{ success: boolean; data: CorpsMemberReferenceData }>('/lgi/corps-members/reference-data');
+  return response.data;
+}
+
+export async function listCorpsMembers(filters: {
+  search?: string;
+  lgaId?: string;
+  streamId?: string;
+  profileStatus?: CorpsProfileStatus;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<{
+  data: CorpsMemberRecord[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+}> {
+  const query = new URLSearchParams();
+  if (filters.search) query.set('search', filters.search);
+  if (filters.lgaId) query.set('lgaId', filters.lgaId);
+  if (filters.streamId) query.set('streamId', filters.streamId);
+  if (filters.profileStatus) query.set('profileStatus', filters.profileStatus);
+  query.set('page', String(filters.page ?? 1));
+  query.set('pageSize', String(filters.pageSize ?? 20));
+  const response = await request<{
+    success: boolean;
+    data: CorpsMemberRecord[];
+    pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  }>(`/lgi/corps-members?${query.toString()}`);
+  return { data: response.data, pagination: response.pagination };
+}
+
+export async function createCorpsMember(input: CorpsMemberInput): Promise<CorpsMemberDetail> {
+  const response = await request<{ success: boolean; data: CorpsMemberDetail }>('/lgi/corps-members', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function updateCorpsMember(memberId: string, input: Partial<CorpsMemberInput>): Promise<CorpsMemberDetail> {
+  const response = await request<{ success: boolean; data: CorpsMemberDetail }>(`/lgi/corps-members/${encodeURIComponent(memberId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
