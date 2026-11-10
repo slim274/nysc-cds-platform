@@ -176,13 +176,6 @@ export async function createCoordinator(
   actorUserId: string
 ) {
   assertLgaScope(lgaIds);
-  if (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production') {
-    throw new CoordinatorServiceError(
-      'Coordinator invitations are disabled until an email delivery provider is configured.',
-      503,
-      'COORDINATOR_EMAIL_DELIVERY_UNAVAILABLE'
-    );
-  }
 
   return db.transaction(async (tx) => {
     const groups = await validateGroups(tx, input.groupIds, lgaIds);
@@ -201,6 +194,17 @@ export async function createCoordinator(
       .limit(1);
 
     const isNewUser = !user;
+
+    if (
+      (!user || user.status === 'pending_activation') &&
+      (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production')
+    ) {
+      throw new CoordinatorServiceError(
+        'Coordinator invitations are disabled until an email delivery provider is configured.',
+        503,
+        'COORDINATOR_EMAIL_DELIVERY_UNAVAILABLE'
+      );
+    }
 
     if (!user) {
       const [created] = await tx
