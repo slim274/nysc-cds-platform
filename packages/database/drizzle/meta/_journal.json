@@ -78,6 +78,13 @@
       "when": 1794326000000,
       "tag": "0010_backfill_existing_cds_group_assignments",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794327000000,
+      "tag": "0011_corps_member_documents",
+      "breakpoints": true
     }
   ]
 }
