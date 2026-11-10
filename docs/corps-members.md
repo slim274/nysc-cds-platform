@@ -69,3 +69,45 @@ This release stores and displays a profile photograph only. It does not generate
 Facial recognition for unique identification is a separate biometric-processing feature. The Nigeria Data Protection Act defines biometric data to include data produced by technical processing of facial images to identify a person and classifies biometric data used for unique identification as sensitive personal data. The Act's section 30 conditions for sensitive-data processing and the NDPC's GAID 2025 Article 28 DPIA requirements must be assessed before that feature is designed or deployed. The DPIA should address necessity and proportionality, a lawful basis, a clear data-subject notice, retention and deletion, security and processor arrangements, false-match and disparate-impact risks, human review, an appeal/correction path and a practical non-biometric alternative.
 
 Do not enable automatic face matching or use it as the sole basis for attendance, clearance or other decisions until the responsible data controller and its qualified privacy/legal advisers have approved the purpose, lawful basis, DPIA and safeguards.
+
+## Pre-onboarding identity verification
+
+The public endpoint `POST /auth/verify-corps-member` checks a corps-member's State Code, Date of Birth and Call-up Number before the later OTP onboarding step. It does not create a user account, set a password, send an OTP or perform facial recognition.
+
+Request:
+
+```json
+{
+  "stateCode": "AB/26A/001",
+  "dateOfBirth": "2000-04-12",
+  "callUpNumber": "CALLUP-001"
+}
+```
+
+The endpoint normalises State Code and Call-up Number to uppercase and trims whitespace. A record is eligible only when all three values match, its `user_id` is null, and its profile has not been rejected.
+
+The endpoint always returns the same successful response shape and generic message for a matching or non-matching identity. It returns a cryptographically random 256-bit challenge token that expires after 10 minutes. The database stores only the token hash. For a non-match, the token is deliberately stored against a null member reference and cannot be used by a subsequent verification step. This prevents the identity endpoint from revealing whether a submitted combination exists in the member directory.
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "If the details match an eligible corps member record, you can continue verification.",
+  "data": {
+    "challengeToken": "<opaque-64-character-token>",
+    "expiresInSeconds": 600
+  }
+}
+```
+
+Persistent throttling is enforced in PostgreSQL: up to five attempts per identity combination and 20 attempts per client address in a rolling 15-minute window, followed by a 15-minute block. The rate-limit table stores HMAC digests rather than raw identity values or IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
+
+```bash
+openssl rand -hex 32
+```
+
+Set `TRUST_PROXY_HEADERS=true` only when the API is behind a trusted reverse proxy that removes any incoming client-supplied `X-Forwarded-For` header and writes its own. Otherwise, leave it false; the API will rate-limit using the socket peer address.
+
+The challenge token is intended for the next OTP verification stage. Do not treat it as proof of verified email/phone ownership or as an authenticated session. OTP delivery, challenge consumption, account creation and facial/biometric verification are not implemented by this endpoint.
+
