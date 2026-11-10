@@ -21,6 +21,8 @@
         await goto('/lgi');
       } else if (session.roles.some((role) => role.code === 'CDS_COORDINATOR')) {
         await goto('/coordinator/handovers');
+      } else if (session.roles.some((role) => role.code === 'CORPS_MEMBER')) {
+        await goto('/corps-member');
       } else {
         await logout();
         errorMessage = 'Your account does not have access to this administration portal.';
@@ -58,11 +60,11 @@
     </div>
 
     <div class="heading">
-      <span class="eyebrow">ADMINISTRATION PORTAL</span>
+      <span class="eyebrow">SECURE PLATFORM ACCESS</span>
 
       <h2>Welcome back</h2>
 
-      <p>Sign in to access your administrative dashboard.</p>
+      <p>Sign in to continue to your NYSC CDS workspace.</p>
     </div>
 
     {#if errorMessage}
@@ -111,8 +113,8 @@
     </form>
 
     <div class="login-footer">
-      <p>Authorised personnel only.</p>
-      <a href="/">Back to home</a>
+      <p>New Corps Member?</p>
+      <a href="/register/corps-member">Create account</a>
     </div>
 
   </section>
