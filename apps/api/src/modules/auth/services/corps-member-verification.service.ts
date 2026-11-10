@@ -81,22 +81,22 @@ async function consumeRateLimit(
       target: corpsMemberVerificationRateLimits.keyHash,
       set: {
         attemptCount: sql`CASE
-          WHEN ${corpsMemberVerificationRateLimits.windowStartedAt} <= ${resetBefore}
+          WHEN ${corpsMemberVerificationRateLimits.windowStartedAt} <= ${resetBefore.toISOString()}
             THEN 1
           ELSE ${corpsMemberVerificationRateLimits.attemptCount} + 1
         END`,
         windowStartedAt: sql`CASE
-          WHEN ${corpsMemberVerificationRateLimits.windowStartedAt} <= ${resetBefore}
-            THEN ${now}
+          WHEN ${corpsMemberVerificationRateLimits.windowStartedAt} <= ${resetBefore.toISOString()}
+            THEN ${now.toISOString()}
           ELSE ${corpsMemberVerificationRateLimits.windowStartedAt}
         END`,
         blockedUntil: sql`CASE
-          WHEN ${corpsMemberVerificationRateLimits.blockedUntil} > ${now}
+          WHEN ${corpsMemberVerificationRateLimits.blockedUntil} > ${now.toISOString()}
             THEN ${corpsMemberVerificationRateLimits.blockedUntil}
-          WHEN ${corpsMemberVerificationRateLimits.windowStartedAt} <= ${resetBefore}
+          WHEN ${corpsMemberVerificationRateLimits.windowStartedAt} <= ${resetBefore.toISOString()}
             THEN NULL
           WHEN ${corpsMemberVerificationRateLimits.attemptCount} + 1 >= ${maxAttempts}
-            THEN ${blockUntil}
+            THEN ${blockUntil.toISOString()}
           ELSE NULL
         END`,
         updatedAt: now
