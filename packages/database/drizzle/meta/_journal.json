@@ -29,6 +29,13 @@
       "when": 1794244382646,
       "tag": "0003_lonely_blink",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794297685579,
+      "tag": "0004_cds_group_handovers",
+      "breakpoints": true
     }
   ]
 }
