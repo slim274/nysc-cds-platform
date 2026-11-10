@@ -124,6 +124,14 @@ export const cdsGroupMemberships = pgTable(
       withTimezone: true
     }),
 
+    declinedAt: timestamp('declined_at', {
+      withTimezone: true
+    }),
+
+    declineReason: varchar('decline_reason', { length: 40 }),
+
+    declineNotes: text('decline_notes'),
+
     createdAt: timestamp('created_at', {
       withTimezone: true
     }).notNull().defaultNow()
