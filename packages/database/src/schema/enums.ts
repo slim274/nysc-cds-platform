@@ -37,3 +37,11 @@ export const cdsHandoverStatusEnum = pgEnum('cds_handover_status', [
   'accepted',
   'cancelled'
 ]);
+
+
+export const corpsDocumentVerificationStatusEnum = pgEnum('corps_document_verification_status', [
+  'pending_verification',
+  'verified',
+  'needs_resubmission',
+  'manual_review'
+]);
