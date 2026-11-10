@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import {
   db,
   corpsMembers,
+  lgas,
   cdsGroups,
   cdsGroupMemberships,
   courses,
@@ -53,7 +54,7 @@ async function getMemberPortalData(userId: string) {
       middleName: corpsMembers.middleName,
       lastName: corpsMembers.lastName,
       lgaId: corpsMembers.lgaId,
-      lgaName: (await import('@nysc/database')).lgas.name,
+      lgaName: lgas.name,
       courseName: courses.name,
       membershipId: cdsGroupMemberships.id,
       membershipSource: cdsGroupMemberships.source,
@@ -72,6 +73,7 @@ async function getMemberPortalData(userId: string) {
       )
     )
     .leftJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+    .leftJoin(lgas, eq(corpsMembers.lgaId, lgas.id))
     .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
     .where(eq(corpsMembers.userId, userId))
     .limit(1);
