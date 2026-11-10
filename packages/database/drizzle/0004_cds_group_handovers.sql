@@ -13,7 +13,7 @@ CREATE TABLE "cds_group_handovers" (
   "pending_activities" jsonb DEFAULT '[]'::jsonb NOT NULL,
   "upcoming_events" jsonb DEFAULT '[]'::jsonb NOT NULL,
   "outstanding_tasks" jsonb DEFAULT '[]'::jsonb NOT NULL,
-  "outgoing_confirmed_at" timestamp with time zone NOT NULL,
+  "prepared_at" timestamp with time zone NOT NULL,
   "initiated_by_user_id" uuid,
   "acceptance_notes" text,
   "accepted_by_user_id" uuid,
