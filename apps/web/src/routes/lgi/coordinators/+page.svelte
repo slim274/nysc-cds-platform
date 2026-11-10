@@ -223,7 +223,7 @@
   }
 
   function splitHandoverItems(value: string): string[] {
-    return value.split('\\n').map((item) => item.trim()).filter(Boolean);
+    return value.split('\n').map((item) => item.trim()).filter(Boolean);
   }
 
   async function submitHandover(event: SubmitEvent) {
@@ -265,7 +265,7 @@
   }
 
   function handoverReasonLabel(reason: string) {
-    return reason.replaceAll('_', ' ').replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+    return reason.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
   async function toggleAccount(coordinator: CoordinatorRecord) {
