@@ -6,6 +6,7 @@
     ApiError,
     getCurrentUser,
     listCdsGroups,
+    getCdsGroupReferenceData,
     listCoordinators,
     createCoordinator,
     updateCoordinator,
@@ -25,6 +26,7 @@
 
   let currentUser = $state<AuthUser | null>(null);
   let groups = $state<CdsGroupSummary[]>([]);
+  let availableLgaOptions = $state<Array<{ id: string; name: string; stateName: string }>>([]);
   let coordinators = $state<CoordinatorRecord[]>([]);
   let handovers = $state<CoordinatorHandover[]>([]);
   let handoverOpen = $state(false);
@@ -62,18 +64,6 @@
     const matchesStatus = statusFilter === 'all' || coordinator.accountStatus === statusFilter;
     return matchesSearch && matchesStatus;
   }));
-
-  const availableLgaOptions = $derived.by(() => {
-    const byId = new Map<string, { id: string; name: string; stateName: string }>();
-    for (const group of groups) {
-      byId.set(group.lgaId, {
-        id: group.lgaId,
-        name: group.lgaName,
-        stateName: group.stateName
-      });
-    }
-    return [...byId.values()].sort((a, b) => a.stateName.localeCompare(b.stateName) || a.name.localeCompare(b.name));
-  });
 
   const handoverTargetGroup = $derived(
     groups.find((group) => group.id === handoverGroupId)
@@ -118,14 +108,16 @@
       }
 
       currentUser = session.user;
-      const [groupRows, coordinatorRows, handoverRows] = await Promise.all([
+      const [groupRows, coordinatorRows, handoverRows, referenceData] = await Promise.all([
         listCdsGroups({ active: true }),
         listCoordinators(),
-        listCoordinatorHandovers()
+        listCoordinatorHandovers(),
+        getCdsGroupReferenceData()
       ]);
       groups = groupRows;
       coordinators = coordinatorRows;
       handovers = handoverRows;
+      availableLgaOptions = referenceData.lgas;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await goto('/login');
