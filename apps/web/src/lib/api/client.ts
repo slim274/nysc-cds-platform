@@ -863,6 +863,40 @@ export async function createCoordinatorHandover(input: {
   return response.data;
 }
 
+export interface CoordinatorCourseMappingGroup {
+  id: string;
+  code: string;
+  name: string;
+  lgaName: string;
+  stateName: string;
+  isActive: boolean;
+  maxCapacity: number;
+  courses: CdsGroupCourse[];
+}
+
+export interface CoordinatorCourseMappingData {
+  groups: CoordinatorCourseMappingGroup[];
+  courses: CdsGroupCourse[];
+}
+
+export async function getMyCoordinatorCourseMappings(): Promise<CoordinatorCourseMappingData> {
+  const response = await request<{
+    success: boolean;
+    data: CoordinatorCourseMappingData;
+  }>('/coordinator/course-mappings');
+  return response.data;
+}
+
+export async function updateMyCoordinatorCourseMapping(
+  groupId: string,
+  courseIds: string[]
+): Promise<void> {
+  await request(`/coordinator/course-mappings/${encodeURIComponent(groupId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ courseIds })
+  });
+}
+
 export async function listMyCoordinatorHandovers(): Promise<CoordinatorHandover[]> {
   const response = await request<{
     success: boolean;
