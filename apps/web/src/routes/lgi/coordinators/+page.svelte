@@ -46,6 +46,8 @@
   let editingCoordinator = $state<CoordinatorRecord | null>(null);
   let email = $state('');
   let selectedGroupIds = $state<string[]>([]);
+  let standbyOnly = $state(false);
+  let standbyLgaId = $state('');
   let search = $state('');
   let statusFilter = $state('all');
   let errorMessage = $state('');
@@ -61,11 +63,30 @@
     return matchesSearch && matchesStatus;
   }));
 
+  const availableLgaOptions = $derived.by(() => {
+    const byId = new Map<string, { id: string; name: string; stateName: string }>();
+    for (const group of groups) {
+      byId.set(group.lgaId, {
+        id: group.lgaId,
+        name: group.lgaName,
+        stateName: group.stateName
+      });
+    }
+    return [...byId.values()].sort((a, b) => a.stateName.localeCompare(b.stateName) || a.name.localeCompare(b.name));
+  });
+
+  const handoverTargetGroup = $derived(
+    groups.find((group) => group.id === handoverGroupId)
+  );
+
   const handoverIncomingCandidates = $derived(
     coordinators.filter((coordinator) =>
       coordinator.userId !== handoverOutgoingId &&
       coordinator.accountStatus === 'active' &&
-      coordinator.assignments.some((assignment) => assignment.isActive && assignment.groupId)
+      coordinator.assignments.some((assignment) =>
+        assignment.isActive &&
+        assignment.lgaId === handoverTargetGroup?.lgaId
+      )
     )
   );
 
@@ -132,6 +153,8 @@
     editingCoordinator = null;
     email = '';
     selectedGroupIds = [];
+    standbyOnly = false;
+    standbyLgaId = availableLgaOptions[0]?.id ?? '';
     formError = '';
   }
 
@@ -146,8 +169,15 @@
     selectedGroupIds = coordinator.assignments
       .filter((assignment) => assignment.isActive && assignment.groupId)
       .map((assignment) => assignment.groupId as string);
+    standbyOnly = false;
     formError = '';
     formOpen = true;
+  }
+
+  function toggleStandbyMode(checked: boolean) {
+    standbyOnly = checked;
+    selectedGroupIds = [];
+    if (!standbyLgaId) standbyLgaId = availableLgaOptions[0]?.id ?? '';
   }
 
   function toggleGroup(groupId: string, checked: boolean) {
@@ -165,8 +195,12 @@
     event.preventDefault();
     formError = '';
 
-    if (selectedGroupIds.length === 0) {
-      formError = 'Select at least one CDS group.';
+    if (!editingCoordinator && standbyOnly && !standbyLgaId) {
+      formError = 'Select the LGA where this standby Coordinator will be available.';
+      return;
+    }
+    if (!standbyOnly && selectedGroupIds.length === 0) {
+      formError = 'Select at least one CDS group, or create this Coordinator as standby.';
       return;
     }
 
@@ -180,14 +214,19 @@
       } else {
         const result = await createCoordinator({
           email: email.trim(),
-          groupIds: selectedGroupIds
+          groupIds: standbyOnly ? [] : selectedGroupIds,
+          lgaId: standbyOnly ? standbyLgaId : undefined
         });
         if (result.activationToken) {
           activationToken = result.activationToken;
           activationEmail = result.email ?? email.trim();
-          noticeMessage = 'Coordinator account created. Copy the development activation token below.';
+          noticeMessage = standbyOnly
+            ? 'Standby Coordinator account created. Copy the development activation token below.'
+            : 'Coordinator account created. Copy the development activation token below.';
         } else {
-          noticeMessage = 'Coordinator assignments saved.';
+          noticeMessage = standbyOnly
+            ? 'Standby Coordinator saved for the selected LGA.'
+            : 'Coordinator assignments saved.';
         }
       }
 
@@ -572,26 +611,44 @@
         {:else}
           <div class="email-readonly"><span>Coordinator account</span><strong>{editingCoordinator.email}</strong><small>Account status: {statusLabel(editingCoordinator.accountStatus)}</small></div>
         {/if}
-        <fieldset class="group-fieldset">
-          <legend>Assign CDS groups *</legend>
-          <p>Select one or more active groups in your assigned LGA(s).</p>
-          {#if groups.length === 0}
-            <div class="empty-groups">No active CDS groups are available. Create a CDS group first.</div>
-          {:else}
-            <div class="group-options">
-              {#each groups as group (group.id)}
-                {@const assignedTo = assignedGroupOwners.get(group.id)}
-                {@const unavailable = Boolean(assignedTo && assignedTo !== editingCoordinator?.email)}
-                <label class:unavailable class="group-option">
-                  <input type="checkbox" checked={selectedGroupIds.includes(group.id)} disabled={unavailable} onchange={(event) => toggleGroup(group.id, event.currentTarget.checked)} />
-                  <span><strong>{group.code} — {group.name}</strong><small>{group.lgaName}, {group.stateName} · Capacity {group.currentMemberCount}/{group.maxCapacity}</small>{#if unavailable}<small class="taken-copy">Already assigned to {assignedTo}</small>{/if}</span>
-                </label>
+        {#if !editingCoordinator}
+          <label class="standby-choice">
+            <input type="checkbox" checked={standbyOnly} onchange={(event) => toggleStandbyMode(event.currentTarget.checked)} />
+            <span><strong>Create as a standby Coordinator</strong><small>No CDS group is required now. The LGI can assign a group when this Coordinator takes over a unit.</small></span>
+          </label>
+        {/if}
+        {#if !editingCoordinator && standbyOnly}
+          <label><span>LGA for standby availability *</span>
+            <select bind:value={standbyLgaId} required>
+              <option value="">Select an LGA</option>
+              {#each availableLgaOptions as lga (lga.id)}
+                <option value={lga.id}>{lga.name}, {lga.stateName}</option>
               {/each}
-            </div>
-          {/if}
-          <div class="selection-count">{selectedGroupIds.length} group(s) selected</div>
-        </fieldset>
-        <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving || groups.length === 0}>{saving ? 'Saving...' : editingCoordinator ? 'Save assignments' : 'Create coordinator'}</button></div>
+            </select>
+          </label>
+          <div class="standby-info">This Coordinator will have no CDS group assignment until selected as a successor. They will appear in the handover list for groups in this LGA after account activation.</div>
+        {:else}
+          <fieldset class="group-fieldset">
+            <legend>Assign CDS groups *</legend>
+            <p>Select one or more active groups in your assigned LGA(s).</p>
+            {#if groups.length === 0}
+              <div class="empty-groups">No active CDS groups are available. Create a CDS group first.</div>
+            {:else}
+              <div class="group-options">
+                {#each groups as group (group.id)}
+                  {@const assignedTo = assignedGroupOwners.get(group.id)}
+                  {@const unavailable = Boolean(assignedTo && assignedTo !== editingCoordinator?.email)}
+                  <label class:unavailable class="group-option">
+                    <input type="checkbox" checked={selectedGroupIds.includes(group.id)} disabled={unavailable} onchange={(event) => toggleGroup(group.id, event.currentTarget.checked)} />
+                    <span><strong>{group.code} — {group.name}</strong><small>{group.lgaName}, {group.stateName} · Capacity {group.currentMemberCount}/{group.maxCapacity}</small>{#if unavailable}<small class="taken-copy">Already assigned to {assignedTo}</small>{/if}</span>
+                  </label>
+                {/each}
+              </div>
+            {/if}
+            <div class="selection-count">{selectedGroupIds.length} group(s) selected</div>
+          </fieldset>
+        {/if}
+        <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving || (!standbyOnly && groups.length === 0) || (standbyOnly && availableLgaOptions.length === 0)}>{saving ? 'Saving...' : editingCoordinator ? 'Save assignments' : standbyOnly ? 'Create standby Coordinator' : 'Create coordinator'}</button></div>
       </form>
     </div>
   </div>
@@ -599,6 +656,12 @@
 
 <style>
 
+  .standby-choice { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #cfe2d4; border-radius: 9px; background: #f1f8f3; cursor: pointer; }
+  .standby-choice input { width: 16px; min-height: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; accent-color: #0a5c37; }
+  .standby-choice span { display: grid; gap: 5px; }
+  .standby-choice strong { color: #1c4a30; font-size: 11px; }
+  .standby-choice small { color: #708176; font-size: 10px; line-height: 1.5; }
+  .standby-info { padding: 11px 13px; border: 1px solid #dcebe0; border-radius: 8px; background: #f0f7f2; color: #536e5c; font-size: 10px; line-height: 1.6; }
   textarea { width: 100%; min-height: 82px; resize: vertical; padding: 11px 12px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: #21372a; font: inherit; font-size: 12px; line-height: 1.5; }
   textarea:focus { outline: 3px solid #0a80501a; border-color: #0a8050; }
   .group-chip { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
