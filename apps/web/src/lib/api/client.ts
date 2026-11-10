@@ -353,6 +353,7 @@ export async function listCoordinators(): Promise<CoordinatorRecord[]> {
 export async function createCoordinator(input: {
   email: string;
   groupIds: string[];
+  lgaId?: string;
 }): Promise<{
   userId: string;
   email: string | null;
