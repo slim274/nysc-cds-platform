@@ -10,6 +10,7 @@
     createLgiDocumentRequirement,
     uploadDocumentReferenceSample,
     listLgiDocumentSubmissions,
+    downloadLgiDocumentSubmission,
     decideLgiDocumentManualReview,
     logout
   } from '#lib/api/client.ts';
@@ -153,6 +154,26 @@
     }
   }
 
+  async function openSubmissionFile(submissionId: string) {
+    errorMessage = '';
+    try {
+      const blob = await downloadLgiDocumentSubmission(submissionId);
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'corps-member-document';
+        link.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      errorMessage = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to open the submitted document.';
+    }
+  }
+
   async function resolveException(submission: LgiDocumentSubmission, decision: 'verified' | 'needs_resubmission') {
     const promptText = decision === 'verified'
       ? 'Explain why this document is accepted for the exception review (minimum 10 characters):'
@@ -262,7 +283,7 @@
               {#each exceptions as submission (submission.id)}
                 <article class="exception-row">
                   <div><strong>{submission.lastName}, {submission.firstName} {submission.middleName ?? ''}</strong><span>{submission.stateCode} · {submission.requirementName}</span><small>{submission.fileName} · {new Date(submission.submittedAt).toLocaleString()}</small><p>{submission.reason ?? 'The verification service needs further review.'}</p></div>
-                  <div class="exception-actions"><span>{submission.confidence === null ? 'No confidence score' : `Confidence: ${submission.confidence}%`}</span><div><button class="approve-button" type="button" onclick={() => void resolveException(submission, 'verified')} disabled={reviewingId === submission.id}>{reviewingId === submission.id ? 'Saving…' : 'Mark verified'}</button><button class="reject-button" type="button" onclick={() => void resolveException(submission, 'needs_resubmission')} disabled={reviewingId === submission.id}>Request resubmission</button></div></div>
+                  <div class="exception-actions"><span>{submission.confidence === null ? 'No confidence score' : `Confidence: ${submission.confidence}%`}</span><div><button class="view-button" type="button" onclick={() => void openSubmissionFile(submission.id)}>View document</button><button class="approve-button" type="button" onclick={() => void resolveException(submission, 'verified')} disabled={reviewingId === submission.id}>{reviewingId === submission.id ? 'Saving…' : 'Mark verified'}</button><button class="reject-button" type="button" onclick={() => void resolveException(submission, 'needs_resubmission')} disabled={reviewingId === submission.id}>Request resubmission</button></div></div>
                 </article>
               {/each}
             </div>
@@ -301,7 +322,7 @@
   .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.stats article{display:grid;gap:7px;padding:15px;border:1px solid #e4ebe6;border-radius:9px;background:#fff}.stats span{color:#819087;font-size:10px}.stats strong{color:#0a5c37;font-size:21px}
   .panel{padding:20px;margin-bottom:16px;border:1px solid #e4ebe6;border-radius:10px;background:#fff}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.panel-heading h2{margin:0 0 5px;font-size:14px}.panel-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.lga-filter{display:grid;grid-template-columns:minmax(230px,360px);gap:6px;margin-bottom:14px;color:#56685c;font-size:9px;font-weight:700}.lga-filter select{min-height:39px;padding:9px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#26392d;font-size:10px}
   .requirement-list,.exception-list{display:grid}.requirement-row,.exception-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 3px;border-bottom:1px solid #edf1ed}.requirement-row:last-child,.exception-row:last-child{border-bottom:0}.requirement-info{display:flex;align-items:flex-start;gap:12px;min-width:0}.doc-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:9px;background:#edf5ef;color:#0a6841}.title-line{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.title-line h3{margin:0;color:#263d30;font-size:11px}.requirement-info p{margin:5px 0;color:#718078;font-size:9px;line-height:1.5}.requirement-info small{color:#8a968e;font-size:8px}.requirement-badge,.queue-badge{padding:5px 8px;border-radius:15px;background:#e8f6ec;color:#147244;font-size:8px;font-weight:800}.requirement-badge.optional{background:#f0f3f1;color:#66756b}.reference-area{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:9px}.sample-status,.no-sample{color:#147244;font-size:9px}.no-sample{color:#a36a2d}.upload-button{position:relative;overflow:hidden;display:inline-flex;align-items:center;min-height:34px;padding:8px 10px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#355442;font-size:9px;font-weight:700;cursor:pointer}.upload-button input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
-  .queue-badge{background:#fff3e5;color:#92571b}.exception-row>div:first-child{display:grid;gap:5px;min-width:0}.exception-row strong{color:#263d30;font-size:10px}.exception-row span,.exception-row small{color:#819087;font-size:9px}.exception-row p{margin:3px 0 0;color:#8b6135;font-size:9px;line-height:1.5}.exception-actions{display:grid;justify-items:end;gap:8px;min-width:225px}.exception-actions>span{color:#8b6135;font-size:9px}.exception-actions>div{display:flex;gap:6px}.approve-button,.reject-button{min-height:32px;padding:7px 9px;border-radius:6px;font-size:8px;font-weight:700;cursor:pointer}.approve-button{border:1px solid #0a6841;background:#0a6841;color:#fff}.reject-button{border:1px solid #ead5d1;background:#fff;color:#a34238}.approve-button:disabled,.reject-button:disabled{opacity:.5;cursor:wait}
+  .queue-badge{background:#fff3e5;color:#92571b}.exception-row>div:first-child{display:grid;gap:5px;min-width:0}.exception-row strong{color:#263d30;font-size:10px}.exception-row span,.exception-row small{color:#819087;font-size:9px}.exception-row p{margin:3px 0 0;color:#8b6135;font-size:9px;line-height:1.5}.exception-actions{display:grid;justify-items:end;gap:8px;min-width:225px}.exception-actions>span{color:#8b6135;font-size:9px}.exception-actions>div{display:flex;gap:6px}.view-button{min-height:32px;padding:7px 9px;border:1px solid #dce5de;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:700;cursor:pointer}.approve-button,.reject-button{min-height:32px;padding:7px 9px;border-radius:6px;font-size:8px;font-weight:700;cursor:pointer}.approve-button{border:1px solid #0a6841;background:#0a6841;color:#fff}.reject-button{border:1px solid #ead5d1;background:#fff;color:#a34238}.approve-button:disabled,.reject-button:disabled{opacity:.5;cursor:wait}
   .empty{padding:32px 14px;text-align:center;color:#819087;font-size:10px;line-height:1.6}.empty h3{margin:0 0 6px;color:#263d30;font-size:13px}.empty p{margin:0 auto 12px;max-width:560px}.empty.compact{padding:22px}.message{padding:10px 13px;margin:0 0 12px;border-radius:7px;font-size:10px}.message.error{border:1px solid #efceca;background:#fff3f2;color:#a32920}.message.success{border:1px solid #cce6d3;background:#eef8f0;color:#16633b}.footer{padding:17px 24px;border-top:1px solid #e5ebe6;color:#89948c;font-size:9px;text-align:center}
   .state-screen{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:10px;color:#53665a;font-size:12px}.loader{width:27px;height:27px;border:3px solid #dce8df;border-top-color:#0a8050;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.menu-button{display:none}
   .modal-layer{position:fixed;inset:0;z-index:70;display:grid;place-items:center;overflow-y:auto;padding:20px}.scrim{position:fixed;inset:0;border:0;background:#071b10a8}.modal{position:relative;width:min(100%,620px);max-height:92vh;overflow-y:auto;padding:23px;border-radius:12px;background:#fff;box-shadow:0 22px 70px #071e1250}.modal-header{display:flex;justify-content:space-between;gap:14px;padding-bottom:15px;border-bottom:1px solid #edf1ed;margin-bottom:14px}.modal-header h2{margin:7px 0 4px;font-size:17px}.modal-header p{margin:0;color:#819087;font-size:10px}.close{width:32px;height:32px;border:1px solid #e0e8e1;border-radius:7px;background:#fff;color:#44554a;font-size:20px;cursor:pointer}.requirement-form{display:grid;gap:12px}.requirement-form>label:not(.check-line){display:grid;gap:6px;color:#56685c;font-size:9px;font-weight:700}.requirement-form input:not([type=checkbox]),.requirement-form textarea{width:100%;min-height:38px;padding:9px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#26392d;font-size:10px}.requirement-form textarea{resize:vertical}.requirement-form fieldset{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #e6ede7;border-radius:8px;padding:10px}.requirement-form legend{color:#56685c;font-size:9px;font-weight:700}.check-line{display:flex;align-items:center;gap:8px;color:#56685c;font-size:9px}.check-line input{accent-color:#0a6841}.info-note{padding:10px;border-radius:7px;background:#f0f6f1;color:#52705d;font-size:9px;line-height:1.5}.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:13px;border-top:1px solid #edf1ed}
