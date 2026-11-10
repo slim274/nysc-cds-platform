@@ -49,6 +49,22 @@ function generateOtp(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, '0');
 }
 
+function maskDestination(channel: OtpChannel, destination: string): string {
+  if (channel === 'email') {
+    const [name, domain] = destination.split('@');
+    return name && domain ? `${name.slice(0, 1)}***@${domain}` : '***';
+  }
+  const digits = destination.replace(/\\D/g, '');
+  return digits.length >= 4 ? `***${digits.slice(-4)}` : '***';
+}
+
+function normalizeTermiiPhone(value: string): string {
+  const phone = value.replace(/[\\s().-]/g, '');
+  if (phone.startsWith('+')) return phone.slice(1);
+  if (phone.startsWith('0') && phone.length === 11) return `234${phone.slice(1)}`;
+  return phone;
+}
+
 async function deliverOtp(channel: OtpChannel, destination: string, code: string): Promise<void> {
   const mode = (Bun.env.OTP_DELIVERY_MODE ?? 'console').toLowerCase();
 
@@ -56,7 +72,7 @@ async function deliverOtp(channel: OtpChannel, destination: string, code: string
     if (Bun.env.NODE_ENV === 'production') {
       throw new Error('Console OTP delivery is disabled in production.');
     }
-    console.info(`[DEV OTP] channel=${channel} destination=${destination} code=${code}`);
+    console.info(`[DEV OTP] channel=${channel} destination=${maskDestination(channel, destination)} code=${code}`);
     return;
   }
 
@@ -95,7 +111,7 @@ async function deliverOtp(channel: OtpChannel, destination: string, code: string
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       api_key: apiKey,
-      to: destination,
+      to: normalizeTermiiPhone(destination),
       from: senderId,
       sms: `Your NYSC CDS verification code is ${code}. It expires in 5 minutes. Do not share it.`,
       type: 'plain',
