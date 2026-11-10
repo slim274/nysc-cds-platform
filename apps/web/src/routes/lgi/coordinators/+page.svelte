@@ -456,7 +456,11 @@
                         {#each coordinator.assignments.filter((assignment) => assignment.isActive && assignment.groupId) as assignment}
                           <span class="group-chip">
                             {assignment.groupCode} · {assignment.groupName}
-                            <button class="handover-link" type="button" onclick={() => openHandoverForm(coordinator, assignment)}>Transfer responsibility</button>
+                            {#if groups.some((group) => group.id === assignment.groupId)}
+                              <button class="handover-link" type="button" onclick={() => openHandoverForm(coordinator, assignment)}>Transfer responsibility</button>
+                            {:else}
+                              <small class="inactive-group-copy">Inactive group</small>
+                            {/if}
                           </span>
                         {/each}
                       </div>
