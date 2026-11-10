@@ -20,7 +20,7 @@
       if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
         await goto('/lgi');
       } else if (session.roles.some((role) => role.code === 'CDS_COORDINATOR')) {
-        await goto('/coordinator/handovers');
+        await goto('/coordinator');
       } else {
         await logout();
         errorMessage = 'Your account does not have access to this administration portal.';
