@@ -326,6 +326,78 @@ export async function importCourseCsv(csv: string): Promise<{
   return response.data;
 }
 
+export interface CoordinatorAssignment {
+  assignmentId: string;
+  groupId: string | null;
+  lgaId: string | null;
+  groupCode: string | null;
+  groupName: string | null;
+  isActive: boolean;
+}
+
+export interface CoordinatorRecord {
+  userId: string;
+  email: string | null;
+  accountStatus: 'pending_activation' | 'active' | 'suspended' | 'disabled' | string;
+  assignments: CoordinatorAssignment[];
+}
+
+export async function listCoordinators(): Promise<CoordinatorRecord[]> {
+  const response = await request<{
+    success: boolean;
+    data: CoordinatorRecord[];
+  }>('/lgi/coordinators');
+  return response.data;
+}
+
+export async function createCoordinator(input: {
+  email: string;
+  groupIds: string[];
+}): Promise<{
+  userId: string;
+  email: string | null;
+  accountStatus: string;
+  created: boolean;
+  activationToken: string | null;
+}> {
+  const response = await request<{
+    success: boolean;
+    data: {
+      userId: string;
+      email: string | null;
+      accountStatus: string;
+      created: boolean;
+      activationToken: string | null;
+    };
+  }>('/lgi/coordinators', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function updateCoordinator(
+  coordinatorId: string,
+  input: { groupIds?: string[]; isEnabled?: boolean }
+): Promise<{
+  userId: string;
+  email: string | null;
+  accountStatus: string;
+}> {
+  const response = await request<{
+    success: boolean;
+    data: {
+      userId: string;
+      email: string | null;
+      accountStatus: string;
+    };
+  }>(`/lgi/coordinators/${encodeURIComponent(coordinatorId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
 export function getCourseDisciplineLabel(code: string): string {
   const labels: Record<string, string> = {
     AGRICULTURE: 'Agriculture & Agricultural Sciences',
