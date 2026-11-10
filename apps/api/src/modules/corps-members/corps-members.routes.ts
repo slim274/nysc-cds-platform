@@ -161,6 +161,11 @@ corpsMemberRoutes.get('/corps-members/template', (c) => {
 });
 
 corpsMemberRoutes.post('/corps-members/:memberId/photo', async (c) => {
+  const contentLength = Number(c.req.header('content-length') ?? 0);
+  if (contentLength > 5 * 1024 * 1024 + 128 * 1024) {
+    return c.json({ success: false, message: 'Profile photos must not exceed 5 MB.' }, 413);
+  }
+
   const id = memberIdSchema.safeParse(c.req.param('memberId'));
   if (!id.success) return c.json({ success: false, message: 'Invalid corps member ID.' }, 400);
 
