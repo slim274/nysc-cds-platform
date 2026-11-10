@@ -27,6 +27,24 @@ export const loginSchema = z.object({
     .max(128)
 });
 
+const isValidPastDate = (value: string): boolean => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value &&
+    value <= new Date().toISOString().slice(0, 10);
+};
+
+export const verifyCorpsMemberIdentitySchema = z.object({
+  stateCode: z.string().trim().toUpperCase().min(3).max(50),
+  dateOfBirth: z.string()
+    .regex(/^\\d{4}-\\d{2}-\\d{2}$/, 'Date of birth must use YYYY-MM-DD.')
+    .refine(isValidPastDate, 'Enter a valid date of birth.'),
+  callUpNumber: z.string().trim().toUpperCase().min(1).max(100)
+});
+
+export type VerifyCorpsMemberIdentityInput =
+  z.infer<typeof verifyCorpsMemberIdentitySchema>;
+
 export type ActivateAccountInput =
   z.infer<typeof activateAccountSchema>;
 
