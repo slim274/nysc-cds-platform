@@ -52,7 +52,7 @@
     callUpNumber: '',
     email: '',
     phone: '',
-    firstName: '
+    firstName: '',
     middleName: '',
     lastName: '',
     dateOfBirth: '',
@@ -166,7 +166,7 @@
       callUpNumber: '',
       email: '',
       phone: '',
-      firstName: '
+      firstName: '',
       middleName: '',
       lastName: '',
       dateOfBirth: '',

@@ -238,7 +238,7 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
       callUpNumber,
       email: positions.has('email') ? email : undefined,
       phone: positions.has('phone') ? phone : undefined,
-      firstName:
+      firstName,
       middleName: optional(get('middlename')),
       lastName,
       dateOfBirth,
