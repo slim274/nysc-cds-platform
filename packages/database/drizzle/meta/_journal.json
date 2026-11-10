@@ -43,6 +43,13 @@
       "when": 1794299577816,
       "tag": "0005_handover_standby_restore",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794310000000,
+      "tag": "0006_add_corps_member_contacts",
+      "breakpoints": true
     }
   ]
 }

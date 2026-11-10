@@ -50,7 +50,9 @@
   let form = $state({
     stateCode: '',
     callUpNumber: '',
-    firstName: '',
+    email: '',
+    phone: '',
+    firstName: '
     middleName: '',
     lastName: '',
     dateOfBirth: '',
@@ -162,7 +164,9 @@
     form = {
       stateCode: '',
       callUpNumber: '',
-      firstName: '',
+      email: '',
+      phone: '',
+      firstName: '
       middleName: '',
       lastName: '',
       dateOfBirth: '',
@@ -194,6 +198,8 @@
       form = {
         stateCode: detail.stateCode,
         callUpNumber: detail.callUpNumber ?? '',
+        email: detail.email ?? '',
+        phone: detail.phone ?? '',
         firstName: detail.firstName,
         middleName: detail.middleName ?? '',
         lastName: detail.lastName,
@@ -217,6 +223,8 @@
     return {
       stateCode: form.stateCode.trim(),
       callUpNumber: form.callUpNumber.trim() || null,
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
       firstName: form.firstName.trim(),
       middleName: form.middleName.trim() || null,
       lastName: form.lastName.trim(),
@@ -434,13 +442,14 @@
           {:else}
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Corps member</th><th>State code</th><th>Call-up number</th><th>Batch / Stream</th><th>Institution</th><th>Profile status</th><th></th></tr></thead>
+                <thead><tr><th>Corps member</th><th>State code</th><th>Call-up number</th><th>Contact</th><th>Batch / Stream</th><th>Institution</th><th>Profile status</th><th></th></tr></thead>
                 <tbody>
                   {#each members as member (member.id)}
                     <tr>
                       <td><strong>{fullName(member)}</strong><small>{member.lgaName}</small></td>
                       <td>{member.stateCode}</td>
                       <td>{member.callUpNumber || '—'}</td>
+                      <td>{#if member.email}<strong>{member.email}</strong>{/if}{#if member.phone}<small>{member.phone}</small>{/if}{#if !member.email && !member.phone}—{/if}</td>
                       <td>{member.serviceYear} · {member.batchCode} · {member.streamCode}</td>
                       <td>{member.institutionName || '—'}<small>{member.courseName || ''}</small></td>
                       <td><span class:approved={member.profileStatus === 'approved'} class:rejected={member.profileStatus === 'rejected'} class="status">{statusLabel(member.profileStatus)}</span></td>
@@ -456,6 +465,8 @@
                   <div class="member-card-heading"><strong>{fullName(member)}</strong><span class:approved={member.profileStatus === 'approved'} class:rejected={member.profileStatus === 'rejected'} class="status">{statusLabel(member.profileStatus)}</span></div>
                   <p>{member.stateCode} · {member.callUpNumber || 'No call-up number'}</p>
                   <small>{member.serviceYear} · {member.batchName} · {member.streamName}</small>
+                  {#if member.email}<small>{member.email}</small>{/if}
+                  {#if member.phone}<small>{member.phone}</small>{/if}
                   <small>{member.lgaName}</small>
                   <button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit record →</button>
                 </article>
@@ -489,6 +500,13 @@
           <label><span>Date of birth</span><input type="date" bind:value={form.dateOfBirth} /></label>
           <label><span>Gender</span><select bind:value={form.gender}><option value="">Not specified</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other</option></select></label>
         </div>
+
+        <div class="form-section-title">Contact details</div>
+        <div class="form-grid">
+          <label><span>Email address</span><input type="email" bind:value={form.email} maxlength="320" autocomplete="email" placeholder="member@example.com" /></label>
+          <label><span>Phone number</span><input type="tel" bind:value={form.phone} maxlength="30" autocomplete="tel" placeholder="+234 801 234 5678" /></label>
+        </div>
+        <p class="contact-note">These details are managed by the LGI and will be used for OTP verification during account onboarding. Contact ownership is not verified yet.</p>
 
         <div class="form-section-title">Deployment details</div>
         <div class="form-grid">
@@ -610,6 +628,7 @@
   .secondary-button:disabled { opacity: .55; cursor: wait; }
   .upload-button { position: relative; overflow: hidden; }
   .upload-button input, .photo-select-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .contact-note { margin: -8px 0 0; color: #819087; font-size: 9px; line-height: 1.6; }
   .photo-upload-panel { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px solid #e6ede7; border-radius: 9px; background: #fafcfa; }
   .photo-preview { width: 92px; height: 92px; flex: 0 0 92px; display: grid; place-items: center; overflow: hidden; border: 1px dashed #cbd9ce; border-radius: 10px; background: #edf5ef; color: #0a8050; font-size: 33px; }
   .photo-preview img { width: 100%; height: 100%; object-fit: cover; }

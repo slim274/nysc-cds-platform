@@ -203,7 +203,9 @@ export async function listCorpsMembers(
       ilike(corpsMembers.middleName, pattern),
       ilike(corpsMembers.lastName, pattern),
       ilike(corpsMembers.stateCode, pattern),
-      ilike(corpsMembers.callUpNumber, pattern)
+      ilike(corpsMembers.callUpNumber, pattern),
+      ilike(corpsMembers.email, pattern),
+      ilike(corpsMembers.phone, pattern)
     );
     if (searchCondition) conditions.push(searchCondition);
   }
@@ -214,6 +216,8 @@ export async function listCorpsMembers(
     id: corpsMembers.id,
     stateCode: corpsMembers.stateCode,
     callUpNumber: corpsMembers.callUpNumber,
+    email: corpsMembers.email,
+    phone: corpsMembers.phone,
     firstName: corpsMembers.firstName,
     middleName: corpsMembers.middleName,
     lastName: corpsMembers.lastName,
@@ -272,6 +276,8 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
     userId: corpsMembers.userId,
     stateCode: corpsMembers.stateCode,
     callUpNumber: corpsMembers.callUpNumber,
+    email: corpsMembers.email,
+    phone: corpsMembers.phone,
     firstName: corpsMembers.firstName,
     middleName: corpsMembers.middleName,
     lastName: corpsMembers.lastName,
@@ -319,6 +325,8 @@ export async function createCorpsMember(input: CreateCorpsMemberInput, lgaIds: s
     const [created] = await db.insert(corpsMembers).values({
       ...input,
       callUpNumber: input.callUpNumber || null,
+      email: input.email || null,
+      phone: input.phone || null,
       middleName: input.middleName || null,
       dateOfBirth: input.dateOfBirth || null,
       gender: input.gender || null,

@@ -33,6 +33,10 @@ export const corpsMembers = pgTable(
       length: 100
     }),
 
+    email: varchar('email', { length: 320 }),
+
+    phone: varchar('phone', { length: 30 }),
+
     firstName: varchar('first_name', {
       length: 100
     }).notNull(),

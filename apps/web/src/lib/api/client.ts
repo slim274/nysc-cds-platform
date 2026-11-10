@@ -506,6 +506,8 @@ export interface CorpsMemberRecord {
   id: string;
   stateCode: string;
   callUpNumber: string | null;
+  email: string | null;
+  phone: string | null;
   firstName: string;
   middleName: string | null;
   lastName: string;
@@ -535,6 +537,8 @@ export interface CorpsMemberDetail {
   userId: string | null;
   stateCode: string;
   callUpNumber: string | null;
+  email: string | null;
+  phone: string | null;
   firstName: string;
   middleName: string | null;
   lastName: string;
@@ -571,6 +575,8 @@ export interface CorpsMemberReferenceData {
 export interface CorpsMemberInput {
   stateCode: string;
   callUpNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
   firstName: string;
   middleName?: string | null;
   lastName: string;

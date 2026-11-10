@@ -25,6 +25,8 @@ const MAX_EXPORT_ROWS = 10_000;
 export type CorpsMemberImportRow = {
   stateCode: string;
   callUpNumber: string | null;
+  email?: string | null;
+  phone?: string | null;
   firstName: string;
   middleName: string | null;
   lastName: string;
@@ -189,6 +191,17 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
     seenStateCodes.add(normalizedStateCode);
 
     const callUpNumber = optional(get('callupnumber'));
+    const email = optional(get('email'))?.toLowerCase() ?? null;
+    if (email && (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+      throw new CorpsMemberImportError('Line ' + line + ': email address is invalid.', 400, 'INVALID_IMPORT_ROW');
+    }
+    const phone = optional(get('phone'));
+    if (phone) {
+      const digits = phone.replace(/\D/g, '');
+      if (!/^[+0-9().\s-]+$/.test(phone) || digits.length < 7 || digits.length > 15 || phone.length > 30) {
+        throw new CorpsMemberImportError('Line ' + line + ': phone number is invalid.', 400, 'INVALID_IMPORT_ROW');
+      }
+    }
     if (callUpNumber) {
       const normalizedCallUp = callUpNumber.toUpperCase();
       if (seenCallUpNumbers.has(normalizedCallUp)) {
@@ -223,7 +236,9 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
     return {
       stateCode,
       callUpNumber,
-      firstName,
+      email: positions.has('email') ? email : undefined,
+      phone: positions.has('phone') ? phone : undefined,
+      firstName:
       middleName: optional(get('middlename')),
       lastName,
       dateOfBirth,
@@ -336,6 +351,8 @@ export async function importCorpsMembers(rows: CorpsMemberImportRow[], lgaIds: s
         const values = {
           stateCode: row.stateCode,
           callUpNumber: row.callUpNumber,
+          email: row.email,
+          phone: row.phone,
           firstName: row.firstName,
           middleName: row.middleName,
           lastName: row.lastName,
@@ -401,7 +418,7 @@ export async function exportCorpsMembersCsv(
   }
 
   const headers = [
-    'stateCode', 'callUpNumber', 'firstName', 'middleName', 'lastName',
+    'stateCode', 'callUpNumber', 'email', 'phone', 'firstName', 'middleName', 'lastName',
     'dateOfBirth', 'gender', 'lgaName', 'lgaState', 'serviceYear',
     'batchCode', 'streamCode', 'institutionName', 'courseName',
     'qualification', 'graduationYear', 'profileStatus'
@@ -409,7 +426,7 @@ export async function exportCorpsMembersCsv(
   const lines = [
     headers.join(','),
     ...rows.map((row) => [
-      row.stateCode, row.callUpNumber, row.firstName, row.middleName, row.lastName,
+      row.stateCode, row.callUpNumber, row.email, row.phone, row.firstName, row.middleName, row.lastName,
       row.dateOfBirth, row.gender, row.lgaName, row.lgaState, row.serviceYear,
       row.batchCode, row.streamCode, row.institutionName, row.courseName,
       row.qualification, row.graduationYear, row.profileStatus

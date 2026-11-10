@@ -6,6 +6,11 @@ const profileStatuses = ['preloaded', 'draft', 'submitted', 'approved', 'rejecte
 const commonFields = {
   stateCode: z.string().trim().toUpperCase().min(3).max(50),
   callUpNumber: z.string().trim().max(100).optional().nullable(),
+  email: z.string().trim().email().max(320).transform((value) => value.toLowerCase()).optional().nullable(),
+  phone: z.string().trim().max(30).refine((value) => {
+    const digits = value.replace(/\D/g, '');
+    return /^[+0-9().\s-]+$/.test(value) && digits.length >= 7 && digits.length <= 15;
+  }, 'Enter a valid phone number.').optional().nullable(),
   firstName: z.string().trim().min(2).max(100),
   middleName: z.string().trim().max(100).optional().nullable(),
   lastName: z.string().trim().min(2).max(100),
@@ -27,6 +32,8 @@ export const createCorpsMemberSchema = z.object({
 export const updateCorpsMemberSchema = z.object({
   stateCode: commonFields.stateCode.optional(),
   callUpNumber: commonFields.callUpNumber,
+  email: commonFields.email,
+  phone: commonFields.phone,
   firstName: commonFields.firstName.optional(),
   middleName: commonFields.middleName,
   lastName: commonFields.lastName.optional(),

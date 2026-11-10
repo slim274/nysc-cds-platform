@@ -151,8 +151,8 @@ corpsMemberRoutes.get('/corps-members/export', async (c) => {
 
 corpsMemberRoutes.get('/corps-members/template', (c) => {
   const csv = [
-    'stateCode,callUpNumber,firstName,middleName,lastName,dateOfBirth,gender,lgaName,lgaState,serviceYear,batchCode,streamCode,institutionName,courseName,qualification,graduationYear,profileStatus',
-    'AB/26A/001,CALLUP-001,Amina,,Bello,2000-04-12,Female,Demo LGA,Demo State,2026,A,I,Demo University,Computer Science,B.Sc.,2022,preloaded'
+    'stateCode,callUpNumber,email,phone,firstName,middleName,lastName,dateOfBirth,gender,lgaName,lgaState,serviceYear,batchCode,streamCode,institutionName,courseName,qualification,graduationYear,profileStatus',
+    'AB/26A/001,CALLUP-001,amina.bello@example.com,+2348012345678,Amina,,Bello,2000-04-12,Female,Demo LGA,Demo State,2026,A,I,Demo University,Computer Science,B.Sc.,2022,preloaded'
   ].join('\\r\\n');
 
   c.header('Content-Type', 'text/csv; charset=utf-8');

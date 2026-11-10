@@ -22,6 +22,8 @@ Required columns:
 Optional columns:
 
 - `callUpNumber`
+- `email`
+- `phone`
 - `middleName`
 - `dateOfBirth` (YYYY-MM-DD)
 - `gender`
@@ -35,13 +37,13 @@ The LGA must match an active LGA assigned to the importing LGI. Batch and stream
 
 State codes are normalised to uppercase. A row with a state code that already exists within the LGI's assigned LGA scope updates that member record; otherwise a new member is created. A state code already belonging to a different LGA outside the LGI's scope is rejected. Duplicate state codes or call-up numbers in the uploaded file, unknown references, invalid dates and database uniqueness conflicts cause the complete transaction to roll back.
 
-The API reports created, updated and total processed counts. It does not import photos from CSV; photographs are uploaded through the member record form.
+The API reports created, updated and total processed counts. Email and phone are optional CSV fields. Contact details are stored as supplied by the LGI and are not considered verified until the member completes an OTP challenge during account onboarding. The import does not include photos; photographs are uploaded through the member record form.
 
 ## CSV export
 
 Export uses the current directory filters (search, LGA, batch/stream and profile status). The endpoint exports up to 10,000 matching records in one file. Apply narrower filters when the result is larger.
 
-CSV cells are quoted and escaped, and leading spreadsheet formula characters are neutralised to reduce CSV formula injection risk. The export includes member identity, deployment, institution/course, qualification, graduation year and profile status. It does not include photographs, storage paths, passwords or authentication data.
+CSV cells are quoted and escaped, and leading spreadsheet formula characters are neutralised to reduce CSV formula injection risk. The export includes member identity, contact details, deployment, institution/course, qualification, graduation year and profile status. It does not include photographs, storage paths, passwords or authentication data.
 
 ## Profile photographs
 
