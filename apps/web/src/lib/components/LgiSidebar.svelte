@@ -18,6 +18,7 @@
   const navigation = [
     { label: 'Dashboard', href: '/lgi', icon: '▦' },
     { label: 'Corps Members', href: '/lgi/corps-members', icon: '♙' },
+    { label: 'Document Requirements', href: '/lgi/document-requirements', icon: '▣' },
     { label: 'Batches & Streams', href: null, icon: '▤' },
     { label: 'CDS Groups', href: '/lgi/cds-groups', icon: '◎' },
     { label: 'Course Catalogue', href: '/lgi/course-catalogue', icon: '▤' },
