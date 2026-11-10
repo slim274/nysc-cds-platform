@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
@@ -19,7 +19,7 @@ coordinatorWorkspaceRoutes.use('*', requireAuth, requireRole('CDS_COORDINATOR'))
 
 const groupIdSchema = z.string().uuid();
 
-function handleWorkspaceError(c: Parameters<typeof coordinatorWorkspaceRoutes.get>[1] extends (c: infer C, ...args: any[]) => any ? C : never, error: unknown) {
+function handleWorkspaceError(c: Context<AuthEnv>, error: unknown) {
   if (error instanceof CoordinatorServiceError) {
     return c.json({
       success: false,
