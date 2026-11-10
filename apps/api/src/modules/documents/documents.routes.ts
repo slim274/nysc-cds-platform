@@ -295,15 +295,29 @@ corpsMemberDocumentRoutes.post('/documents/:requirementId', async (c) => {
       result.matching && result.matching.assigned
         ? result.matching.groupName
         : null;
+    const matchingReason = result.matching && !result.matching.assigned
+      ? result.matching.reason
+      : null;
+    const responseMessage = assignedGroupName
+      ? `Document verified. You have been automatically matched to ${assignedGroupName}.`
+      : result.status === 'needs_resubmission'
+        ? 'The document needs correction. Review the verification note and upload a clearer or correct document.'
+        : result.status === 'manual_review'
+          ? 'Document received and queued for exception review. CDS matching will wait until all mandatory documents are verified.'
+          : matchingReason === 'documents_incomplete'
+            ? 'Document verified. Submit the remaining mandatory documents; matching starts when all have passed verification.'
+            : matchingReason === 'documents_not_configured'
+              ? 'Document verified, but your LGI has not configured mandatory document requirements for this LGA yet.'
+              : matchingReason === 'all_eligible_groups_full'
+                ? 'Your mandatory documents are verified, but all eligible CDS groups are currently full. Your LGI can review the placement exception.'
+                : matchingReason === 'no_eligible_group'
+                  ? 'Your mandatory documents are verified, but no active CDS group currently accepts your academic course in this LGA. Your LGI can review the course mapping.'
+                  : result.status === 'verified'
+                    ? 'Document verified. Your other mandatory documents will be checked before CDS matching.'
+                    : 'Document received. Check the verification status below.';
     return c.json({
       success: true,
-      message: assignedGroupName
-        ? `Document verified. You have been automatically matched to ${assignedGroupName}.`
-        : result.status === 'verified'
-          ? 'Document verified. Your other mandatory documents will be checked before CDS matching.'
-          : result.status === 'needs_resubmission'
-            ? 'The document needs correction. Review the verification note and upload a clearer or correct document.'
-            : 'Document received and queued for exception review. CDS matching will wait until all mandatory documents are verified.',
+      message: responseMessage,
       data: result
     }, 201);
   } catch (error) {
