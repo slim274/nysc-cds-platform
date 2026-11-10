@@ -182,7 +182,7 @@
               Manage preloaded records, account activation
               and member profiles.
             </p>
-            <span>Member management coming next</span>
+            <a class="feature-link" href="/lgi/corps-members">Manage Corps Members →</a>
           </article>
 
           <article class="feature-card">
@@ -206,6 +206,30 @@
             </p>
             <a class="feature-link" href="/lgi/course-catalogue">
               Manage course catalogue →
+            </a>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon blue">⌘</div>
+            <h3>Course Mapping</h3>
+            <p>
+              Map academic courses to CDS Groups. The matching algorithm uses
+              these rules after required documents are verified.
+            </p>
+            <a class="feature-link" href="/lgi/course-mapping">
+              Configure course mappings →
+            </a>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon green">▣</div>
+            <h3>Document Requirements</h3>
+            <p>
+              Configure mandatory documents, upload reference samples
+              and review only AI verification exceptions.
+            </p>
+            <a class="feature-link" href="/lgi/document-requirements">
+              Manage document requirements →
             </a>
           </article>
 
