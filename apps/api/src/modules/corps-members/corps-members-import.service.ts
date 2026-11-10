@@ -2,6 +2,7 @@ import {
   and,
   eq,
   ilike,
+  inArray,
   sql
 } from 'drizzle-orm';
 
@@ -247,7 +248,7 @@ export async function importCorpsMembers(rows: CorpsMemberImportRow[], lgaIds: s
           sql`lower(${lgas.name}) = lower(${row.lgaName})`,
           sql`lower(${lgas.stateName}) = lower(${row.lgaState})`,
           eq(lgas.isActive, true),
-          sql`${lgas.id} = ANY(${lgaIds}::uuid[])`
+          inArray(lgas.id, lgaIds)
         )).limit(1);
 
         if (!lga) {
