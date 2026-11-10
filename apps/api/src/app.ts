@@ -26,6 +26,10 @@ import {
   corpsMemberRoutes
 } from './modules/corps-members/corps-members.routes';
 
+import {
+  corpsMemberPortalRoutes
+} from './modules/corps-members/corps-member-portal.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -87,5 +91,8 @@ app.route('/coordinator', coordinatorSelfServiceRoutes);
 
 // LGI corps member management routes.
 app.route('/lgi', corpsMemberRoutes);
+
+// Corps Member self-service portal and CDS group decline.
+app.route('/corps-member', corpsMemberPortalRoutes);
 
 export default app;
