@@ -124,7 +124,8 @@ The development branch contains the frontend login and LGI dashboard, responsive
 | LGI course catalogue interface | Implemented on the development branch; local Svelte check and browser tests pending |
 | CSV catalogue import and template | Implemented on the development branch; local import tests pending |
 | LGI shared course catalogue and searchable CDS-group picker | Implemented on the development branch; local integration tests pending |
-| CDS Coordinator account and group assignment management | Implemented on the development branch; GitHub Actions API typecheck, Svelte checks and frontend build passed; email delivery and runtime integration tests remain pending |\n| CDS group handover records, transfer and successor acknowledgement | Implemented on the development branch; migration, API and UI added; CI and runtime database testing pending |
+| CDS Coordinator account and group assignment management | Implemented on the development branch; GitHub Actions API typecheck, Svelte checks and frontend build passed; email delivery and runtime integration tests remain pending |
+| CDS group handover records, transfer and successor acknowledgement | Implemented on the development branch; migration, API and UI added; CI and runtime database testing pending |
 
 ## CDS Coordinator management
 
