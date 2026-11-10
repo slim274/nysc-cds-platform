@@ -16,6 +16,8 @@ import {
   userRoleAssignments
 } from '@nysc/database';
 
+import { hashPassword } from '../utils/password';
+
 import { hashToken } from '../utils/token';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -300,7 +302,7 @@ export async function verifyCorpsMemberOtp(
 
 export async function registerCorpsMemberAccount(
   rawChallengeToken: string,
-  passwordHash: string
+  password: string
 ): Promise<{ id: string; email: string | null }> {
   if (!/^[a-f0-9]{64}$/i.test(rawChallengeToken)) {
     throw new Error('REGISTRATION_CHALLENGE_INVALID');
@@ -308,6 +310,28 @@ export async function registerCorpsMemberAccount(
 
   const tokenHash = hashToken(rawChallengeToken);
   const now = new Date();
+
+  // Do not run the expensive password hasher for arbitrary or unverified tokens.
+  const [ready] = await db
+    .select({ id: corpsMemberVerificationChallenges.id })
+    .from(corpsMemberVerificationChallenges)
+    .innerJoin(
+      corpsMemberOtpChallenges,
+      eq(corpsMemberOtpChallenges.verificationChallengeId, corpsMemberVerificationChallenges.id)
+    )
+    .where(and(
+      eq(corpsMemberVerificationChallenges.tokenHash, tokenHash),
+      isNull(corpsMemberVerificationChallenges.consumedAt),
+      gt(corpsMemberVerificationChallenges.expiresAt, now),
+      isNull(corpsMemberOtpChallenges.consumedAt),
+      gt(corpsMemberOtpChallenges.expiresAt, now),
+      // verified_at is checked in the transaction below as well.
+    ))
+    .limit(1);
+
+  if (!ready) throw new Error('REGISTRATION_OTP_REQUIRED');
+
+  const passwordHash = await hashPassword(password);
 
   return db.transaction(async (tx) => {
     const [challenge] = await tx
