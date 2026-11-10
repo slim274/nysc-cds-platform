@@ -8,13 +8,19 @@ import {
 
 import {
   activateAccountSchema,
-  loginSchema
+  loginSchema,
+  verifyCorpsMemberIdentitySchema
 } from './schemas/auth.schema';
 
 import {
   activateAccount,
   authenticateUser
 } from './services/auth.service';
+
+import {
+  initiateCorpsMemberIdentityVerification,
+  IdentityVerificationRateLimitError
+} from './services/corps-member-verification.service';
 
 import {
   createSession,
@@ -65,6 +71,50 @@ authRoutes.post('/activate', async (c) => {
     return c.json({
       success: false,
       message: 'Unable to activate account.'
+    }, 500);
+  }
+});
+
+// Public identity check used before the later OTP onboarding step.
+authRoutes.post('/verify-corps-member', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = verifyCorpsMemberIdentitySchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({
+      success: false,
+      message: 'Enter a valid State Code, Date of Birth and Call-up Number.'
+    }, 400);
+  }
+
+  // The API entry point injects this header from Bun's socket information.
+  // Never trust a client-supplied forwarded-IP header directly.
+  const clientAddress = c.req.header('x-nysc-client-address') ?? 'unknown';
+
+  try {
+    const result = await initiateCorpsMemberIdentityVerification(
+      validation.data,
+      clientAddress
+    );
+
+    return c.json({
+      success: true,
+      message: 'If the details match an eligible corps member record, you can continue verification.',
+      data: result
+    });
+  } catch (error) {
+    if (error instanceof IdentityVerificationRateLimitError) {
+      c.header('Retry-After', String(error.retryAfterSeconds));
+      return c.json({
+        success: false,
+        message: 'Too many verification attempts. Try again later.'
+      }, 429);
+    }
+
+    console.error('Corps member identity verification failed:', error);
+    return c.json({
+      success: false,
+      message: 'Unable to process identity verification.'
     }, 500);
   }
 });
