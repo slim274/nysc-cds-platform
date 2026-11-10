@@ -38,8 +38,6 @@ import {
   registerCorpsMemberAccount
 } from './services/corps-member-otp.service';
 
-import { hashPassword } from './utils/password';
-
 import {
   requireAuth,
   requireRole,
@@ -47,6 +45,15 @@ import {
 } from './middleware/auth.middleware';
 
 const authRoutes = new Hono<AuthEnv>();
+
+function getPostgresErrorCode(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    if ('code' in current && typeof current.code === 'string') return current.code;
+    current = 'cause' in current ? current.cause : null;
+  }
+  return null;
+}
 
 // Account activation
 authRoutes.post('/activate', async (c) => {
@@ -200,10 +207,9 @@ authRoutes.post('/register-corps-member', async (c) => {
   }
 
   try {
-    const passwordHash = await hashPassword(validation.data.password);
     const user = await registerCorpsMemberAccount(
       validation.data.challengeToken,
-      passwordHash
+      validation.data.password
     );
 
     const session = await createSession(user.id, c.req.header('user-agent'));
@@ -225,9 +231,7 @@ authRoutes.post('/register-corps-member', async (c) => {
     }, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
-    const code = typeof error === 'object' && error !== null && 'code' in error
-      ? String(error.code)
-      : '';
+    const code = getPostgresErrorCode(error) ?? '';
 
     if (code === '23505') {
       return c.json({
