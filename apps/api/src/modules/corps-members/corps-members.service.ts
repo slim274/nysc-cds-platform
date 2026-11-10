@@ -183,7 +183,7 @@ export async function listCorpsMembers(
     search?: string;
     lgaId?: string;
     streamId?: string;
-    profileStatus?: string;
+    profileStatus?: 'preloaded' | 'draft' | 'submitted' | 'approved' | 'rejected';
     page: number;
     pageSize: number;
   }
@@ -195,7 +195,7 @@ export async function listCorpsMembers(
     inArray(corpsMembers.lgaId, filters.lgaId ? [filters.lgaId] : lgaIds)
   ];
   if (filters.streamId) conditions.push(eq(corpsMembers.streamId, filters.streamId));
-  if (filters.profileStatus) conditions.push(eq(corpsMembers.profileStatus, filters.profileStatus as typeof corpsMembers.profileStatus.enumValues[number]));
+  if (filters.profileStatus) conditions.push(eq(corpsMembers.profileStatus, filters.profileStatus));
   if (filters.search) {
     const pattern = `%${filters.search}%`;
     const searchCondition = or(
