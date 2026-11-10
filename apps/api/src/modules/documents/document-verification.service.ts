@@ -691,27 +691,29 @@ export async function submitCorpsMemberDocument(
     ? await readStoredDocument(requirement.referenceObjectKey)
     : null;
 
-  const outcome = await verifyDocumentWithAi({
-    bytes,
-    fileName: safeOriginalName(originalName),
-    mimeType: detected.contentType,
-    referenceBytes,
-    referenceFileName: requirement.referenceFileName,
-    referenceMimeType: requirement.referenceMimeType,
-    requirement: { name: requirement.name, description: requirement.description },
-    member: {
-      stateCode: record.stateCode,
-      callUpNumber: record.callUpNumber,
-      firstName: record.firstName,
-      middleName: record.middleName,
-      lastName: record.lastName,
-      dateOfBirth: record.dateOfBirth,
-      institutionName: record.institutionName,
-      courseName: record.courseName,
-      qualification: record.qualification,
-      graduationYear: record.graduationYear
-    }
-  });
+  const outcome = requirement.isRequired && !referenceBytes
+    ? manualReview('The LGI has not uploaded a reference sample for this mandatory document. The submission is queued for exception review until the sample is configured.')
+    : await verifyDocumentWithAi({
+        bytes,
+        fileName: safeOriginalName(originalName),
+        mimeType: detected.contentType,
+        referenceBytes,
+        referenceFileName: requirement.referenceFileName,
+        referenceMimeType: requirement.referenceMimeType,
+        requirement: { name: requirement.name, description: requirement.description },
+        member: {
+          stateCode: record.stateCode,
+          callUpNumber: record.callUpNumber,
+          firstName: record.firstName,
+          middleName: record.middleName,
+          lastName: record.lastName,
+          dateOfBirth: record.dateOfBirth,
+          institutionName: record.institutionName,
+          courseName: record.courseName,
+          qualification: record.qualification,
+          graduationYear: record.graduationYear
+        }
+      });
 
   const objectKey = await storeDocument(bytes, detected);
   const now = new Date();
