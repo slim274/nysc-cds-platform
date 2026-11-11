@@ -51,3 +51,23 @@ export const cdsLeadershipStatusEnum = pgEnum('cds_leadership_status', [
   'active',
   'ended'
 ]);
+
+export const cdsMeetingStatusEnum = pgEnum('cds_meeting_status', [
+  'scheduled',
+  'attendance_open',
+  'submitted',
+  'reviewed',
+  'cancelled'
+]);
+
+export const cdsAttendanceStatusEnum = pgEnum('cds_attendance_status', [
+  'present',
+  'absent',
+  'late',
+  'excused'
+]);
+
+export const cdsMeetingReviewDecisionEnum = pgEnum('cds_meeting_review_decision', [
+  'approved',
+  'returned'
+]);
