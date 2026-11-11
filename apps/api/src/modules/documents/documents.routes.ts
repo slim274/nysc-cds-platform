@@ -14,6 +14,7 @@ import {
   getCorpsMemberDocumentDashboard,
   submitCorpsMemberDocument,
   decideDocumentManualReview,
+  getDocumentVerificationMode,
   DocumentWorkflowError
 } from './document-verification.service';
 
@@ -120,6 +121,16 @@ function setPrivateFileHeaders(
   c.header('Cache-Control', 'private, no-store');
   c.header('X-Content-Type-Options', 'nosniff');
 }
+
+lgiDocumentRoutes.get('/document-verification-mode', (c) => {
+  return c.json({
+    success: true,
+    data: {
+      mode: getDocumentVerificationMode(),
+      aiConfigured: Boolean(Bun.env.OPENAI_API_KEY)
+    }
+  });
+});
 
 lgiDocumentRoutes.get('/document-requirements', async (c) => {
   try {
