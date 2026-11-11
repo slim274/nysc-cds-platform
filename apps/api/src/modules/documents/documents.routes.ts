@@ -5,6 +5,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import {
   createDocumentRequirement,
   updateDocumentRequirement,
+  removeDocumentRequirement,
   listDocumentRequirements,
   saveDocumentReferenceSample,
   listDocumentSubmissions,
@@ -171,6 +172,25 @@ lgiDocumentRoutes.patch('/document-requirements/:requirementId', async (c) => {
   try {
     await updateDocumentRequirement(id.data, validation.data, getAssignedLgaIds(c));
     return c.json({ success: true, message: 'Document requirement updated.' });
+  } catch (error) {
+    return handleDocumentError(c, error);
+  }
+});
+
+lgiDocumentRoutes.delete('/document-requirements/:requirementId', async (c) => {
+  const id = uuidSchema.safeParse(c.req.param('requirementId'));
+  if (!id.success) {
+    return c.json({ success: false, message: 'Invalid document requirement ID.' }, 400);
+  }
+  try {
+    const result = await removeDocumentRequirement(id.data, getAssignedLgaIds(c));
+    return c.json({
+      success: true,
+      message: result.archived
+        ? 'This requirement has submissions, so it was disabled and archived to preserve its history.'
+        : 'Document requirement deleted.',
+      data: result
+    });
   } catch (error) {
     return handleDocumentError(c, error);
   }
