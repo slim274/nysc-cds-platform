@@ -458,16 +458,90 @@
   .verification-method-card>span:last-child{display:grid;gap:2px}
   .verification-method-card strong{font-size:9px}
   .verification-method-card small{color:#60766a;font-size:8px;line-height:1.3}
-  .verification-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0;padding:0;border:0}
-  .verification-options legend{margin-bottom:8px;color:#263d30;font-size:10px;font-weight:800}
-  .verification-option{display:flex;align-items:flex-start;gap:9px;min-height:108px;padding:12px;border:1.5px solid #d7e2d9;border-radius:9px;background:#fff;color:#41594a;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
-  .verification-option.selected{border-color:#0a8050;background:#eef8f1;box-shadow:inset 0 0 0 1px #0a8050}
-  .verification-option input{flex:0 0 auto;margin:2px 0 0;accent-color:#0a6841}
-  .verification-option>span{display:grid;gap:6px}
-  .verification-option strong{font-size:10px;line-height:1.35}
-  .verification-option small{color:#718078;font-size:9px;line-height:1.5}
+  /* Verification policy cards: override the generic fieldset and input styles above. */
+  form.requirement-form fieldset.verification-options{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:9px;
+    width:100%;
+    min-width:0;
+    margin:0;
+    padding:0;
+    border:0;
+  }
+  form.requirement-form fieldset.verification-options legend{
+    width:100%;
+    margin:0 0 3px;
+    padding:0;
+    color:#263d30;
+    font-size:11px;
+    font-weight:800;
+    line-height:1.5;
+  }
+  form.requirement-form .verification-option{
+    display:grid;
+    grid-template-columns:19px minmax(0,1fr);
+    align-items:start;
+    gap:11px;
+    width:100%;
+    min-width:0;
+    min-height:0;
+    margin:0;
+    padding:13px 14px;
+    border:1.5px solid #d7e2d9;
+    border-radius:10px;
+    background:#fff;
+    color:#41594a;
+    cursor:pointer;
+    transition:border-color .15s,background .15s,box-shadow .15s;
+  }
+  form.requirement-form .verification-option:hover{
+    border-color:#8ebba0;
+    background:#f8fcf9;
+  }
+  form.requirement-form .verification-option.selected{
+    border-color:#0a8050;
+    background:#eef8f1;
+    box-shadow:inset 0 0 0 1px #0a8050;
+  }
+  form.requirement-form .verification-option input[type="radio"]{
+    display:block;
+    appearance:auto;
+    width:18px !important;
+    min-width:18px;
+    height:18px !important;
+    min-height:18px !important;
+    margin:2px 0 0;
+    padding:0 !important;
+    border:0 !important;
+    border-radius:50%;
+    box-shadow:none;
+    accent-color:#0a6841;
+    cursor:pointer;
+  }
+  form.requirement-form .verification-option>span{
+    display:grid;
+    gap:4px;
+    width:100%;
+    min-width:0;
+    overflow-wrap:anywhere;
+  }
+  form.requirement-form .verification-option strong{
+    color:#244b35;
+    font-size:11px;
+    font-weight:800;
+    line-height:1.4;
+  }
+  form.requirement-form .verification-option small{
+    color:#687b6e;
+    font-size:9px;
+    line-height:1.5;
+  }
   .requirement-form select{width:100%;min-height:44px;padding:10px 12px;border:1.5px solid #8aaf96;border-radius:8px;background:#f5faf6;color:#174b31;font-size:11px;font-weight:700}
-  @media(max-width:650px){.verification-options{grid-template-columns:1fr}.verification-option{min-height:auto}}
+  @media(max-width:650px){
+    form.requirement-form fieldset.verification-options{grid-template-columns:minmax(0,1fr)}
+    form.requirement-form .verification-option{padding:12px}
+  }
   .publication-badge.published-badge{background:#e8f6ec;color:#147244}
   .requirement-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .action-button,.remove-button{min-height:31px;padding:7px 9px;border:1px solid #dce5de;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:700;cursor:pointer}
