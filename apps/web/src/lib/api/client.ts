@@ -528,6 +528,19 @@ export async function getMyCoordinatorDocuments(): Promise<CoordinatorDocumentCh
   return response.data;
 }
 
+export interface DocumentVerificationMode {
+  mode: 'manual' | 'ai';
+  aiConfigured: boolean;
+}
+
+export async function getDocumentVerificationMode(): Promise<DocumentVerificationMode> {
+  const response = await request<{
+    success: boolean;
+    data: DocumentVerificationMode;
+  }>('/lgi/document-verification-mode');
+  return response.data;
+}
+
 export interface LgiDocumentRequirement {
   id: string;
   lgaId: string;
