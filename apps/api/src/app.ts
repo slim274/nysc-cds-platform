@@ -34,6 +34,12 @@ import {
 } from './modules/corps-members/corps-member-portal.routes';
 
 import {
+  coordinatorAttendanceRoutes,
+  presidentAttendanceRoutes,
+  lgiAttendanceRoutes
+} from './modules/attendance/attendance.routes';
+
+import {
   lgiDocumentRoutes,
   corpsMemberDocumentRoutes
 } from './modules/documents/documents.routes';
