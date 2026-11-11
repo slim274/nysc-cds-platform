@@ -44,6 +44,7 @@ const createRequirementSchema = z.object({
   name: z.string().trim().min(3).max(160),
   description: z.string().trim().max(2000).nullable().optional(),
   isRequired: z.boolean().default(true),
+  verificationMode: z.enum(['manual', 'ai_auto', 'ai_assisted']).default('manual'),
   allowedMimeTypes: z.array(z.enum(supportedMimeTypes)).min(1).max(3)
     .refine((types) => new Set(types).size === types.length, 'Remove duplicate file types.'),
   maxFileSizeBytes: z.number().int().min(1024 * 1024).max(50 * 1024 * 1024).default(10 * 1024 * 1024),
