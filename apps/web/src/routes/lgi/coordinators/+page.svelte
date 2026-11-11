@@ -192,7 +192,7 @@
       formError = 'Select the LGA where this standby Coordinator will be available.';
       return;
     }
-    if (!standbyOnly && selectedGroupIds.length === 0) {
+    if (!editingCoordinator && !standbyOnly && selectedGroupIds.length === 0) {
       formError = 'Select at least one CDS group, or create this Coordinator as standby.';
       return;
     }
