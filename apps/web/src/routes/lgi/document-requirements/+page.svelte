@@ -157,8 +157,11 @@
         maxFileSizeBytes: Math.round(form.maxSizeMb * 1024 * 1024)
       };
       if (editingRequirement) {
-        await updateLgiDocumentRequirement(editingRequirement.id, input);
-        noticeMessage = 'Document requirement updated. The published checklist will reflect the changes.';
+        const saved = await updateLgiDocumentRequirement(editingRequirement.id, input);
+        if (saved.verificationMode !== form.verificationMode) {
+          throw new Error('The server did not save the selected verification method. Restart the API server and try again.');
+        }
+        noticeMessage = `Document requirement updated. Verification method: ${saved.verificationMode === 'ai_auto' ? 'AI Auto-Verification' : saved.verificationMode === 'ai_assisted' ? 'AI + LGI Approval' : 'Manual Only'}.`;
       } else {
         await createLgiDocumentRequirement({
           lgaId: selectedLga,
@@ -346,7 +349,7 @@
                 <article class="requirement-row">
                   <div class="requirement-info">
                     <div class="doc-icon">▤</div>
-                    <div><div class="title-line"><h3>{requirement.name}</h3><span class:optional={!requirement.isRequired} class="requirement-badge">{requirement.isRequired ? 'Mandatory' : 'Optional'}</span></div><p>{requirement.code}{requirement.description ? ` · ${requirement.description}` : ''}</p><span class="verification-method-badge">{requirement.verificationMode === 'ai_auto' ? 'AI Auto-Verification' : requirement.verificationMode === 'ai_assisted' ? 'AI + LGI Approval' : 'Manual Only'}</span><small>Accepts {requirement.allowedMimeTypes.replaceAll('application/pdf', 'PDF').replaceAll('image/jpeg', 'JPEG').replaceAll('image/png', 'PNG')} · Max {Math.round(requirement.maxFileSizeBytes / (1024 * 1024))} MB</small></div>
+                    <div><div class="title-line"><h3>{requirement.name}</h3><span class:optional={!requirement.isRequired} class="requirement-badge">{requirement.isRequired ? 'Mandatory' : 'Optional'}</span></div><p>{requirement.code}{requirement.description ? ` · ${requirement.description}` : ''}</p><div class="verification-method-card" class:method-ai={requirement.verificationMode !== 'manual'}><span class="method-symbol">{requirement.verificationMode === 'ai_auto' ? 'AI' : requirement.verificationMode === 'ai_assisted' ? 'AI +' : 'LGI'}</span><span><strong>{requirement.verificationMode === 'ai_auto' ? 'AI Auto-Verification' : requirement.verificationMode === 'ai_assisted' ? 'AI + LGI Approval' : 'Manual Only'}</strong><small>{requirement.verificationMode === 'ai_auto' ? 'High-confidence matches can be auto-approved' : requirement.verificationMode === 'ai_assisted' ? 'LGI approval required for every result' : 'LGI reviews every submission'}</small></span></div><small>Accepts {requirement.allowedMimeTypes.replaceAll('application/pdf', 'PDF').replaceAll('image/jpeg', 'JPEG').replaceAll('image/png', 'PNG')} · Max {Math.round(requirement.maxFileSizeBytes / (1024 * 1024))} MB</small></div>
                   </div>
                   <div class="reference-area">
                     {#if requirement.hasReferenceSample}
@@ -403,11 +406,21 @@
         <label><span>Document name *</span><input bind:value={form.name} placeholder="e.g. NYSC Call-up Letter" minlength="3" maxlength="160" required /></label>
         <label><span>Description</span><textarea bind:value={form.description} rows="3" maxlength="2000" placeholder="What should the Corps Member submit?"></textarea></label>
         <label class="check-line"><input type="checkbox" bind:checked={form.isRequired} /><span>Mandatory document (required before CDS matching)</span></label>
-        <label><span>Verification method *</span><select bind:value={form.verificationMode}>
-          <option value="manual">Manual Only — LGI reviews every submission</option>
-          <option value="ai_auto">AI Auto-Verification — AI verifies clear matches</option>
-          <option value="ai_assisted">AI + LGI Approval — AI checks, LGI approves</option>
-        </select></label>
+        <fieldset class="verification-options">
+          <legend>Verification method — choose how this document is checked *</legend>
+          <label class="verification-option" class:selected={form.verificationMode === 'manual'}>
+            <input type="radio" name="verificationMode" value="manual" bind:group={form.verificationMode} />
+            <span><strong>Manual Only</strong><small>LGI reviews every submission. No AI provider calls.</small></span>
+          </label>
+          <label class="verification-option" class:selected={form.verificationMode === 'ai_auto'}>
+            <input type="radio" name="verificationMode" value="ai_auto" bind:group={form.verificationMode} />
+            <span><strong>AI Auto-Verification</strong><small>AI checks the document and can approve high-confidence matches automatically.</small></span>
+          </label>
+          <label class="verification-option" class:selected={form.verificationMode === 'ai_assisted'}>
+            <input type="radio" name="verificationMode" value="ai_assisted" bind:group={form.verificationMode} />
+            <span><strong>AI + LGI Approval</strong><small>AI provides its assessment, but the LGI must approve or request resubmission.</small></span>
+          </label>
+        </fieldset>
         <fieldset><legend>Accepted file formats *</legend><label class="check-line"><input type="checkbox" bind:checked={form.allowPdf} /><span>PDF</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowJpeg} /><span>JPEG</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowPng} /><span>PNG</span></label></fieldset>
         <label><span>Maximum file size (MB)</span><input type="number" bind:value={form.maxSizeMb} min="1" max="50" required /></label>
         <div class="info-note">
@@ -438,7 +451,23 @@
   .verification-mode-banner strong{font-size:11px}
   .verification-mode-banner.mode-ai{border-color:#cfe1ee;background:#eff7fc;color:#245a7b}
   .publication-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:14px;background:#f2f4f2;color:#6d7a70;font-size:8px;font-weight:800;white-space:nowrap}
-  .verification-method-badge{display:inline-flex;align-items:center;padding:5px 8px;margin-top:4px;border-radius:14px;background:#eef4fb;color:#315d80;font-size:8px;font-weight:800;white-space:nowrap}
+  .verification-method-card{display:flex;align-items:center;gap:9px;width:max-content;max-width:100%;padding:7px 10px;margin:7px 0 4px;border:1px solid #cbded0;border-radius:9px;background:#eef8f1;color:#155b37}
+  .verification-method-card.method-ai{border-color:#bfd8ef;background:#eff6fc;color:#205b83}
+  .method-symbol{display:grid;place-items:center;min-width:30px;height:30px;border-radius:7px;background:#dcefe2;color:#0a6841;font-size:10px;font-weight:900}
+  .method-ai .method-symbol{background:#dcecf9;color:#205b83}
+  .verification-method-card>span:last-child{display:grid;gap:2px}
+  .verification-method-card strong{font-size:9px}
+  .verification-method-card small{color:#60766a;font-size:8px;line-height:1.3}
+  .verification-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0;padding:0;border:0}
+  .verification-options legend{margin-bottom:8px;color:#263d30;font-size:10px;font-weight:800}
+  .verification-option{display:flex;align-items:flex-start;gap:9px;min-height:108px;padding:12px;border:1.5px solid #d7e2d9;border-radius:9px;background:#fff;color:#41594a;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+  .verification-option.selected{border-color:#0a8050;background:#eef8f1;box-shadow:inset 0 0 0 1px #0a8050}
+  .verification-option input{flex:0 0 auto;margin:2px 0 0;accent-color:#0a6841}
+  .verification-option>span{display:grid;gap:6px}
+  .verification-option strong{font-size:10px;line-height:1.35}
+  .verification-option small{color:#718078;font-size:9px;line-height:1.5}
+  .requirement-form select{width:100%;min-height:44px;padding:10px 12px;border:1.5px solid #8aaf96;border-radius:8px;background:#f5faf6;color:#174b31;font-size:11px;font-weight:700}
+  @media(max-width:650px){.verification-options{grid-template-columns:1fr}.verification-option{min-height:auto}}
   .publication-badge.published-badge{background:#e8f6ec;color:#147244}
   .requirement-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .action-button,.remove-button{min-height:31px;padding:7px 9px;border:1px solid #dce5de;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:700;cursor:pointer}
