@@ -5,6 +5,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import {
   getCdsGroupReferenceData,
   listCdsGroups,
+  listPendingCdsGroupDeclines,
   getCdsGroup,
   createCdsGroup,
   updateCdsGroup,
@@ -42,6 +43,9 @@ const listQuerySchema = z.object({
   lgaId: z.string().uuid().optional(),
   search: z.string().trim().max(80).optional(),
   active: z.enum(['true', 'false']).optional()
+});
+const declineListQuerySchema = z.object({
+  lgaId: z.string().uuid().optional()
 });
 
 function getAssignedLgaIds(c: Context<AuthEnv>): string[] {
@@ -113,6 +117,27 @@ lgiRoutes.get('/cds-groups', async (c) => {
       success: true,
       data: groups
     });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// List declined assignments that still need a new placement.
+lgiRoutes.get('/cds-groups/declines', async (c) => {
+  const query = declineListQuerySchema.safeParse(c.req.query());
+  if (!query.success) {
+    return c.json({
+      success: false,
+      message: 'Invalid declined-assignment filters.'
+    }, 400);
+  }
+
+  try {
+    const data = await listPendingCdsGroupDeclines(
+      getAssignedLgaIds(c),
+      query.data.lgaId
+    );
+    return c.json({ success: true, data });
   } catch (error) {
     return handleServiceError(c, error);
   }
