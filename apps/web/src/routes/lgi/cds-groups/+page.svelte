@@ -8,6 +8,7 @@
     getCurrentUser,
     getCdsGroupReferenceData,
     listCdsGroups,
+    listCdsGroupDeclines,
     getCdsGroup,
     createCdsGroup,
     updateCdsGroup,
@@ -22,6 +23,7 @@
   import type {
     AuthUser,
     CdsGroupSummary,
+    CdsGroupDecline,
     CdsGroupReferenceData,
     CdsGroupDetail,
     CreateCdsGroupInput,
@@ -31,6 +33,7 @@
   let currentUser = $state<AuthUser | null>(null);
   let referenceData = $state<CdsGroupReferenceData>({ lgas: [], courses: [] });
   let groups = $state<CdsGroupSummary[]>([]);
+  let pendingDeclines = $state<CdsGroupDecline[]>([]);
   let loading = $state(true);
   let saving = $state(false);
   let signingOut = $state(false);
@@ -125,13 +128,18 @@
   }
 
   async function loadGroups() {
-    groups = await listCdsGroups({
-      lgaId: selectedLga || undefined,
-      search: search.trim() || undefined,
-      active: statusFilter === 'all'
-        ? undefined
-        : statusFilter === 'active'
-    });
+    const [nextGroups, nextDeclines] = await Promise.all([
+      listCdsGroups({
+        lgaId: selectedLga || undefined,
+        search: search.trim() || undefined,
+        active: statusFilter === 'all'
+          ? undefined
+          : statusFilter === 'active'
+      }),
+      listCdsGroupDeclines({ lgaId: selectedLga || undefined })
+    ]);
+    groups = nextGroups;
+    pendingDeclines = nextDeclines;
   }
 
   async function applyFilters(event: SubmitEvent) {
@@ -348,6 +356,21 @@
   function capacityPercent(group: CdsGroupSummary) {
     return Math.min(100, Math.round((group.currentMemberCount / group.maxCapacity) * 100));
   }
+
+  function declineCountForGroup(groupId: string): number {
+    return pendingDeclines.filter((item) => item.groupId === groupId).length;
+  }
+
+  function declineReasonLabel(reason: CdsGroupDecline['reason']): string {
+    const labels: Record<NonNullable<CdsGroupDecline['reason']>, string> = {
+      schedule_conflict: 'Schedule conflict',
+      accessibility: 'Accessibility needs',
+      location: 'Location',
+      personal: 'Personal reasons',
+      other: 'Other'
+    };
+    return reason ? labels[reason] : 'Not specified';
+  }
 </script>
 
 <svelte:head>
@@ -410,6 +433,45 @@
           <article class="stat-card"><span>Active groups</span><strong>{activeGroupCount}</strong><small>Currently accepting members</small></article>
           <article class="stat-card"><span>Allocated members</span><strong>{totalMembers}</strong><small>Across listed groups</small></article>
           <article class="stat-card"><span>Total capacity</span><strong>{totalCapacity}</strong><small>Combined group capacity</small></article>
+          <article class:stat-card-alert={pendingDeclines.length > 0} class="stat-card">
+            <span>Declined placements</span>
+            <strong>{pendingDeclines.length}</strong>
+            <small>{pendingDeclines.length > 0 ? 'Awaiting a new CDS group' : 'No placement follow-up needed'}</small>
+          </article>
+        </section>
+
+        <section class="declines-panel" aria-labelledby="declines-title" aria-live="polite">
+          <header class="declines-header">
+            <div class="declines-icon" aria-hidden="true">!</div>
+            <div class="declines-heading">
+              <span class="eyebrow">ACTION REQUIRED</span>
+              <h2 id="declines-title">Declined CDS placements</h2>
+              <p>Corps Members who declined their assignment and do not yet have another active CDS group.</p>
+            </div>
+            <span class:declines-count-active={pendingDeclines.length > 0} class="declines-count">{pendingDeclines.length} pending</span>
+          </header>
+          {#if pendingDeclines.length === 0}
+            <div class="declines-empty">No declined placements are currently awaiting a new group.</div>
+          {:else}
+            <div class="declines-list">
+              {#each pendingDeclines as decline (decline.membershipId)}
+                <article class="decline-row">
+                  <div class="decline-member">
+                    <strong>{decline.lastName}, {decline.firstName} {decline.middleName ?? ''}</strong>
+                    <span>{decline.stateCode}{decline.courseName ? ` · ${decline.courseName}` : ''}</span>
+                  </div>
+                  <div class="decline-details">
+                    <span class="declined-group-label">Declined {decline.groupName} ({decline.groupCode})</span>
+                    <span><strong>Reason:</strong> {declineReasonLabel(decline.reason)}</span>
+                    {#if decline.notes}
+                      <p>{decline.notes}</p>
+                    {/if}
+                  </div>
+                  <time datetime={decline.declinedAt ?? undefined}>{decline.declinedAt ? new Date(decline.declinedAt).toLocaleString() : 'Date unavailable'}</time>
+                </article>
+              {/each}
+            </div>
+          {/if}
         </section>
 
         <section class="groups-panel">
@@ -464,6 +526,9 @@
                     <span class="group-code">{group.code}</span>
                     <span class:inactive={!group.isActive} class="status-badge">{group.isActive ? 'Active' : 'Inactive'}</span>
                   </div>
+                  {#if declineCountForGroup(group.id) > 0}
+                    <div class="group-decline-flag">{declineCountForGroup(group.id)} declined placement{declineCountForGroup(group.id) === 1 ? '' : 's'} awaiting reassignment</div>
+                  {/if}
                   <h3>{group.name}</h3>
                   <p class="group-location">{group.lgaName}, {group.stateName}</p>
                   {#if group.description}
@@ -788,12 +853,36 @@
   .create-button span { margin-right: 5px; font-size: 15px; }
   .secondary-button { border: 1px solid #dce5de; background: #fff; color: #44554a; }
   .secondary-button:hover { border-color: #0a5c37; color: #0a5c37; }
-  .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
   .stat-card { min-width: 0; padding: 18px 20px; border: 1px solid #e8ece8; border-radius: 10px; background: #fff; }
+  .stat-card-alert { border-color: #efc7a1; background: #fffaf4; }
+  .stat-card-alert strong { color: #a85a16; }
   .stat-card > span { display: block; color: #718078; font-size: 10px; }
   .stat-card strong { display: block; margin: 9px 0 5px; color: #183d29; font-size: 25px; }
   .stat-card small { color: #89948c; font-size: 9px; }
   .groups-panel { padding: 20px; border: 1px solid #e8ece8; border-radius: 12px; background: #fff; }
+  .declines-panel { margin-bottom: 20px; overflow: hidden; border: 1px solid #efcfad; border-radius: 12px; background: #fff; }
+  .declines-header { display: flex; align-items: center; gap: 12px; padding: 17px 20px; background: #fff8ef; border-bottom: 1px solid #f5e7d8; }
+  .declines-icon { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 10px; background: #ffead5; color: #a85a16; font-size: 19px; font-weight: 900; }
+  .declines-heading { min-width: 0; flex: 1; }
+  .declines-heading .eyebrow { color: #a85a16; }
+  .declines-heading h2 { margin: 4px 0; color: #573c26; font-size: 15px; }
+  .declines-heading p { margin: 0; color: #8c735d; font-size: 10px; line-height: 1.5; }
+  .declines-count { flex: 0 0 auto; padding: 7px 10px; border-radius: 20px; background: #f4f1ed; color: #74685d; font-size: 9px; font-weight: 800; }
+  .declines-count-active { background: #ffe8d1; color: #9b4f0c; }
+  .declines-empty { padding: 18px 20px; color: #768278; font-size: 10px; }
+  .declines-list { display: grid; }
+  .decline-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(130px, auto); align-items: center; gap: 18px; padding: 15px 20px; border-bottom: 1px solid #f0eee9; }
+  .decline-row:last-child { border-bottom: 0; }
+  .decline-member { display: grid; gap: 5px; min-width: 0; }
+  .decline-member strong { color: #263d30; font-size: 11px; }
+  .decline-member span { color: #77857b; font-size: 9px; overflow-wrap: anywhere; }
+  .decline-details { display: grid; gap: 5px; min-width: 0; color: #64746a; font-size: 9px; }
+  .declined-group-label { color: #92551d; font-weight: 800; }
+  .decline-details strong { color: #526357; }
+  .decline-details p { margin: 0; color: #89948c; line-height: 1.5; overflow-wrap: anywhere; }
+  .decline-row time { color: #89948c; font-size: 9px; text-align: right; }
+  .group-decline-flag { display: inline-flex; width: fit-content; max-width: 100%; margin-top: 10px; padding: 6px 9px; border: 1px solid #f0d2b1; border-radius: 7px; background: #fff8ef; color: #9b5718; font-size: 9px; font-weight: 800; line-height: 1.35; }
   .filters { display: grid; grid-template-columns: minmax(180px, 1.5fr) minmax(180px, 1fr) minmax(130px, .7fr) auto; align-items: end; gap: 12px; margin-bottom: 20px; }
   .filters label, .group-form > label, .form-row label { display: grid; gap: 7px; color: #4a5c50; font-size: 10px; font-weight: 700; }
   .filters input, .filters select, .group-form input:not([type="checkbox"]), .group-form select, .group-form textarea { width: 100%; min-width: 0; min-height: 42px; padding: 10px 12px; border: 1px solid #dce5de; border-radius: 8px; outline: 0; background: #fff; color: #223328; font-size: 11px; }
@@ -816,8 +905,10 @@
   .capacity-track { height: 7px; overflow: hidden; margin: 9px 0 7px; border-radius: 10px; background: #edf1ee; }
   .capacity-track span { display: block; height: 100%; border-radius: inherit; background: #0a8050; }
   .capacity-foot { color: #89948c; font-size: 9px; }
-  .card-actions { display: flex; justify-content: flex-end; margin-top: 18px; padding-top: 14px; border-top: 1px solid #edf0ed; }
-  .card-actions button { min-width: 100px; }
+  .card-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #edf0ed; }
+  .card-actions button { min-width: 120px; border-radius: 8px; }
+  .card-actions .secondary-button { border-color: #cfded2; }
+  .card-actions .primary-button { margin-left: 0; }
   .empty-state { display: grid; justify-items: center; padding: 55px 20px; text-align: center; }
   .empty-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: #eaf3ed; color: #0a5c37; font-size: 23px; }
   .empty-state h3 { margin: 15px 0 6px; font-size: 15px; }
@@ -864,14 +955,26 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 8px; border-top: 1px solid #edf0ed; }
   .modal-actions button { min-width: 110px; }
 
+  @media (max-width: 1150px) {
+    .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
   @media (max-width: 1050px) {
     .sidebar { width: 220px; flex-basis: 220px; padding-inline: 14px; }
     .topbar { padding-inline: 22px; }
     .page-content { padding: 26px 22px; }
     .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .decline-row { grid-template-columns: 1fr 1fr; }
+    .decline-row time { grid-column: 1 / -1; text-align: left; }
   }
 
   @media (max-width: 760px) {
+    .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .declines-header { align-items: flex-start; flex-wrap: wrap; padding: 15px; }
+    .declines-count { margin-left: 48px; }
+    .decline-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 15px; }
+    .decline-row time { grid-column: auto; }
+    .card-actions { justify-content: stretch; }
+    .card-actions button { flex: 1 1 145px; }
     .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; width: min(290px, 86vw); height: 100vh; height: 100dvh; overflow-y: auto; padding: 22px 16px; transform: translateX(-105%); visibility: hidden; pointer-events: none; box-shadow: 12px 0 32px #0822142e; transition: transform 180ms ease, visibility 180ms ease; }
     .sidebar.open { transform: translateX(0); visibility: visible; pointer-events: auto; }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 30; width: 100%; height: 100%; border: 0; background: #0a19107a; }
@@ -902,7 +1005,7 @@
 
   @media (max-width: 480px) {
     .page-intro h2 { font-size: 22px; }
-    .stats-grid { gap: 8px; }
+    .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .stat-card { padding: 13px; }
     .stat-card strong { font-size: 20px; }
     .stat-card small { font-size: 8px; }
