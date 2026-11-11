@@ -614,11 +614,15 @@ export async function updateLgiDocumentRequirement(
     maxFileSizeBytes: number;
     isActive: boolean;
   }>
-): Promise<void> {
-  await request(`/lgi/document-requirements/${encodeURIComponent(requirementId)}`, {
+): Promise<{ id: string; isActive: boolean; verificationMode: DocumentRequirementVerificationMode }> {
+  const response = await request<{
+    success: boolean;
+    data: { id: string; isActive: boolean; verificationMode: DocumentRequirementVerificationMode };
+  }>(`/lgi/document-requirements/${encodeURIComponent(requirementId)}`, {
     method: 'PATCH',
     body: JSON.stringify(input)
   });
+  return response.data;
 }
 
 export async function removeLgiDocumentRequirement(
