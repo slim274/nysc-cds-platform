@@ -978,7 +978,11 @@ export interface CdsPresidentDesignation {
   status: 'pending_activation' | 'active' | 'ended' | string;
   assignedAt: string;
   endedAt: string | null;
+  endedByUserId: string | null;
+  endedByEmail: string | null;
   endedReason: string | null;
+  assignedByUserId: string | null;
+  assignedByEmail: string | null;
 }
 export interface PresidentWorkspaceGroup {
   id: string;
@@ -1013,14 +1017,15 @@ export async function listMyCoordinatorPresidents(): Promise<CdsPresidentDesigna
 export async function designateCdsPresident(
   groupId: string,
   memberId: string,
-  replaceExisting = false
+  replaceExisting = false,
+  replacementReason?: string
 ): Promise<{ id: string; groupId: string; groupName: string; memberId: string; memberName: string; stateCode: string; status: string }> {
   const response = await request<{
     success: boolean;
     data: { id: string; groupId: string; groupName: string; memberId: string; memberName: string; stateCode: string; status: string };
   }>(`/coordinator/groups/${encodeURIComponent(groupId)}/president`, {
     method: 'POST',
-    body: JSON.stringify({ memberId, replaceExisting })
+    body: JSON.stringify({ memberId, replaceExisting, replacementReason })
   });
   return response.data;
 }
