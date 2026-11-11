@@ -1589,3 +1589,23 @@ export async function getLgiAttendanceMeeting(meetingId: string): Promise<CdsMee
   );
   return response.data;
 }
+
+
+export interface CorpsMemberApprovedAttendance {
+  attendanceId: string;
+  meetingId: string;
+  groupCode: string;
+  groupName: string;
+  meetingTitle: string;
+  startsAt: string;
+  endsAt: string;
+  venue: string | null;
+  attendanceStatus: Exclude<CdsAttendanceStatus, 'not_marked'>;
+  notes: string | null;
+  reviewedAt: string | null;
+}
+
+export async function listMyApprovedAttendance(): Promise<CorpsMemberApprovedAttendance[]> {
+  const response = await request<{ success: boolean; data: CorpsMemberApprovedAttendance[] }>('/corps-member/attendance');
+  return response.data;
+}
