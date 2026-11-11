@@ -511,7 +511,6 @@ export async function updateDocumentRequirement(
     }
 
     const nextIsRequired = input.isRequired ?? existing.isRequired;
-    const nextIsActive = input.isActive ?? false;
     if (input.isActive === true && nextIsRequired && !existing.referenceObjectKey) {
       throw new DocumentWorkflowError(
         'Upload a reference sample before publishing a mandatory document requirement.',
