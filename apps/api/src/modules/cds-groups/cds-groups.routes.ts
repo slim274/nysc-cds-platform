@@ -33,7 +33,17 @@ lgiRoutes.use('*', requireAuth, requireRole('LGI_ADMIN'));
 const groupIdSchema = z.string().uuid();
 const memberIdSchema = z.string().uuid();
 const assignmentSchema = z.object({
-  memberId: memberIdSchema
+  memberId: memberIdSchema,
+  overrideCourseMapping: z.boolean().optional(),
+  overrideReason: z.string().trim().min(10).max(2000).optional()
+}).superRefine((input, context) => {
+  if (input.overrideCourseMapping && !input.overrideReason) {
+    context.addIssue({
+      code: 'custom',
+      path: ['overrideReason'],
+      message: 'A reason of at least 10 characters is required for a course-mapping override.'
+    });
+  }
 });
 const memberSearchSchema = z.object({
   search: z.string().trim().max(100).optional()
@@ -199,7 +209,7 @@ lgiRoutes.get('/cds-groups/:groupId/members', async (c) => {
   }
 });
 
-// Assign an eligible Corps Member to a CDS group.
+// Assign a Corps Member; course-mapping exceptions require a reason from the LGI.
 lgiRoutes.post('/cds-groups/:groupId/members', async (c) => {
   const id = groupIdSchema.safeParse(c.req.param('groupId'));
   const body = await c.req.json().catch(() => null);
@@ -217,7 +227,11 @@ lgiRoutes.post('/cds-groups/:groupId/members', async (c) => {
       id.data,
       validation.data.memberId,
       getAssignedLgaIds(c),
-      c.get('authUser').id
+      c.get('authUser').id,
+      {
+        overrideCourseMapping: validation.data.overrideCourseMapping ?? false,
+        overrideReason: validation.data.overrideReason
+      }
     );
     return c.json({
       success: true,
