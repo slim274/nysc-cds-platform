@@ -120,7 +120,7 @@
     .brand { width: 100%; padding: 0 8px 25px; }
     .drawer-close { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; margin-left: auto; padding: 0 0 3px; border: 1px solid #ffffff47; border-radius: 9px; background: #ffffff14; color: #fff; font-size: 28px; cursor: pointer; }
     .nav-item { min-height: 46px; width: 100%; }
-    .sidebar-footer { display: block; margin-top: auto; }
+    .sidebar-footer { display: block; flex: 0 0 auto; margin-top: 28px; }
   }
   @media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
 </style>
