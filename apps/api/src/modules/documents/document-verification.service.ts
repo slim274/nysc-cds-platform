@@ -202,9 +202,8 @@ function manualReview(reason: string): VerificationOutcome {
 }
 
 export function getDocumentVerificationMode(): 'manual' | 'ai' {
-  return (Bun.env.DOCUMENT_VERIFICATION_MODE ?? 'manual').trim().toLowerCase() === 'ai'
-    ? 'ai'
-    : 'manual';
+  const requestedMode = (Bun.env.DOCUMENT_VERIFICATION_MODE ?? 'manual').trim().toLowerCase();
+  return requestedMode === 'ai' && Bun.env.OPENAI_API_KEY ? 'ai' : 'manual';
 }
 
 async function verifyDocumentWithAi(input: {
