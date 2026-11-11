@@ -237,8 +237,14 @@
                     {uploadingRequirementId === requirement.id ? 'Uploading…' : requirement.submission ? 'Upload corrected copy' : 'Upload document'}
                     <input type="file" accept={requirement.allowedMimeTypes} onchange={(event) => void uploadDocument(requirement, event)} disabled={Boolean(uploadingRequirementId)} />
                   </label>
+                {:else if requirement.submission?.status === 'verified'}
+                  <span class="verified-mark">✓ AI verified</span>
+                {:else if requirement.submission?.status === 'manual_review'}
+                  <span class="review-mark">Awaiting LGI review</span>
+                {:else if requirement.submission?.status === 'pending_verification'}
+                  <span class="pending-mark">Verification pending</span>
                 {:else}
-                  <span class="verified-mark">✓ Verified</span>
+                  <span class="pending-mark">Check document status</span>
                 {/if}
               </article>
             {/each}
@@ -446,6 +452,8 @@
   .document-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .document-upload:has(input:disabled) { opacity: .55; cursor: wait; }
   .verified-mark { padding: 8px 10px; color: #0a6841; font-size: 9px; font-weight: 800; white-space: nowrap; }
+  .review-mark,.pending-mark { display:inline-flex; align-items:center; padding:7px 9px; border-radius:14px; background:#fff3e5; color:#92571b; font-size:8px; font-weight:800; white-space:nowrap; }
+  .pending-mark { background:#f0f3f1; color:#66756b; }
   .documents-empty { padding: 18px; border: 1px dashed #dce7de; border-radius: 8px; background: #fafcfa; color: #718078; font-size: 10px; line-height: 1.6; }
   .verification-disclosure { padding: 11px 13px; margin-top: 14px; border: 1px solid #e9e5d7; border-radius: 8px; background: #fffaf0; color: #75684c; font-size: 9px; line-height: 1.6; }
   .matching-note { display: grid; gap: 5px; padding: 13px 15px; margin-top: 14px; border-radius: 9px; background: #f3f7f4; }
