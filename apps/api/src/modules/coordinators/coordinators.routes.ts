@@ -211,7 +211,11 @@ const coordinatorCourseMappingSchema = z.object({
 // Coordinator workspace and leadership designation.
 const presidentDesignationSchema = z.object({
   memberId: z.string().uuid(),
-  replaceExisting: z.boolean().default(false)
+  replaceExisting: z.boolean().default(false),
+  replacementReason: z.string().trim().min(10).max(300).optional()
+}).refine((input) => !input.replaceExisting || Boolean(input.replacementReason), {
+  path: ['replacementReason'],
+  message: 'Provide a reason of at least 10 characters when replacing a CDS President.'
 });
 
 coordinatorSelfServiceRoutes.get('/groups', async (c) => {
@@ -250,7 +254,8 @@ coordinatorSelfServiceRoutes.post('/groups/:groupId/president', async (c) => {
       c.get('authUser').id,
       groupId.data,
       validation.data.memberId,
-      validation.data.replaceExisting
+      validation.data.replaceExisting,
+      validation.data.replacementReason
     );
     return c.json({
       success: true,
