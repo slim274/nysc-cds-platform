@@ -18,6 +18,7 @@
   const navigation = [
     { label: 'Dashboard', href: '/coordinator', icon: '▦' },
     { label: 'CDS Presidents', href: '/coordinator/presidents', icon: '♙' },
+    { label: 'Attendance', href: '/coordinator/attendance', icon: '✓' },
     { label: 'Course Mapping', href: '/coordinator/course-mapping', icon: '⌘' },
     { label: 'Documents', href: '/coordinator/documents', icon: '▣' },
     { label: 'Handover Inbox', href: '/coordinator/handovers', icon: '⇄' }
