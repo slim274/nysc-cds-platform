@@ -36,7 +36,8 @@ import {
 import {
   coordinatorAttendanceRoutes,
   presidentAttendanceRoutes,
-  lgiAttendanceRoutes
+  lgiAttendanceRoutes,
+  corpsMemberAttendanceRoutes
 } from './modules/attendance/attendance.routes';
 
 import {
