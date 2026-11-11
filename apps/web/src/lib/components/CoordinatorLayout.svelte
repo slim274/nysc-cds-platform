@@ -102,7 +102,7 @@
   .account-details strong { color: #19251e; font-size: 11px; }
   .account-details span { max-width: 260px; overflow: hidden; margin-top: 4px; color: #819087; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-menu-button { display: none; }
-  .page-content { width: 100%; max-width: 1318px; flex: 1; margin: 0 auto; padding: 32px 34px; }
+  .page-content { width: 100%; max-width: none; flex: 1; margin: 0; padding: 32px clamp(20px, 2.2vw, 36px); }
   footer { margin-top: auto; padding: 17px 34px; border-top: 1px solid #e8ece8; color: #89948c; font-size: 10px; }
   @media (max-width: 1050px) {
     .topbar { padding-inline: 24px; }
