@@ -9,6 +9,7 @@ import {
   isNotNull,
   ne,
   notExists,
+  notInArray,
   or
 } from 'drizzle-orm';
 
@@ -562,7 +563,9 @@ export async function listCdsGroupMembers(
         lastName: corpsMembers.lastName,
         courseName: courses.name,
         profileStatus: corpsMembers.profileStatus,
-        assignedAt: cdsGroupMemberships.assignedAt
+        assignedAt: cdsGroupMemberships.assignedAt,
+        courseMappingOverride: cdsGroupMemberships.courseMappingOverride,
+        courseMappingOverrideReason: cdsGroupMemberships.courseMappingOverrideReason
       })
       .from(cdsGroupMemberships)
       .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
@@ -583,63 +586,73 @@ export async function listCdsGroupMembers(
     .where(eq(cdsGroupCourses.cdsGroupId, groupId));
 
   const eligibleCourseIds = courseMappings.map((mapping) => mapping.courseId);
-  let eligibleMembers: Array<{
-    id: string;
-    stateCode: string;
-    firstName: string;
-    middleName: string | null;
-    lastName: string;
-    courseName: string | null;
-    profileStatus: string;
-  }> = [];
+  const baseCandidateConditions = [
+    eq(corpsMembers.lgaId, group.lgaId),
+    isNotNull(corpsMembers.courseId),
+    eq(corpsMembers.profileStatus, 'approved'),
+    notExists(
+      db
+        .select({ id: cdsGroupMemberships.id })
+        .from(cdsGroupMemberships)
+        .where(and(
+          eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id),
+          eq(cdsGroupMemberships.status, 'active')
+        ))
+    )
+  ];
 
-  if (group.isActive && availableCapacity > 0 && eligibleCourseIds.length > 0) {
-    const conditions = [
-      eq(corpsMembers.lgaId, group.lgaId),
-      inArray(corpsMembers.courseId, eligibleCourseIds),
-      eq(corpsMembers.profileStatus, 'approved'),
-      notExists(
-        db
-          .select({ id: cdsGroupMemberships.id })
-          .from(cdsGroupMemberships)
-          .where(and(
-            eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id),
-            eq(cdsGroupMemberships.status, 'active')
-          ))
-      )
-    ];
-
-    if (search?.trim()) {
-      const pattern = `%${search.trim()}%`;
-      conditions.push(
-        or(
-          ilike(corpsMembers.firstName, pattern),
-          ilike(corpsMembers.middleName, pattern),
-          ilike(corpsMembers.lastName, pattern),
-          ilike(corpsMembers.stateCode, pattern),
-          ilike(corpsMembers.callUpNumber, pattern)
-        )!
-      );
-    }
-
-    eligibleMembers = await db
-      .select({
-        id: corpsMembers.id,
-        stateCode: corpsMembers.stateCode,
-        firstName: corpsMembers.firstName,
-        middleName: corpsMembers.middleName,
-        lastName: corpsMembers.lastName,
-        courseName: courses.name,
-        profileStatus: corpsMembers.profileStatus
-      })
-      .from(corpsMembers)
-      .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
-      .where(and(...conditions))
-      .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName))
-      .limit(50);
+  if (search?.trim()) {
+    const pattern = `%${search.trim()}%`;
+    baseCandidateConditions.push(
+      or(
+        ilike(corpsMembers.firstName, pattern),
+        ilike(corpsMembers.middleName, pattern),
+        ilike(corpsMembers.lastName, pattern),
+        ilike(corpsMembers.stateCode, pattern),
+        ilike(corpsMembers.callUpNumber, pattern)
+      )!
+    );
   }
 
-  const eligibleIds = eligibleMembers.map((member) => member.id);
+  const candidateFields = {
+    id: corpsMembers.id,
+    stateCode: corpsMembers.stateCode,
+    firstName: corpsMembers.firstName,
+    middleName: corpsMembers.middleName,
+    lastName: corpsMembers.lastName,
+    courseName: courses.name,
+    profileStatus: corpsMembers.profileStatus
+  };
+
+  const eligibleMembers = group.isActive && availableCapacity > 0 && eligibleCourseIds.length > 0
+    ? await db
+        .select(candidateFields)
+        .from(corpsMembers)
+        .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+        .where(and(
+          ...baseCandidateConditions,
+          inArray(corpsMembers.courseId, eligibleCourseIds)
+        ))
+        .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName))
+        .limit(50)
+    : [];
+
+  const overrideConditions = [...baseCandidateConditions];
+  if (eligibleCourseIds.length > 0) {
+    overrideConditions.push(notInArray(corpsMembers.courseId, eligibleCourseIds));
+  }
+
+  const manualOverrideMembers = group.isActive && availableCapacity > 0
+    ? await db
+        .select(candidateFields)
+        .from(corpsMembers)
+        .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+        .where(and(...overrideConditions))
+        .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName))
+        .limit(50)
+    : [];
+
+  const eligibleIds = [...eligibleMembers, ...manualOverrideMembers].map((member) => member.id);
   const declineRows = eligibleIds.length > 0
     ? await db
         .select({
@@ -685,6 +698,10 @@ export async function listCdsGroupMembers(
     eligibleMembers: eligibleMembers.map((member) => ({
       ...member,
       previousDecline: latestDeclineByMember.get(member.id) ?? null
+    })),
+    manualOverrideMembers: manualOverrideMembers.map((member) => ({
+      ...member,
+      previousDecline: latestDeclineByMember.get(member.id) ?? null
     }))
   };
 }
@@ -693,7 +710,8 @@ export async function assignCdsGroupMember(
   groupId: string,
   memberId: string,
   lgaIds: string[],
-  assignedByUserId: string
+  assignedByUserId: string,
+  options: { overrideCourseMapping?: boolean; overrideReason?: string } = {}
 ) {
   assertLgaScope(lgaIds);
 
@@ -781,11 +799,19 @@ export async function assignCdsGroupMember(
       ))
       .limit(1);
 
-    if (!eligibleCourse) {
+    if (!eligibleCourse && !options.overrideCourseMapping) {
       throw new CdsGroupServiceError(
-        'The Corps Member’s academic course is not eligible for this CDS group.',
+        'The Corps Member’s academic course is not mapped to this CDS group. Use the manual course-mapping override and record a reason if this exception is approved.',
         409,
         'CORPS_MEMBER_COURSE_NOT_ELIGIBLE'
+      );
+    }
+
+    if (!eligibleCourse && (options.overrideReason?.trim().length ?? 0) < 10) {
+      throw new CdsGroupServiceError(
+        'A reason of at least 10 characters is required when overriding course mapping.',
+        400,
+        'COURSE_MAPPING_OVERRIDE_REASON_REQUIRED'
       );
     }
 
@@ -834,11 +860,14 @@ export async function assignCdsGroupMember(
         corpsMemberId: memberId,
         status: 'active',
         source: 'manual',
-        assignedByUserId
+        assignedByUserId,
+        courseMappingOverride: !eligibleCourse,
+        courseMappingOverrideReason: !eligibleCourse ? options.overrideReason!.trim() : null
       })
       .returning({
         id: cdsGroupMemberships.id,
-        assignedAt: cdsGroupMemberships.assignedAt
+        assignedAt: cdsGroupMemberships.assignedAt,
+        courseMappingOverride: cdsGroupMemberships.courseMappingOverride
       });
 
     if (!created) {
