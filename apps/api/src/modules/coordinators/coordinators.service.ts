@@ -5,7 +5,8 @@ import {
   eq,
   inArray,
   isNull,
-  ne
+  ne,
+  sql
 } from 'drizzle-orm';
 
 import {
@@ -1526,7 +1527,7 @@ export async function listMyCoordinatorGroups(userId: string) {
       groupId: cdsGroupLeadershipAssignments.cdsGroupId,
       memberId: cdsGroupLeadershipAssignments.corpsMemberId,
       status: cdsGroupLeadershipAssignments.status,
-      memberName: corpsMembers.firstName
+      memberName: sql<string>`${corpsMembers.firstName} || ' ' || ${corpsMembers.lastName}`
     })
     .from(cdsGroupLeadershipAssignments)
     .innerJoin(corpsMembers, eq(cdsGroupLeadershipAssignments.corpsMemberId, corpsMembers.id))
@@ -1655,7 +1656,12 @@ export async function designateCdsPresident(
     }
 
     const [currentLeader] = await tx
-      .select({ id: cdsGroupLeadershipAssignments.id, memberId: cdsGroupLeadershipAssignments.corpsMemberId, userId: cdsGroupLeadershipAssignments.userId })
+      .select({
+        id: cdsGroupLeadershipAssignments.id,
+        memberId: cdsGroupLeadershipAssignments.corpsMemberId,
+        userId: cdsGroupLeadershipAssignments.userId,
+        status: cdsGroupLeadershipAssignments.status
+      })
       .from(cdsGroupLeadershipAssignments)
       .where(and(
         eq(cdsGroupLeadershipAssignments.cdsGroupId, groupId),
@@ -1665,6 +1671,57 @@ export async function designateCdsPresident(
       .limit(1);
 
     if (currentLeader?.memberId === memberId) {
+      // A designation made before registration can be activated once the
+      // member completes onboarding, without creating a second assignment.
+      if (currentLeader.status === 'pending_activation' && membership.userId) {
+        const [memberUser] = await tx
+          .select({ id: users.id, status: users.status })
+          .from(users)
+          .where(eq(users.id, membership.userId))
+          .limit(1);
+
+        if (!memberUser || memberUser.status !== 'active') {
+          throw new CoordinatorServiceError(
+            'The selected Corps Member account is not active yet.',
+            409,
+            'PRESIDENT_MEMBER_ACCOUNT_INACTIVE'
+          );
+        }
+
+        const [presidentRole] = await tx
+          .select({ id: roles.id })
+          .from(roles)
+          .where(eq(roles.code, 'CDS_PRESIDENT'))
+          .limit(1);
+        if (!presidentRole) {
+          throw new CoordinatorServiceError(
+            'The CDS President role is not configured.',
+            500,
+            'PRESIDENT_ROLE_MISSING'
+          );
+        }
+
+        await tx.insert(userRoleAssignments).values({
+          userId: memberUser.id,
+          roleId: presidentRole.id,
+          lgaId: groupAssignment.lgaId,
+          cdsGroupId: groupId
+        });
+        await tx.update(cdsGroupLeadershipAssignments)
+          .set({ userId: memberUser.id, status: 'active' })
+          .where(eq(cdsGroupLeadershipAssignments.id, currentLeader.id));
+
+        return {
+          id: currentLeader.id,
+          groupId,
+          groupName: groupAssignment.groupName,
+          memberId,
+          memberName: \`\${membership.firstName} \${membership.lastName}\`,
+          stateCode: membership.stateCode,
+          status: 'active'
+        };
+      }
+
       throw new CoordinatorServiceError(
         'This Corps Member is already the current President of the group.',
         409,
