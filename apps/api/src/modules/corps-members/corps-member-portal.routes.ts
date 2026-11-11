@@ -216,6 +216,7 @@ corpsMemberPortalRoutes.post('/cds-group/decline', async (c) => {
       const [membership] = await tx
         .select({
           id: cdsGroupMemberships.id,
+          groupId: cdsGroupMemberships.cdsGroupId,
           groupName: cdsGroups.name,
           source: cdsGroupMemberships.source
         })
@@ -258,6 +259,14 @@ corpsMemberPortalRoutes.post('/cds-group/decline', async (c) => {
           'CDS_GROUP_DECLINE_CONFLICT'
         );
       }
+
+      await tx
+        .update(cdsGroups)
+        .set({ whatsappAssistantMemberId: null, updatedAt: new Date() })
+        .where(and(
+          eq(cdsGroups.id, membership.groupId),
+          eq(cdsGroups.whatsappAssistantMemberId, member.id)
+        ));
 
       return { groupName: membership.groupName };
     });
