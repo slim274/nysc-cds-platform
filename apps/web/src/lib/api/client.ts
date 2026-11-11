@@ -143,6 +143,22 @@ export async function logout(): Promise<void> {
   });
 }
 
+export interface CdsGroupDecline {
+  membershipId: string;
+  memberId: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  courseName: string | null;
+  groupId: string;
+  groupCode: string;
+  groupName: string;
+  reason: 'schedule_conflict' | 'accessibility' | 'location' | 'personal' | 'other' | null;
+  notes: string | null;
+  declinedAt: string | null;
+}
+
 export interface CdsGroupSummary {
   id: string;
   lgaId: string;
@@ -227,6 +243,19 @@ export async function listCdsGroups(filters: {
     data: CdsGroupSummary[];
   }>(`/lgi/cds-groups${suffix}`);
 
+  return response.data;
+}
+
+export async function listCdsGroupDeclines(filters: {
+  lgaId?: string;
+} = {}): Promise<CdsGroupDecline[]> {
+  const query = new URLSearchParams();
+  if (filters.lgaId) query.set('lgaId', filters.lgaId);
+  const suffix = query.size ? `?${query.toString()}` : '';
+  const response = await request<{
+    success: boolean;
+    data: CdsGroupDecline[];
+  }>(`/lgi/cds-groups/declines${suffix}`);
   return response.data;
 }
 
