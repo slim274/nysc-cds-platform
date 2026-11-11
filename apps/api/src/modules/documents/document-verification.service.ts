@@ -42,12 +42,15 @@ export class DocumentWorkflowError extends Error {
   }
 }
 
+export type DocumentRequirementVerificationMode = 'manual' | 'ai_auto' | 'ai_assisted';
+
 export type CreateDocumentRequirementInput = {
   lgaId: string;
   code: string;
   name: string;
   description?: string | null;
   isRequired: boolean;
+  verificationMode?: DocumentRequirementVerificationMode;
   allowedMimeTypes: string[];
   maxFileSizeBytes: number;
   isActive?: boolean;
@@ -213,7 +216,11 @@ async function verifyDocumentWithAi(input: {
   referenceBytes?: Uint8Array | null;
   referenceFileName?: string | null;
   referenceMimeType?: string | null;
-  requirement: { name: string; description: string | null };
+  requirement: {
+    name: string;
+    description: string | null;
+    verificationMode: DocumentRequirementVerificationMode;
+  };
   member: {
     stateCode: string;
     callUpNumber: string | null;
@@ -227,9 +234,12 @@ async function verifyDocumentWithAi(input: {
     graduationYear: number | null;
   };
 }): Promise<VerificationOutcome> {
-  const configuredMode = (Bun.env.DOCUMENT_VERIFICATION_MODE ?? 'manual').trim().toLowerCase();
-  if (configuredMode !== 'ai') {
-    return manualReview('Manual verification mode is active. Your document is awaiting review by your LGI.');
+  if (input.requirement.verificationMode === 'manual') {
+    return manualReview('Manual-only verification is configured for this document. Your document is awaiting review by your LGI.');
+  }
+
+  if (getDocumentVerificationMode() !== 'ai') {
+    return manualReview('AI verification is selected for this document, but the AI service is disabled or not configured on the server. Your document is awaiting manual review by your LGI.');
   }
 
   const apiKey = Bun.env.OPENAI_API_KEY;
@@ -389,16 +399,23 @@ async function verifyDocumentWithAi(input: {
       !assessment.documentTypeMatch ||
       !assessment.memberRecordMatch;
 
-    const status: VerificationOutcome['status'] = autoVerified
+    const automatedStatus: VerificationOutcome['status'] = autoVerified
       ? 'verified'
       : clearMismatch
         ? 'needs_resubmission'
         : 'manual_review';
+    const requiresLgiApproval = input.requirement.verificationMode === 'ai_assisted';
+    const status: VerificationOutcome['status'] = requiresLgiApproval
+      ? 'manual_review'
+      : automatedStatus;
 
-    const reason = [
+    const assessmentReason = [
       assessment.reason,
       ...assessment.issues
     ].filter(Boolean).join(' ');
+    const reason = requiresLgiApproval
+      ? `AI recommendation: ${assessment.recommendation} (${assessment.confidence}% confidence). LGI approval is required. ${assessmentReason}`
+      : assessmentReason;
 
     return {
       status,
@@ -406,7 +423,11 @@ async function verifyDocumentWithAi(input: {
       confidence: assessment.confidence,
       reason: reason.slice(0, 4000),
       extractedFields: assessment.extractedFields.slice(0, 50),
-      result: assessment as unknown as Record<string, unknown>,
+      result: {
+        ...assessment,
+        appliedVerificationMode: input.requirement.verificationMode,
+        automatedStatus
+      },
       verifiedAt: status === 'verified' ? new Date() : null
     };
   } catch (error) {
@@ -427,6 +448,7 @@ export async function listDocumentRequirements(lgaIds: string[]) {
       name: corpsMemberDocumentRequirements.name,
       description: corpsMemberDocumentRequirements.description,
       isRequired: corpsMemberDocumentRequirements.isRequired,
+      verificationMode: corpsMemberDocumentRequirements.verificationMode,
       allowedMimeTypes: corpsMemberDocumentRequirements.allowedMimeTypes,
       maxFileSizeBytes: corpsMemberDocumentRequirements.maxFileSizeBytes,
       hasReferenceSample: corpsMemberDocumentRequirements.referenceObjectKey,
@@ -465,6 +487,7 @@ export async function createDocumentRequirement(
     name: input.name.trim(),
     description: input.description?.trim() || null,
     isRequired: input.isRequired,
+    verificationMode: input.verificationMode ?? 'manual',
     allowedMimeTypes: input.allowedMimeTypes.join(','),
     maxFileSizeBytes: input.maxFileSizeBytes,
     isActive: publish,
@@ -517,6 +540,7 @@ export async function updateDocumentRequirement(
     if (input.name !== undefined) changes.name = input.name.trim();
     if (input.description !== undefined) changes.description = input.description?.trim() || null;
     if (input.isRequired !== undefined) changes.isRequired = input.isRequired;
+    if (input.verificationMode !== undefined) changes.verificationMode = input.verificationMode;
     if (input.allowedMimeTypes !== undefined) changes.allowedMimeTypes = input.allowedMimeTypes.join(',');
     if (input.maxFileSizeBytes !== undefined) changes.maxFileSizeBytes = input.maxFileSizeBytes;
     if (input.isActive !== undefined) changes.isActive = input.isActive;
@@ -791,7 +815,11 @@ export async function submitCorpsMemberDocument(
         referenceBytes,
         referenceFileName: requirement.referenceFileName,
         referenceMimeType: requirement.referenceMimeType,
-        requirement: { name: requirement.name, description: requirement.description },
+        requirement: {
+          name: requirement.name,
+          description: requirement.description,
+          verificationMode: requirement.verificationMode
+        },
         member: {
           stateCode: record.stateCode,
           callUpNumber: record.callUpNumber,
@@ -885,6 +913,7 @@ export async function listDocumentSubmissions(
       id: corpsMemberDocumentSubmissions.id,
       requirementId: corpsMemberDocumentRequirements.id,
       requirementName: corpsMemberDocumentRequirements.name,
+      verificationMode: corpsMemberDocumentRequirements.verificationMode,
       memberId: corpsMembers.id,
       stateCode: corpsMembers.stateCode,
       firstName: corpsMembers.firstName,
