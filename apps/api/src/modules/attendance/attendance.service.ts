@@ -69,7 +69,7 @@ async function writeAudit(
 }
 
 async function getScopedMeeting(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: AttendanceTransaction,
   userId: string,
   meetingId: string,
   roleCode: 'CDS_COORDINATOR' | 'CDS_PRESIDENT'
@@ -99,6 +99,25 @@ async function getScopedMeeting(
       403,
       'ATTENDANCE_GROUP_SCOPE_FORBIDDEN'
     );
+  }
+
+  if (roleCode === 'CDS_PRESIDENT') {
+    const [leadership] = await tx
+      .select({ id: cdsGroupLeadershipAssignments.id })
+      .from(cdsGroupLeadershipAssignments)
+      .where(and(
+        eq(cdsGroupLeadershipAssignments.userId, userId),
+        eq(cdsGroupLeadershipAssignments.cdsGroupId, meeting.groupId),
+        eq(cdsGroupLeadershipAssignments.status, 'active')
+      ))
+      .limit(1);
+    if (!leadership) {
+      throw new AttendanceServiceError(
+        'An active CDS President designation is required to manage this attendance register.',
+        403,
+        'ACTIVE_PRESIDENT_DESIGNATION_REQUIRED'
+      );
+    }
   }
 
   return meeting;
@@ -215,7 +234,19 @@ export async function listPresidentMeetings(userId: string) {
       eq(userRoleAssignments.isActive, true),
       eq(roles.code, 'CDS_PRESIDENT')
     ));
-  const groupIds = [...new Set(assignments.map((row) => row.groupId).filter((id): id is string => Boolean(id)))];
+  const leadership = await db
+    .select({ groupId: cdsGroupLeadershipAssignments.cdsGroupId })
+    .from(cdsGroupLeadershipAssignments)
+    .where(and(
+      eq(cdsGroupLeadershipAssignments.userId, userId),
+      eq(cdsGroupLeadershipAssignments.status, 'active')
+    ));
+  const activeLeadershipGroups = new Set(leadership.map((row) => row.groupId));
+  const groupIds = [...new Set(
+    assignments
+      .map((row) => row.groupId)
+      .filter((id): id is string => Boolean(id) && activeLeadershipGroups.has(id as string))
+  )];
   if (groupIds.length === 0) return [];
 
   const rows = await db
@@ -333,7 +364,7 @@ export async function createCdsMeeting(
   userId: string,
   input: { groupId: string; title: string; description?: string; venue?: string; startsAt: Date; endsAt: Date }
 ) {
-  return db.transaction(async (tx) => {
+  const meetingId = await db.transaction(async (tx) => {
     const [assignment] = await tx
       .select({ groupId: cdsGroups.id })
       .from(cdsGroups)
@@ -367,8 +398,9 @@ export async function createCdsMeeting(
       startsAt: input.startsAt.toISOString(),
       endsAt: input.endsAt.toISOString()
     });
-    return getCoordinatorMeeting(userId, meeting.id);
+    return meeting.id;
   });
+  return getCoordinatorMeeting(userId, meetingId);
 }
 
 export async function openMeetingAttendance(userId: string, meetingId: string) {
