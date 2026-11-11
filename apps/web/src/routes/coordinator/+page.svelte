@@ -65,15 +65,23 @@
       return;
     }
     const replacing = Boolean(group.president);
-    if (replacing && !confirm('Replace the current President of ' + group.code + ' — ' + group.name + '? The previous designation will be retained in the leadership history.')) {
-      return;
+    let replacementReason: string | undefined;
+    if (replacing) {
+      const enteredReason = prompt('Why is the President of ' + group.code + ' — ' + group.name + ' being replaced? (At least 10 characters)');
+      if (enteredReason === null) return;
+      replacementReason = enteredReason.trim();
+      if (replacementReason.length < 10) {
+        errorMessage = 'Enter a replacement reason of at least 10 characters.';
+        return;
+      }
+      if (!confirm('Confirm replacing the current President of ' + group.code + ' — ' + group.name + '? The previous designation and your reason will be saved in the leadership history.')) return;
     }
 
     savingGroupId = group.id;
     errorMessage = '';
     noticeMessage = '';
     try {
-      const result = await designateCdsPresident(group.id, memberId, replacing);
+      const result = await designateCdsPresident(group.id, memberId, replacing, replacementReason);
       noticeMessage = result.status === 'active'
         ? result.memberName + ' has been designated President of ' + group.name + '.'
         : result.memberName + ' has been designated. President access will activate when the member completes Corps Member registration.';
