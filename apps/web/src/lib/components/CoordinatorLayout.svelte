@@ -5,7 +5,7 @@
   type Props = {
     activePath: string;
     pageTitle: string;
-    userEmail: string;
+    userEmail: string | null;
     onSignOut: () => void | Promise<void>;
     children: Snippet;
   };
