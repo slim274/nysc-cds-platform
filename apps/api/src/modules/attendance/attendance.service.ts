@@ -169,7 +169,31 @@ async function attachMeetingSummaries(
     cancelledAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-  }[]
+  }[]async function attachMeetingSummaries(
+  rows: Array<{
+    id: string;
+    groupId: string;
+    groupCode: string;
+    groupName: string;
+    lgaId: string;
+    lgaName: string;
+    stateName: string;
+    title: string;
+    description: string | null;
+    venue: string | null;
+    startsAt: Date;
+    endsAt: Date;
+    status: string;
+    createdByUserId: string | null;
+    submittedAt: Date | null;
+    reviewedAt: Date | null;
+    reviewedByUserId: string | null;
+    reviewDecision: string | null;
+    reviewNotes: string | null;
+    cancelledAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
 ) {
   if (rows.length === 0) return [];
   const attendanceRows = await db
