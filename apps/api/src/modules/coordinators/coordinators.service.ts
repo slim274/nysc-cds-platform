@@ -1716,7 +1716,7 @@ export async function designateCdsPresident(
           groupId,
           groupName: groupAssignment.groupName,
           memberId,
-          memberName: \`\${membership.firstName} \${membership.lastName}\`,
+          memberName: membership.firstName + ' ' + membership.lastName,
           stateCode: membership.stateCode,
           status: 'active'
         };
