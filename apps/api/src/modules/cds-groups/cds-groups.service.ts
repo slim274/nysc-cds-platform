@@ -401,6 +401,112 @@ export async function createCdsGroup(
   }
 }
 
+export interface CdsGroupCourseMappingImpact {
+  groupName: string;
+  removedCourses: Array<{
+    id: string;
+    name: string;
+    assignedMemberCount: number;
+  }>;
+  affectedMemberCount: number;
+}
+
+export async function previewCdsGroupCourseMappingImpact(
+  groupId: string,
+  proposedCourseIds: string[],
+  lgaIds: string[]
+): Promise<CdsGroupCourseMappingImpact> {
+  assertLgaScope(lgaIds);
+
+  const [group] = await db
+    .select({ id: cdsGroups.id, name: cdsGroups.name })
+    .from(cdsGroups)
+    .where(and(
+      eq(cdsGroups.id, groupId),
+      inArray(cdsGroups.lgaId, lgaIds)
+    ))
+    .limit(1);
+
+  if (!group) {
+    throw new CdsGroupServiceError(
+      'CDS group not found.',
+      404,
+      'CDS_GROUP_NOT_FOUND'
+    );
+  }
+
+  const activeCourses = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(and(
+      inArray(courses.id, proposedCourseIds),
+      eq(courses.isActive, true)
+    ));
+
+  if (activeCourses.length !== proposedCourseIds.length) {
+    throw new CdsGroupServiceError(
+      'One or more selected courses do not exist or are inactive.',
+      400,
+      'INVALID_COURSE_SELECTION'
+    );
+  }
+
+  const currentMappings = await db
+    .select({
+      id: courses.id,
+      name: courses.name
+    })
+    .from(cdsGroupCourses)
+    .innerJoin(courses, eq(cdsGroupCourses.courseId, courses.id))
+    .where(eq(cdsGroupCourses.cdsGroupId, groupId));
+
+  const proposedIds = new Set(proposedCourseIds);
+  const removedCourses = currentMappings.filter((course) => !proposedIds.has(course.id));
+  if (removedCourses.length === 0) {
+    return {
+      groupName: group.name,
+      removedCourses: [],
+      affectedMemberCount: 0
+    };
+  }
+
+  const removedIds = removedCourses.map((course) => course.id);
+  const affectedRows = await db
+    .select({
+      courseId: corpsMembers.courseId,
+      assignedMemberCount: count()
+    })
+    .from(cdsGroupMemberships)
+    .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+    .where(and(
+      eq(cdsGroupMemberships.cdsGroupId, groupId),
+      eq(cdsGroupMemberships.status, 'active'),
+      inArray(corpsMembers.courseId, removedIds)
+    ))
+    .groupBy(corpsMembers.courseId);
+
+  const affectedCountByCourse = new Map<string, number>(
+    affectedRows.map((row): [string, number] => [
+      row.courseId as string,
+      Number(row.assignedMemberCount)
+    ])
+  );
+
+  const impactedCourses = removedCourses.map((course) => ({
+    ...course,
+    assignedMemberCount: affectedCountByCourse.get(course.id) ?? 0
+  }));
+
+  return {
+    groupName: group.name,
+    removedCourses: impactedCourses,
+    affectedMemberCount: impactedCourses.reduce(
+      (total, course) => total + course.assignedMemberCount,
+      0
+    )
+  };
+}
+
 export async function updateCdsGroup(
   groupId: string,
   input: UpdateCdsGroupInput,
