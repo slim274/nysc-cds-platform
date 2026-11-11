@@ -22,7 +22,8 @@ import {
   lgas,
   authTokens,
   authSessions,
-  cdsGroupHandovers
+  cdsGroupHandovers,
+  cdsGroupLeadershipAssignments
 } from '@nysc/database';
 
 import {
@@ -1402,4 +1403,388 @@ export async function cancelCoordinatorHandover(
       cancelledAt
     };
   });
+}
+
+
+// Coordinator workspace: return only groups currently assigned to this user.
+export async function listMyCoordinatorGroups(userId: string) {
+  const groups = await db
+    .select({
+      id: cdsGroups.id,
+      code: cdsGroups.code,
+      name: cdsGroups.name,
+      description: cdsGroups.description,
+      isActive: cdsGroups.isActive,
+      maxCapacity: cdsGroups.maxCapacity,
+      lgaId: cdsGroups.lgaId,
+      lgaName: lgas.name,
+      stateName: lgas.stateName
+    })
+    .from(userRoleAssignments)
+    .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+    .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+    .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
+    .where(and(
+      eq(userRoleAssignments.userId, userId),
+      eq(userRoleAssignments.isActive, true),
+      eq(roles.code, 'CDS_COORDINATOR')
+    ))
+    .orderBy(asc(cdsGroups.name));
+
+  if (groups.length === 0) return [];
+
+  const memberships = await db
+    .select({
+      groupId: cdsGroupMemberships.cdsGroupId,
+      memberId: corpsMembers.id,
+      stateCode: corpsMembers.stateCode,
+      firstName: corpsMembers.firstName,
+      middleName: corpsMembers.middleName,
+      lastName: corpsMembers.lastName,
+      courseName: courses.name,
+      userId: corpsMembers.userId
+    })
+    .from(cdsGroupMemberships)
+    .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+    .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+    .where(and(
+      inArray(cdsGroupMemberships.cdsGroupId, groups.map((group) => group.id)),
+      eq(cdsGroupMemberships.status, 'active')
+    ))
+    .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName));
+
+  const leaders = await db
+    .select({
+      groupId: cdsGroupLeadershipAssignments.cdsGroupId,
+      memberId: cdsGroupLeadershipAssignments.corpsMemberId,
+      status: cdsGroupLeadershipAssignments.status,
+      memberName: corpsMembers.firstName
+    })
+    .from(cdsGroupLeadershipAssignments)
+    .innerJoin(corpsMembers, eq(cdsGroupLeadershipAssignments.corpsMemberId, corpsMembers.id))
+    .where(and(
+      inArray(cdsGroupLeadershipAssignments.cdsGroupId, groups.map((group) => group.id)),
+      inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation'])
+    ));
+
+  const memberCounts = new Map<string, number>();
+  const membersByGroup = new Map<string, typeof memberships>();
+  for (const membership of memberships) {
+    memberCounts.set(membership.groupId, (memberCounts.get(membership.groupId) ?? 0) + 1);
+    const current = membersByGroup.get(membership.groupId) ?? [];
+    current.push(membership);
+    membersByGroup.set(membership.groupId, current);
+  }
+  const leaderByGroup = new Map(leaders.map((leader) => [leader.groupId, leader]));
+
+  return groups.map((group) => {
+    const members = membersByGroup.get(group.id) ?? [];
+    const leader = leaderByGroup.get(group.id);
+    return {
+      ...group,
+      currentMemberCount: memberCounts.get(group.id) ?? 0,
+      availableCapacity: group.maxCapacity - (memberCounts.get(group.id) ?? 0),
+      president: leader ? {
+        memberId: leader.memberId,
+        name: leader.memberName,
+        status: leader.status
+      } : null,
+      members
+    };
+  });
+}
+
+export async function listMyCoordinatorPresidents(userId: string) {
+  const groups = await db
+    .select({ id: cdsGroups.id })
+    .from(userRoleAssignments)
+    .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+    .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+    .where(and(
+      eq(userRoleAssignments.userId, userId),
+      eq(userRoleAssignments.isActive, true),
+      eq(roles.code, 'CDS_COORDINATOR')
+    ));
+
+  if (groups.length === 0) return [];
+  return db
+    .select({
+      id: cdsGroupLeadershipAssignments.id,
+      groupId: cdsGroupLeadershipAssignments.cdsGroupId,
+      memberId: corpsMembers.id,
+      stateCode: corpsMembers.stateCode,
+      firstName: corpsMembers.firstName,
+      middleName: corpsMembers.middleName,
+      lastName: corpsMembers.lastName,
+      memberEmail: corpsMembers.email,
+      accountUserId: corpsMembers.userId,
+      status: cdsGroupLeadershipAssignments.status,
+      assignedAt: cdsGroupLeadershipAssignments.assignedAt,
+      endedAt: cdsGroupLeadershipAssignments.endedAt,
+      endedReason: cdsGroupLeadershipAssignments.endedReason
+    })
+    .from(cdsGroupLeadershipAssignments)
+    .innerJoin(corpsMembers, eq(cdsGroupLeadershipAssignments.corpsMemberId, corpsMembers.id))
+    .where(inArray(cdsGroupLeadershipAssignments.cdsGroupId, groups.map((group) => group.id)))
+    .orderBy(desc(cdsGroupLeadershipAssignments.assignedAt));
+}
+
+export async function designateCdsPresident(
+  coordinatorUserId: string,
+  actorUserId: string,
+  groupId: string,
+  memberId: string,
+  replaceExisting: boolean
+) {
+  return db.transaction(async (tx) => {
+    const [groupAssignment] = await tx
+      .select({ groupId: cdsGroups.id, lgaId: cdsGroups.lgaId, groupName: cdsGroups.name })
+      .from(userRoleAssignments)
+      .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+      .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+      .where(and(
+        eq(userRoleAssignments.userId, coordinatorUserId),
+        eq(userRoleAssignments.cdsGroupId, groupId),
+        eq(userRoleAssignments.isActive, true),
+        eq(roles.code, 'CDS_COORDINATOR'),
+        eq(cdsGroups.isActive, true)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!groupAssignment) {
+      throw new CoordinatorServiceError(
+        'You can only designate a President for an active CDS group assigned to you.',
+        403,
+        'COORDINATOR_GROUP_SCOPE_FORBIDDEN'
+      );
+    }
+
+    const [membership] = await tx
+      .select({
+        memberId: corpsMembers.id,
+        userId: corpsMembers.userId,
+        stateCode: corpsMembers.stateCode,
+        firstName: corpsMembers.firstName,
+        lastName: corpsMembers.lastName
+      })
+      .from(cdsGroupMemberships)
+      .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+      .where(and(
+        eq(cdsGroupMemberships.cdsGroupId, groupId),
+        eq(cdsGroupMemberships.corpsMemberId, memberId),
+        eq(cdsGroupMemberships.status, 'active')
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!membership) {
+      throw new CoordinatorServiceError(
+        'Only a Corps Member with an active membership in this CDS group can be designated President.',
+        400,
+        'PRESIDENT_MEMBER_NOT_IN_GROUP'
+      );
+    }
+
+    const [otherLeadership] = await tx
+      .select({ id: cdsGroupLeadershipAssignments.id, groupId: cdsGroupLeadershipAssignments.cdsGroupId })
+      .from(cdsGroupLeadershipAssignments)
+      .where(and(
+        eq(cdsGroupLeadershipAssignments.corpsMemberId, memberId),
+        inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation']),
+        eq(cdsGroupLeadershipAssignments.cdsGroupId, groupId)
+      ))
+      .limit(1);
+
+    const [currentLeader] = await tx
+      .select({ id: cdsGroupLeadershipAssignments.id, memberId: cdsGroupLeadershipAssignments.corpsMemberId, userId: cdsGroupLeadershipAssignments.userId })
+      .from(cdsGroupLeadershipAssignments)
+      .where(and(
+        eq(cdsGroupLeadershipAssignments.cdsGroupId, groupId),
+        inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation'])
+      ))
+      .for('update')
+      .limit(1);
+
+    if (currentLeader?.memberId === memberId) {
+      throw new CoordinatorServiceError(
+        'This Corps Member is already the current President of the group.',
+        409,
+        'PRESIDENT_ALREADY_ASSIGNED'
+      );
+    }
+
+    if (currentLeader && !replaceExisting) {
+      throw new CoordinatorServiceError(
+        'This group already has a President. Confirm replacement before continuing.',
+        409,
+        'PRESIDENT_REPLACEMENT_CONFIRMATION_REQUIRED'
+      );
+    }
+
+    const [memberHasOtherLeadership] = await tx
+      .select({ id: cdsGroupLeadershipAssignments.id })
+      .from(cdsGroupLeadershipAssignments)
+      .where(and(
+        eq(cdsGroupLeadershipAssignments.corpsMemberId, memberId),
+        inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation']),
+        // The selected member must not already lead another CDS group.
+      ))
+      .limit(1);
+
+    if (memberHasOtherLeadership && !otherLeadership) {
+      throw new CoordinatorServiceError(
+        'This Corps Member is already designated to lead another CDS group.',
+        409,
+        'PRESIDENT_MEMBER_ALREADY_ASSIGNED'
+      );
+    }
+
+    const [presidentRole] = await tx
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.code, 'CDS_PRESIDENT'))
+      .limit(1);
+
+    if (!presidentRole) {
+      throw new CoordinatorServiceError(
+        'The CDS President role is not configured.',
+        500,
+        'PRESIDENT_ROLE_MISSING'
+      );
+    }
+
+    if (currentLeader) {
+      const now = new Date();
+      await tx.update(cdsGroupLeadershipAssignments)
+        .set({
+          status: 'ended',
+          endedAt: now,
+          endedReason: 'Replaced by Coordinator designation'
+        })
+        .where(eq(cdsGroupLeadershipAssignments.id, currentLeader.id));
+
+      if (currentLeader.userId) {
+        await tx.update(userRoleAssignments)
+          .set({ isActive: false })
+          .where(and(
+            eq(userRoleAssignments.userId, currentLeader.userId),
+            eq(userRoleAssignments.roleId, presidentRole.id),
+            eq(userRoleAssignments.cdsGroupId, groupId),
+            eq(userRoleAssignments.isActive, true)
+          ));
+      }
+    }
+
+    let status: 'pending_activation' | 'active' = 'pending_activation';
+    if (membership.userId) {
+      const [memberUser] = await tx
+        .select({ id: users.id, status: users.status })
+        .from(users)
+        .where(eq(users.id, membership.userId))
+        .limit(1);
+
+      if (!memberUser || memberUser.status !== 'active') {
+        throw new CoordinatorServiceError(
+          'The selected Corps Member account is not active. Complete account activation before assigning the President role.',
+          409,
+          'PRESIDENT_MEMBER_ACCOUNT_INACTIVE'
+        );
+      }
+
+      const otherRoles = await tx
+        .select({ code: roles.code })
+        .from(userRoleAssignments)
+        .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+        .where(and(
+          eq(userRoleAssignments.userId, memberUser.id),
+          eq(userRoleAssignments.isActive, true)
+        ));
+      if (otherRoles.some((role) => role.code === 'LGI_ADMIN')) {
+        throw new CoordinatorServiceError(
+          'An LGI Administrator account cannot also be designated as a CDS President.',
+          409,
+          'PRESIDENT_ACCOUNT_ROLE_CONFLICT'
+        );
+      }
+
+      status = 'active';
+      await tx.insert(userRoleAssignments).values({
+        userId: memberUser.id,
+        roleId: presidentRole.id,
+        lgaId: groupAssignment.lgaId,
+        cdsGroupId: groupId
+      });
+    }
+
+    const [designation] = await tx.insert(cdsGroupLeadershipAssignments)
+      .values({
+        cdsGroupId: groupId,
+        corpsMemberId: memberId,
+        userId: membership.userId,
+        status,
+        assignedByUserId: actorUserId
+      })
+      .returning({ id: cdsGroupLeadershipAssignments.id });
+
+    return {
+      id: designation.id,
+      groupId,
+      groupName: groupAssignment.groupName,
+      memberId,
+      memberName: `${membership.firstName} ${membership.lastName}`,
+      stateCode: membership.stateCode,
+      status
+    };
+  });
+}
+
+export async function listMyPresidentGroups(userId: string) {
+  const groups = await db
+    .select({
+      id: cdsGroups.id,
+      code: cdsGroups.code,
+      name: cdsGroups.name,
+      description: cdsGroups.description,
+      lgaName: lgas.name,
+      stateName: lgas.stateName,
+      maxCapacity: cdsGroups.maxCapacity,
+      presidentAssignmentId: userRoleAssignments.id
+    })
+    .from(userRoleAssignments)
+    .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+    .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+    .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
+    .where(and(
+      eq(userRoleAssignments.userId, userId),
+      eq(userRoleAssignments.isActive, true),
+      eq(roles.code, 'CDS_PRESIDENT')
+    ))
+    .orderBy(asc(cdsGroups.name));
+
+  if (groups.length === 0) return [];
+
+  const memberships = await db
+    .select({
+      groupId: cdsGroupMemberships.cdsGroupId,
+      memberId: corpsMembers.id,
+      stateCode: corpsMembers.stateCode,
+      firstName: corpsMembers.firstName,
+      middleName: corpsMembers.middleName,
+      lastName: corpsMembers.lastName,
+      courseName: courses.name
+    })
+    .from(cdsGroupMemberships)
+    .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+    .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+    .where(and(
+      inArray(cdsGroupMemberships.cdsGroupId, groups.map((group) => group.id)),
+      eq(cdsGroupMemberships.status, 'active')
+    ))
+    .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName));
+
+  return groups.map((group) => ({
+    ...group,
+    members: memberships.filter((member) => member.groupId === group.id)
+  }));
 }
