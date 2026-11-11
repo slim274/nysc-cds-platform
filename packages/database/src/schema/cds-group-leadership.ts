@@ -27,6 +27,8 @@ export const cdsGroupLeadershipAssignments = pgTable(
       .notNull()
       .defaultNow(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
+    endedByUserId: uuid('ended_by_user_id')
+      .references(() => users.id, { onDelete: 'set null' }),
     endedReason: varchar('ended_reason', { length: 300 })
   },
   (table) => [
