@@ -1,3 +1,5 @@
+import { alias } from 'drizzle-orm/pg-core';
+
 import {
   and,
   asc,
@@ -1564,6 +1566,8 @@ export async function listMyCoordinatorGroups(userId: string) {
 }
 
 export async function listMyCoordinatorPresidents(userId: string) {
+  const assignedByUser = alias(users, 'assigned_by_user');
+  const endedByUser = alias(users, 'ended_by_user');
   const groups = await db
     .select({ id: cdsGroups.id })
     .from(userRoleAssignments)
@@ -1590,10 +1594,16 @@ export async function listMyCoordinatorPresidents(userId: string) {
       status: cdsGroupLeadershipAssignments.status,
       assignedAt: cdsGroupLeadershipAssignments.assignedAt,
       endedAt: cdsGroupLeadershipAssignments.endedAt,
-      endedReason: cdsGroupLeadershipAssignments.endedReason
+      endedByUserId: cdsGroupLeadershipAssignments.endedByUserId,
+      endedByEmail: endedByUser.email,
+      endedReason: cdsGroupLeadershipAssignments.endedReason,
+      assignedByUserId: cdsGroupLeadershipAssignments.assignedByUserId,
+      assignedByEmail: assignedByUser.email
     })
     .from(cdsGroupLeadershipAssignments)
     .innerJoin(corpsMembers, eq(cdsGroupLeadershipAssignments.corpsMemberId, corpsMembers.id))
+    .leftJoin(assignedByUser, eq(cdsGroupLeadershipAssignments.assignedByUserId, assignedByUser.id))
+    .leftJoin(endedByUser, eq(cdsGroupLeadershipAssignments.endedByUserId, endedByUser.id))
     .where(inArray(cdsGroupLeadershipAssignments.cdsGroupId, groups.map((group) => group.id)))
     .orderBy(desc(cdsGroupLeadershipAssignments.assignedAt));
 }
@@ -1603,7 +1613,8 @@ export async function designateCdsPresident(
   actorUserId: string,
   groupId: string,
   memberId: string,
-  replaceExisting: boolean
+  replaceExisting: boolean,
+  replacementReason?: string
 ) {
   return db.transaction(async (tx) => {
     const [groupAssignment] = await tx
@@ -1729,6 +1740,14 @@ export async function designateCdsPresident(
       );
     }
 
+    if (currentLeader && replaceExisting && !replacementReason?.trim()) {
+      throw new CoordinatorServiceError(
+        'Provide a reason of at least 10 characters when replacing a CDS President.',
+        400,
+        'PRESIDENT_REPLACEMENT_REASON_REQUIRED'
+      );
+    }
+
     if (currentLeader && !replaceExisting) {
       throw new CoordinatorServiceError(
         'This group already has a President. Confirm replacement before continuing.',
@@ -1775,7 +1794,8 @@ export async function designateCdsPresident(
         .set({
           status: 'ended',
           endedAt: now,
-          endedReason: 'Replaced by Coordinator designation'
+          endedByUserId: actorUserId,
+          endedReason: replacementReason!.trim()
         })
         .where(eq(cdsGroupLeadershipAssignments.id, currentLeader.id));
 
