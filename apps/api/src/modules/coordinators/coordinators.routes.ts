@@ -14,6 +14,10 @@ import {
   updateMyCoordinatorCourseMapping,
   acceptCoordinatorHandover,
   cancelCoordinatorHandover,
+  listMyCoordinatorGroups,
+  listMyCoordinatorPresidents,
+  designateCdsPresident,
+  listMyPresidentGroups,
   CoordinatorServiceError
 } from './coordinators.service';
 
@@ -201,6 +205,76 @@ const coordinatorCourseMappingSchema = z.object({
     .refine((ids) => new Set(ids).size === ids.length, {
       message: 'A course can only be selected once.'
     })
+});
+
+
+// Coordinator workspace and leadership designation.
+const presidentDesignationSchema = z.object({
+  memberId: z.string().uuid(),
+  replaceExisting: z.boolean().default(false)
+});
+
+coordinatorSelfServiceRoutes.get('/groups', async (c) => {
+  try {
+    const data = await listMyCoordinatorGroups(c.get('authUser').id);
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorSelfServiceRoutes.get('/presidents', async (c) => {
+  try {
+    const data = await listMyCoordinatorPresidents(c.get('authUser').id);
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorSelfServiceRoutes.post('/groups/:groupId/president', async (c) => {
+  const groupId = coordinatorIdSchema.safeParse(c.req.param('groupId'));
+  const body = await c.req.json().catch(() => null);
+  const validation = presidentDesignationSchema.safeParse(body);
+  if (!groupId.success || !validation.success) {
+    return c.json({
+      success: false,
+      message: 'Provide a valid CDS group and Corps Member.',
+      errors: validation.success ? undefined : validation.error.issues
+    }, 400);
+  }
+
+  try {
+    const data = await designateCdsPresident(
+      c.get('authUser').id,
+      c.get('authUser').id,
+      groupId.data,
+      validation.data.memberId,
+      validation.data.replaceExisting
+    );
+    return c.json({
+      success: true,
+      message: data.status === 'active'
+        ? 'CDS President designated successfully.'
+        : 'President designation saved. The member will receive President access after activating their existing Corps Member account.',
+      data
+    }, 201);
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+// President workspace: all records are derived from the user's active scoped role assignments.
+export const presidentSelfServiceRoutes = new Hono<AuthEnv>();
+presidentSelfServiceRoutes.use('*', requireAuth, requireRole('CDS_PRESIDENT'));
+
+presidentSelfServiceRoutes.get('/groups', async (c) => {
+  try {
+    const data = await listMyPresidentGroups(c.get('authUser').id);
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
 });
 
 coordinatorSelfServiceRoutes.get('/course-mappings', async (c) => {
