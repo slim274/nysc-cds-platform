@@ -68,7 +68,7 @@ export const cdsMeetingAttendance = pgTable(
     notes: varchar('notes', { length: 500 }),
     markedByUserId: uuid('marked_by_user_id')
       .references(() => users.id, { onDelete: 'set null' }),
-    markedAt: timestamp('marked_at', { withTimezone: true }).notNull().defaultNow(),
+    markedAt: timestamp('marked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
   },
