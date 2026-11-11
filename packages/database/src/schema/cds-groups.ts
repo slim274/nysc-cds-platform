@@ -59,6 +59,7 @@ export const cdsGroups = pgTable(
     ),
     index('cds_groups_lga_idx').on(table.lgaId),
     index('cds_groups_active_idx').on(table.isActive),
+    index('cds_groups_whatsapp_assistant_idx').on(table.whatsappAssistantMemberId),
     check(
       'cds_groups_capacity_positive_check',
       sql`${table.maxCapacity} > 0`

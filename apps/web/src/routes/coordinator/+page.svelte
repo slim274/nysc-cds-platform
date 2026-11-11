@@ -8,6 +8,7 @@
     getMyCoordinatorGroups,
     listMyCoordinatorPresidents,
     designateCdsPresident,
+    saveMyCoordinatorWhatsAppGroup,
     logout
   } from '#lib/api/client.ts';
   import type {
@@ -22,6 +23,9 @@
   let loading = $state(true);
   let savingGroupId = $state('');
   let selectedMembers = $state<Record<string, string>>({});
+  let whatsappLinks = $state<Record<string, string>>({});
+  let whatsappAssistants = $state<Record<string, string>>({});
+  let savingWhatsAppGroupId = $state('');
   let errorMessage = $state('');
   let noticeMessage = $state('');
 
@@ -46,6 +50,8 @@
         listMyCoordinatorPresidents()
       ]);
       groups = groupRows;
+      whatsappLinks = Object.fromEntries(groupRows.map((group) => [group.id, group.whatsappGroupLink ?? '']));
+      whatsappAssistants = Object.fromEntries(groupRows.map((group) => [group.id, group.whatsappAssistantMemberId ?? '']));
       presidentHistory = leadershipRows;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -93,6 +99,27 @@
         : 'Unable to designate this CDS President.';
     } finally {
       savingGroupId = '';
+    }
+  }
+
+  async function saveWhatsAppSettings(group: CoordinatorWorkspaceGroup) {
+    const inviteLink = (whatsappLinks[group.id] ?? '').trim();
+    const assistantMemberId = whatsappAssistants[group.id] || null;
+    if (inviteLink && !/^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]+\/?$/i.test(inviteLink)) {
+      errorMessage = 'Paste a valid WhatsApp group invite link from chat.whatsapp.com.';
+      return;
+    }
+    savingWhatsAppGroupId = group.id;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      await saveMyCoordinatorWhatsAppGroup(group.id, { inviteLink: inviteLink || null, assistantMemberId });
+      noticeMessage = 'WhatsApp group settings saved for ' + group.name + '.';
+      await loadPage();
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : 'Unable to save WhatsApp group settings.';
+    } finally {
+      savingWhatsAppGroupId = '';
     }
   }
 
@@ -208,6 +235,23 @@
                   {#if group.members.length === 0}<p class="empty-members">This group has no active members to designate.</p>{/if}
                 </div>
 
+                <section class="whatsapp-panel">
+                  <div class="whatsapp-heading">
+                    <div><span class="panel-label">WHATSAPP GROUP</span><p>Manage the invite link for this CDS group. Only active members assigned to this group can see it on their portal.</p></div>
+                    {#if group.whatsappGroupLink}<a class="whatsapp-preview" href={group.whatsappGroupLink} target="_blank" rel="noopener noreferrer">Open invite ↗</a>{/if}
+                  </div>
+                  <label class="select-label" for="whatsapp-link-{group.id}">WhatsApp group invite link</label>
+                  <input id="whatsapp-link-{group.id}" class="whatsapp-input" type="url" bind:value={whatsappLinks[group.id]} placeholder="https://chat.whatsapp.com/..." disabled={!group.isActive} autocomplete="off" />
+                  <label class="select-label" for="whatsapp-assistant-{group.id}">WhatsApp group assistant (optional)</label>
+                  <select id="whatsapp-assistant-{group.id}" class="whatsapp-input" bind:value={whatsappAssistants[group.id]} disabled={!group.isActive || group.members.length === 0}>
+                    <option value="">No assistant selected</option>
+                    {#each group.members as member (member.memberId)}<option value={member.memberId}>{memberName(member)} · {member.stateCode}</option>{/each}
+                  </select>
+                  <div class="whatsapp-actions">
+                    <small>One active member can be designated as the group's WhatsApp assistant. You can change this at any time.</small>
+                    <button class="primary-button" type="button" onclick={() => void saveWhatsAppSettings(group)} disabled={!group.isActive || savingWhatsAppGroupId === group.id}>{savingWhatsAppGroupId === group.id ? 'Saving...' : 'Save WhatsApp settings'}</button>
+                  </div>
+                </section>
                 <details class="members">
                   <summary>View group members <span>{group.members.length}</span></summary>
                   <div class="member-list">
@@ -307,6 +351,13 @@
   .primary-button:hover:not(:disabled) { background: #064526; }
   .primary-button:disabled { opacity: .5; cursor: not-allowed; }
   .empty-members { margin: 9px 0 0; color: #9b6a38; font-size: 9px; }
+  .whatsapp-panel { margin-top: 15px; padding: 14px; border: 1px solid #dcebe0; border-radius: 9px; background: #f4faf5; }
+  .whatsapp-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .whatsapp-heading p { max-width: 440px; margin: 6px 0 0; color: #718078; font-size: 9px; line-height: 1.6; }
+  .whatsapp-preview { color: #0a6841; font-size: 9px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .whatsapp-input { width: 100%; min-width: 0; min-height: 39px; padding: 8px 10px; border: 1px solid #dce5de; border-radius: 7px; background: #fff; color: #35483a; font-size: 10px; }
+  .whatsapp-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 11px; }
+  .whatsapp-actions small { max-width: 340px; color: #819087; font-size: 8px; line-height: 1.5; }
   .members { margin-top: 15px; padding-top: 12px; border-top: 1px solid #edf1ed; }
   .members summary { display: flex; justify-content: space-between; cursor: pointer; color: #355442; font-size: 10px; font-weight: 700; }
   .members summary span { color: #819087; }
@@ -388,4 +439,5 @@
     .summary-card strong { font-size: 19px; }
   }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
+  @media (max-width: 560px) { .whatsapp-actions { align-items: stretch; flex-direction: column; } .whatsapp-actions .primary-button { width: 100%; } }
 </style>

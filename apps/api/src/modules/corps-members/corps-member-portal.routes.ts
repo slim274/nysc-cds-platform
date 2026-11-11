@@ -62,7 +62,8 @@ async function getMemberPortalData(userId: string) {
       groupId: cdsGroups.id,
       groupCode: cdsGroups.code,
       groupName: cdsGroups.name,
-      groupDescription: cdsGroups.description
+      groupDescription: cdsGroups.description,
+      whatsappGroupLink: cdsGroups.whatsappGroupLink
     })
     .from(corpsMembers)
     .leftJoin(
@@ -154,6 +155,7 @@ async function getMemberPortalData(userId: string) {
       code: member.groupCode,
       name: member.groupName,
       description: member.groupDescription,
+      whatsappGroupLink: member.whatsappGroupLink,
       source: member.membershipSource,
       assignedAt: member.assignedAt
     },
