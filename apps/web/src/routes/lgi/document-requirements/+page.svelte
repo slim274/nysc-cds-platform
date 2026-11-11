@@ -52,7 +52,6 @@
 
   const activeCount = $derived(requirements.filter((item) => item.isActive).length);
   const draftCount = $derived(requirements.filter((item) => !item.isActive).length);
-  const remainingSlots = $derived(Math.max(0, 5 - activeCount));
 
   onMount(() => { void loadPage(); });
 
@@ -168,10 +167,6 @@
   async function toggleRequirement(requirement: LgiDocumentRequirement) {
     errorMessage = '';
     noticeMessage = '';
-    if (!requirement.isActive && activeCount >= 5) {
-      errorMessage = 'You already have five enabled document requirements for this LGA. Disable one before enabling another.';
-      return;
-    }
     const next = !requirement.isActive;
     if (next && requirement.isRequired && !requirement.hasReferenceSample) {
       errorMessage = 'Upload a reference sample before enabling this mandatory requirement.';
@@ -308,14 +303,14 @@
         {#if noticeMessage}<div class="message success" role="status">{noticeMessage}</div>{/if}
 
         <section class="intro">
-          <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Configure required documents</h2><p>Create up to five enabled requirements for each LGA. Save items as drafts, edit them at any time, upload reference samples, and enable or disable publication. Only enabled items appear on Corps Member and Coordinator checklists.</p></div>
+          <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Configure required documents</h2>Create as many document requirements as your LGA needs. Save items as drafts, edit them at any time, upload reference samples, and enable or disable publication. Only enabled items appear on Corps Member and Coordinator checklists.</div>
           <button class="primary-button" type="button" onclick={() => { resetForm(); formOpen = true; }} disabled={!selectedLga}>＋ Add requirement</button>
         </section>
 
         <section class="stats">
-          <article><span>Enabled requirements</span><strong>{activeCount} / 5</strong></article>
-          <article><span>Available publication slots</span><strong>{remainingSlots}</strong></article>
+          <article><span>Enabled requirements</span><strong>{activeCount}</strong></article>
           <article><span>Draft / disabled items</span><strong>{draftCount}</strong></article>
+          <article><span>AI exception queue</span><strong>{exceptions.length}</strong></article>
         </section>
 
         <section class="panel">
@@ -389,7 +384,7 @@
         <label class="check-line"><input type="checkbox" bind:checked={form.isRequired} /><span>Mandatory document (required before CDS matching)</span></label>
         <fieldset><legend>Accepted file formats *</legend><label class="check-line"><input type="checkbox" bind:checked={form.allowPdf} /><span>PDF</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowJpeg} /><span>JPEG</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowPng} /><span>PNG</span></label></fieldset>
         <label><span>Maximum file size (MB)</span><input type="number" bind:value={form.maxSizeMb} min="1" max="50" required /></label>
-        <div class="info-note">New items are saved as drafts. Upload a reference sample, then enable the requirement to publish it to Corps Members and Coordinators. Mandatory items require a reference sample before they can be enabled. No more than five requirements can be enabled per LGA.</div>
+        <div class="info-note">New items are saved as drafts. Upload a reference sample, then enable the requirement to publish it to Corps Members and Coordinators. Mandatory items require a reference sample before they can be enabled. The LGI can publish as many requirements as the LGA's process requires.</div>
         <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : editingRequirement ? 'Save changes' : 'Save as draft'}</button></div>
       </form>
     </section>
