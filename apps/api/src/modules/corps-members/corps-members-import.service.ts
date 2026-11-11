@@ -401,7 +401,7 @@ function escapeCsv(value: unknown): string {
 
 export async function exportCorpsMembersCsv(
   lgaIds: string[],
-  filters: { search?: string; lgaId?: string; streamId?: string; profileStatus?: 'preloaded' | 'draft' | 'submitted' | 'approved' | 'rejected' }
+  filters: { search?: string; lgaId?: string; streamId?: string; batchId?: string; serviceYear?: number; profileStatus?: 'preloaded' | 'draft' | 'submitted' | 'approved' | 'rejected' }
 ) {
   const first = await listCorpsMembers(lgaIds, { ...filters, page: 1, pageSize: 100 });
   if (first.pagination.total > MAX_EXPORT_ROWS) {
