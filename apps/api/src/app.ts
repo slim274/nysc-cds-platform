@@ -118,8 +118,9 @@ app.route('/lgi', cohortRoutes);
 // LGI corps member management routes.
 app.route('/lgi', corpsMemberRoutes);
 
-// Corps Member self-service portal and CDS group decline.
+// Corps Member self-service portal, CDS group decline and approved attendance history.
 app.route('/corps-member', corpsMemberPortalRoutes);
+app.route('/corps-member/attendance', corpsMemberAttendanceRoutes);
 
 // LGI document requirements and exception review queue.
 app.route('/lgi', lgiDocumentRoutes);
