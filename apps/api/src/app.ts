@@ -12,6 +12,8 @@ import {
   lgiRoutes
 } from './modules/cds-groups/cds-groups.routes';
 
+import { cohortRoutes } from './modules/cohorts/cohorts.routes';
+
 import {
   lgiCourseCatalogueRoutes
 } from './modules/course-catalogue/course-catalogue.routes';
@@ -93,6 +95,9 @@ app.route('/lgi', coordinatorRoutes);
 
 // Coordinator-facing handover inbox and acceptance.
 app.route('/coordinator', coordinatorSelfServiceRoutes);
+
+// NYSC service years, batches and streams shared reference management.
+app.route('/lgi', cohortRoutes);
 
 // LGI corps member management routes.
 app.route('/lgi', corpsMemberRoutes);
