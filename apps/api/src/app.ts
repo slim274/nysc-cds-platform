@@ -100,11 +100,16 @@ app.route('/lgi', lgiCourseCatalogueRoutes);
 // CDS Coordinator lifecycle and group assignments.
 app.route('/lgi', coordinatorRoutes);
 
-// Coordinator-facing handover inbox and acceptance.
+// Coordinator-facing handover inbox and attendance review.
 app.route('/coordinator', coordinatorSelfServiceRoutes);
+app.route('/coordinator/attendance', coordinatorAttendanceRoutes);
 
-// CDS President scoped workspace.
+// CDS President scoped workspace and attendance recording.
 app.route('/cds-president', presidentSelfServiceRoutes);
+app.route('/cds-president/attendance', presidentAttendanceRoutes);
+
+// LGI read-only attendance reports, limited to assigned LGA(s).
+app.route('/lgi/attendance', lgiAttendanceRoutes);
 
 // NYSC service years, batches and streams shared reference management.
 app.route('/lgi', cohortRoutes);
