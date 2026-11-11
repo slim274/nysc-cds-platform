@@ -541,6 +541,8 @@ export async function getDocumentVerificationMode(): Promise<DocumentVerificatio
   return response.data;
 }
 
+export type DocumentRequirementVerificationMode = 'manual' | 'ai_auto' | 'ai_assisted';
+
 export interface LgiDocumentRequirement {
   id: string;
   lgaId: string;
@@ -550,6 +552,7 @@ export interface LgiDocumentRequirement {
   name: string;
   description: string | null;
   isRequired: boolean;
+  verificationMode: DocumentRequirementVerificationMode;
   allowedMimeTypes: string;
   maxFileSizeBytes: number;
   hasReferenceSample: string | null;
@@ -563,6 +566,7 @@ export interface LgiDocumentSubmission {
   id: string;
   requirementId: string;
   requirementName: string;
+  verificationMode: DocumentRequirementVerificationMode;
   memberId: string;
   stateCode: string;
   firstName: string;
@@ -587,6 +591,7 @@ export async function createLgiDocumentRequirement(input: {
   name: string;
   description?: string | null;
   isRequired: boolean;
+  verificationMode: DocumentRequirementVerificationMode;
   allowedMimeTypes: string[];
   maxFileSizeBytes: number;
   isActive?: boolean;
@@ -604,6 +609,7 @@ export async function updateLgiDocumentRequirement(
     name: string;
     description: string | null;
     isRequired: boolean;
+    verificationMode: DocumentRequirementVerificationMode;
     allowedMimeTypes: string[];
     maxFileSizeBytes: number;
     isActive: boolean;
