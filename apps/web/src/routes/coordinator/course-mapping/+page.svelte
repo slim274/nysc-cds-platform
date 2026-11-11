@@ -123,7 +123,7 @@
   <div class="workspace">
     <header class="topbar">
       <div class="brand"><span class="brand-icon">N</span><div><strong>NYSC CDS</strong><small>Coordinator workspace</small></div></div>
-      <div class="account"><a class="nav-link" href="/coordinator/handovers">Handover inbox</a><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
+      <div class="account"><a class="nav-link" href="/coordinator/documents">Document checklist</a><a class="nav-link" href="/coordinator/handovers">Handover inbox</a><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
     </header>
     <main class="content">
       <div class="eyebrow">CDS GROUP OPERATIONS</div>
