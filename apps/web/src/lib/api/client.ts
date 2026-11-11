@@ -182,6 +182,16 @@ export interface CdsGroupCourse {
   aliases?: string[];
 }
 
+export interface CdsGroupCourseMappingImpact {
+  groupName: string;
+  removedCourses: Array<{
+    id: string;
+    name: string;
+    assignedMemberCount: number;
+  }>;
+  affectedMemberCount: number;
+}
+
 export interface CdsGroupDetail extends CdsGroupSummary {
   courses: CdsGroupCourse[];
   coordinatorAssignments: Array<{
@@ -280,6 +290,20 @@ export async function createCdsGroup(
     body: JSON.stringify(input)
   });
 
+  return response.data;
+}
+
+export async function previewCdsGroupCourseMappingImpact(
+  groupId: string,
+  courseIds: string[]
+): Promise<CdsGroupCourseMappingImpact> {
+  const response = await request<{
+    success: boolean;
+    data: CdsGroupCourseMappingImpact;
+  }>(`/lgi/cds-groups/${encodeURIComponent(groupId)}/course-mapping-impact`, {
+    method: 'POST',
+    body: JSON.stringify({ courseIds })
+  });
   return response.data;
 }
 
