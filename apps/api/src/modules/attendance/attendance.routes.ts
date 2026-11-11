@@ -252,3 +252,15 @@ lgiAttendanceRoutes.get('/meetings/:meetingId', async (c) => {
     return handleAttendanceError(c, error);
   }
 });
+
+export const corpsMemberAttendanceRoutes = new Hono<AuthEnv>();
+corpsMemberAttendanceRoutes.use('*', requireAuth, requireRole('CORPS_MEMBER'));
+
+corpsMemberAttendanceRoutes.get('/', async (c) => {
+  try {
+    const data = await listCorpsMemberApprovedAttendance(c.get('authUser').id);
+    return c.json({ success: true, data });
+  } catch (error) {
+    return handleAttendanceError(c, error);
+  }
+});
