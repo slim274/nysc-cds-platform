@@ -37,6 +37,8 @@ const supportedMimeTypes = [
   'image/png'
 ] as const;
 
+const verificationModeSchema = z.enum(['manual', 'ai_auto', 'ai_assisted']);
+
 const createRequirementSchema = z.object({
   lgaId: uuidSchema,
   code: z.string().trim().toUpperCase().min(2).max(50)
@@ -44,19 +46,31 @@ const createRequirementSchema = z.object({
   name: z.string().trim().min(3).max(160),
   description: z.string().trim().max(2000).nullable().optional(),
   isRequired: z.boolean().default(true),
-  verificationMode: z.enum(['manual', 'ai_auto', 'ai_assisted']).default('manual'),
+  verificationMode: verificationModeSchema.default('manual'),
   allowedMimeTypes: z.array(z.enum(supportedMimeTypes)).min(1).max(3)
     .refine((types) => new Set(types).size === types.length, 'Remove duplicate file types.'),
   maxFileSizeBytes: z.number().int().min(1024 * 1024).max(50 * 1024 * 1024).default(10 * 1024 * 1024),
   isActive: z.boolean().optional()
 });
 
-const updateRequirementSchema = createRequirementSchema
-  .omit({ lgaId: true })
-  .partial()
-  .refine((input) => Object.keys(input).length > 0, {
-    message: 'Provide at least one document requirement field to update.'
-  });
+// Keep PATCH fields explicitly optional. Do not reuse create defaults here:
+// a PATCH request must preserve the submitted verificationMode unchanged.
+const updateRequirementSchema = z.object({
+  code: z.string().trim().toUpperCase().min(2).max(50)
+    .regex(/^[A-Z0-9][A-Z0-9_-]*$/, 'Use letters, numbers, hyphens or underscores.')
+    .optional(),
+  name: z.string().trim().min(3).max(160).optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
+  isRequired: z.boolean().optional(),
+  verificationMode: verificationModeSchema.optional(),
+  allowedMimeTypes: z.array(z.enum(supportedMimeTypes)).min(1).max(3)
+    .refine((types) => new Set(types).size === types.length, 'Remove duplicate file types.')
+    .optional(),
+  maxFileSizeBytes: z.number().int().min(1024 * 1024).max(50 * 1024 * 1024).optional(),
+  isActive: z.boolean().optional()
+}).refine((input) => Object.keys(input).length > 0, {
+  message: 'Provide at least one document requirement field to update.'
+});
 
 const documentStatusSchema = z.enum([
   'pending_verification',
@@ -182,8 +196,12 @@ lgiDocumentRoutes.patch('/document-requirements/:requirementId', async (c) => {
   }
 
   try {
-    await updateDocumentRequirement(id.data, validation.data, getAssignedLgaIds(c));
-    return c.json({ success: true, message: 'Document requirement updated.' });
+    const data = await updateDocumentRequirement(id.data, validation.data, getAssignedLgaIds(c));
+    return c.json({
+      success: true,
+      message: 'Document requirement updated.',
+      data
+    });
   } catch (error) {
     return handleDocumentError(c, error);
   }
