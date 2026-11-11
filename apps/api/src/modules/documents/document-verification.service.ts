@@ -452,6 +452,13 @@ export async function createDocumentRequirement(
       .limit(1);
 
     const publish = input.isActive ?? false;
+    if (publish && input.isRequired && true) {
+      throw new DocumentWorkflowError(
+        'Create this requirement as a draft, upload its reference sample, and then enable it.',
+        409,
+        'DOCUMENT_REFERENCE_SAMPLE_REQUIRED'
+      );
+    }
     if (publish) {
       const [activeCount] = await tx
         .select({ value: count() })
@@ -497,6 +504,7 @@ export async function updateDocumentRequirement(
         id: corpsMemberDocumentRequirements.id,
         lgaId: corpsMemberDocumentRequirements.lgaId,
         isRequired: corpsMemberDocumentRequirements.isRequired,
+        isActive: corpsMemberDocumentRequirements.isActive,
         referenceObjectKey: corpsMemberDocumentRequirements.referenceObjectKey
       })
       .from(corpsMemberDocumentRequirements)
@@ -511,7 +519,8 @@ export async function updateDocumentRequirement(
     }
 
     const nextIsRequired = input.isRequired ?? existing.isRequired;
-    if (input.isActive === true && nextIsRequired && !existing.referenceObjectKey) {
+    const nextIsActive = input.isActive ?? existing.isActive;
+    if (nextIsActive && nextIsRequired && !existing.referenceObjectKey) {
       throw new DocumentWorkflowError(
         'Upload a reference sample before publishing a mandatory document requirement.',
         409,
@@ -557,7 +566,7 @@ export async function updateDocumentRequirement(
     await tx.update(corpsMemberDocumentRequirements)
       .set(changes)
       .where(eq(corpsMemberDocumentRequirements.id, requirementId));
-    return { id: requirementId, isActive: changes.isActive ?? false };
+    return { id: requirementId, isActive: nextIsActive };
   });
 }
 
