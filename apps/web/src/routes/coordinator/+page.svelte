@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import CoordinatorSidebar from '#lib/components/CoordinatorSidebar.svelte';
+  import CoordinatorLayout from '#lib/components/CoordinatorLayout.svelte';
   import {
     ApiError,
     getCurrentUser,
@@ -24,22 +24,12 @@
   let selectedMembers = $state<Record<string, string>>({});
   let errorMessage = $state('');
   let noticeMessage = $state('');
-  let mobileNavOpen = $state(false);
-  let signingOut = $state(false);
 
   const totalMembers = $derived(groups.reduce((sum, group) => sum + group.currentMemberCount, 0));
   const activePresidents = $derived(groups.filter((group) => group.president?.status === 'active').length);
   const pendingPresidents = $derived(groups.filter((group) => group.president?.status === 'pending_activation').length);
 
   onMount(() => { void loadPage(); });
-
-  function closeMobileNavigation() {
-    mobileNavOpen = false;
-  }
-
-  function handleWindowKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') closeMobileNavigation();
-  }
 
   async function loadPage() {
     loading = true;
@@ -107,7 +97,6 @@
   }
 
   async function signOut() {
-    signingOut = true;
     try {
       await logout();
     } finally {
@@ -121,54 +110,9 @@
   <meta name="description" content="Manage assigned CDS groups and designate group Presidents." />
 </svelte:head>
 
-<svelte:window onkeydown={handleWindowKeydown} />
-
-{#if loading}
-  <main class="loading-screen"><div class="loader"></div><p>Verifying your account...</p></main>
-{:else if errorMessage && !currentUser}
-  <main class="error-screen">
-    <h2>Access unavailable</h2>
-    <p>{errorMessage}</p>
-    <button type="button" onclick={() => goto('/login')}>Return to login</button>
-  </main>
-{:else if currentUser}
-  <div class="dashboard">
-    <CoordinatorSidebar
-      activePath="/coordinator"
-      open={mobileNavOpen}
-      signingOut={signingOut}
-      onClose={closeMobileNavigation}
-      onSignOut={signOut}
-    />
-
-    <section class="main-content">
-      <header class="topbar">
-        <div class="topbar-heading">
-          <button
-            class="mobile-menu-button"
-            type="button"
-            aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            aria-expanded={mobileNavOpen}
-            aria-controls="coordinator-sidebar"
-            onclick={() => (mobileNavOpen = !mobileNavOpen)}
-          >
-            <span></span><span></span><span></span>
-          </button>
-          <div class="page-heading">
-            <span class="breadcrumb">CDS Operations / Dashboard</span>
-            <h1>Coordinator Dashboard</h1>
-          </div>
-        </div>
-        <div class="account">
-          <div class="avatar">CD</div>
-          <div class="account-details">
-            <strong>CDS Coordinator</strong>
-            <span>{currentUser.email}</span>
-          </div>
-        </div>
-      </header>
-
-      <main class="content">
+{#if currentUser}
+  <CoordinatorLayout activePath="/coordinator" pageTitle="Coordinator Dashboard" userEmail={currentUser.email} onSignOut={signOut}>
+    <div class="module-content">
         <section class="welcome">
           <div>
             <span class="eyebrow">CDS GROUP OPERATIONS</span>
@@ -294,30 +238,15 @@
           <div><h3>Your access is group-scoped</h3><p>Only CDS groups actively assigned to your account are visible. You can designate one active member of each assigned group as President. Replacements are confirmed before the previous designation is ended.</p></div>
           <span class="verified-badge"><span></span>Coordinator access active</span>
         </section>
-      </main>
-
-      <footer>NYSC CDS Management Platform · Coordinator Workspace</footer>
-    </section>
-  </div>
+    </div>
+  </CoordinatorLayout>
 {/if}
 
 <style>
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; overflow-x: hidden; background: #f5f7f5; color: #19251e; font-family: Inter, Arial, sans-serif; }
   :global(button), :global(input), :global(select) { font: inherit; }
-  .dashboard { min-height: 100vh; display: flex; }
-  .main-content { min-width: 0; flex: 1; display: flex; flex-direction: column; }
-  .topbar { position: sticky; top: 0; z-index: 15; min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px 34px; border-bottom: 1px solid #e8ece8; background: #fff; }
-  .topbar-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .mobile-menu-button { display: none; }
-  .breadcrumb { color: #819087; font-size: 10px; }
-  .topbar h1 { margin: 5px 0 0; font-size: 21px; }
-  .account { display: flex; align-items: center; gap: 10px; }
-  .avatar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: #e6f1e9; color: #0a5c37; font-size: 12px; font-weight: 700; }
-  .account-details strong, .account-details span { display: block; }
-  .account-details strong { font-size: 11px; }
-  .account-details span { margin-top: 4px; color: #819087; font-size: 10px; }
-  .content { width: 100%; max-width: 1250px; margin: 0 auto; padding: 32px 34px; }
+  .module-content { width: 100%; min-width: 0; }
   .welcome { min-height: 145px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 30px; border-radius: 12px; background: #eaf3ed; }
   .eyebrow { color: #0a8050; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; }
   .welcome h2 { margin: 12px 0 8px; font-size: 23px; }
@@ -407,7 +336,6 @@
   .message { margin: 15px 0 0; padding: 11px 13px; border-radius: 8px; font-size: 11px; line-height: 1.6; }
   .message.error { border: 1px solid #efceca; background: #fff3f2; color: #a32920; }
   .message.success { border: 1px solid #cce6d3; background: #eef8f0; color: #16633b; }
-  footer { margin-top: auto; padding: 17px 34px; border-top: 1px solid #e8ece8; color: #89948c; font-size: 10px; }
   .loading-screen, .error-screen { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 4px; padding: 25px; text-align: center; }
   .loading-screen p, .error-screen p { color: #738178; font-size: 13px; }
   .loader { width: 27px; height: 27px; border: 3px solid #dbe8de; border-top-color: #0a5c37; border-radius: 50%; animation: spin .8s linear infinite; }
@@ -419,12 +347,6 @@
     .group-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 760px) {
-    .topbar { min-height: 76px; padding: 13px 16px; flex-wrap: wrap; gap: 12px; }
-    .mobile-menu-button { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-content: center; gap: 5px; padding: 0; border: 1px solid #e1e9e2; border-radius: 9px; background: #fff; cursor: pointer; }
-    .mobile-menu-button span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #0a5c37; }
-    .account-details { display: none; }
-    .topbar { padding-inline: 14px; }
-    .content { padding: 22px 16px 28px; }
     .welcome { min-height: 0; padding: 22px 19px; }
     .welcome h2 { font-size: 20px; line-height: 1.3; }
     .welcome-icon { display: none; }
@@ -441,10 +363,8 @@
     .history-heading { align-items: flex-start; flex-direction: column; }
     .account-status { align-items: flex-start; flex-direction: column; padding: 18px; }
     .verified-badge { white-space: normal; }
-    footer { padding: 15px 16px; line-height: 1.5; }
   }
   @media (max-width: 380px) {
-    .content { padding-inline: 13px; }
     .welcome { padding: 18px 16px; }
     .summary-card { padding: 11px; }
     .summary-card span { font-size: 9px; }
