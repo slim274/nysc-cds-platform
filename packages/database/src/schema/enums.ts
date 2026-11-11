@@ -61,6 +61,7 @@ export const cdsMeetingStatusEnum = pgEnum('cds_meeting_status', [
 ]);
 
 export const cdsAttendanceStatusEnum = pgEnum('cds_attendance_status', [
+  'not_marked',
   'present',
   'absent',
   'late',
