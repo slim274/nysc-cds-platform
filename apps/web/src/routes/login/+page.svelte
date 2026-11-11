@@ -20,7 +20,7 @@
       if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
         await goto('/lgi');
       } else if (session.roles.some((role) => role.code === 'CDS_COORDINATOR')) {
-        await goto('/coordinator/handovers');
+        await goto('/coordinator');
       } else if (session.roles.some((role) => role.code === 'CDS_PRESIDENT')) {
         await goto('/cds-president');
       } else if (session.roles.some((role) => role.code === 'CORPS_MEMBER')) {
