@@ -1,5 +1,5 @@
 CREATE TYPE "public"."cds_meeting_status" AS ENUM('scheduled', 'attendance_open', 'submitted', 'reviewed', 'cancelled');--> statement-breakpoint
-CREATE TYPE "public"."cds_attendance_status" AS ENUM('present', 'absent', 'late', 'excused');--> statement-breakpoint
+CREATE TYPE "public"."cds_attendance_status" AS ENUM('not_marked', 'present', 'absent', 'late', 'excused');--> statement-breakpoint
 CREATE TYPE "public"."cds_meeting_review_decision" AS ENUM('approved', 'returned');--> statement-breakpoint
 CREATE TABLE "cds_group_meetings" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE "cds_meeting_attendance" (
   "status" "cds_attendance_status" NOT NULL,
   "notes" varchar(500),
   "marked_by_user_id" uuid,
-  "marked_at" timestamp with time zone DEFAULT now() NOT NULL,
+  "marked_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );--> statement-breakpoint
