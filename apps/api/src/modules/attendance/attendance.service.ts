@@ -570,3 +570,43 @@ export async function cancelCdsMeeting(userId: string, meetingId: string) {
     return { meetingId, status: 'cancelled' as const };
   });
 }
+
+
+export async function listCorpsMemberApprovedAttendance(userId: string) {
+  const [member] = await db
+    .select({ id: corpsMembers.id })
+    .from(corpsMembers)
+    .where(eq(corpsMembers.userId, userId))
+    .limit(1);
+  if (!member) {
+    throw new AttendanceServiceError(
+      'The signed-in account is not linked to a Corps Member record.',
+      404,
+      'CORPS_MEMBER_RECORD_NOT_FOUND'
+    );
+  }
+
+  return db
+    .select({
+      attendanceId: cdsMeetingAttendance.id,
+      meetingId: cdsGroupMeetings.id,
+      groupCode: cdsGroups.code,
+      groupName: cdsGroups.name,
+      meetingTitle: cdsGroupMeetings.title,
+      startsAt: cdsGroupMeetings.startsAt,
+      endsAt: cdsGroupMeetings.endsAt,
+      venue: cdsGroupMeetings.venue,
+      attendanceStatus: cdsMeetingAttendance.status,
+      notes: cdsMeetingAttendance.notes,
+      reviewedAt: cdsGroupMeetings.reviewedAt
+    })
+    .from(cdsMeetingAttendance)
+    .innerJoin(cdsGroupMeetings, eq(cdsMeetingAttendance.meetingId, cdsGroupMeetings.id))
+    .innerJoin(cdsGroups, eq(cdsGroupMeetings.cdsGroupId, cdsGroups.id))
+    .where(and(
+      eq(cdsMeetingAttendance.corpsMemberId, member.id),
+      eq(cdsGroupMeetings.status, 'reviewed')
+    ))
+    .orderBy(desc(cdsGroupMeetings.startsAt))
+    .limit(250);
+}
