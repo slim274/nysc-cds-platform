@@ -4,11 +4,9 @@ import { basename, join, resolve } from 'node:path';
 import {
   and,
   asc,
-  count,
   desc,
   eq,
-  inArray,
-  ne
+  inArray
 } from 'drizzle-orm';
 
 import {
@@ -442,54 +440,28 @@ export async function createDocumentRequirement(
   if (!lgaIds.includes(input.lgaId)) {
     throw new DocumentWorkflowError('You can only configure documents for your assigned LGA(s).', 403, 'DOCUMENT_LGA_FORBIDDEN');
   }
-  return db.transaction(async (tx) => {
-    // Lock the LGA row so concurrent LGI requests cannot exceed five
-    // simultaneously published requirements.
-    await tx.select({ id: lgas.id })
-      .from(lgas)
-      .where(eq(lgas.id, input.lgaId))
-      .for('update')
-      .limit(1);
+  const publish = input.isActive ?? false;
+  if (publish && input.isRequired) {
+    throw new DocumentWorkflowError(
+      'Create this requirement as a draft, upload its reference sample, and then enable it.',
+      409,
+      'DOCUMENT_REFERENCE_SAMPLE_REQUIRED'
+    );
+  }
 
-    const publish = input.isActive ?? false;
-    if (publish && input.isRequired) {
-      throw new DocumentWorkflowError(
-        'Create this requirement as a draft, upload its reference sample, and then enable it.',
-        409,
-        'DOCUMENT_REFERENCE_SAMPLE_REQUIRED'
-      );
-    }
-    if (publish) {
-      const [activeCount] = await tx
-        .select({ value: count() })
-        .from(corpsMemberDocumentRequirements)
-        .where(and(
-          eq(corpsMemberDocumentRequirements.lgaId, input.lgaId),
-          eq(corpsMemberDocumentRequirements.isActive, true)
-        ));
-      if (Number(activeCount?.value ?? 0) >= 5) {
-        throw new DocumentWorkflowError(
-          'An LGA can have at most five active document requirements. Disable one before publishing another.',
-          409,
-          'DOCUMENT_REQUIREMENT_ACTIVE_LIMIT'
-        );
-      }
-    }
-
-    const [created] = await tx.insert(corpsMemberDocumentRequirements).values({
-      lgaId: input.lgaId,
-      code: input.code.trim().toUpperCase(),
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
-      isRequired: input.isRequired,
-      allowedMimeTypes: input.allowedMimeTypes.join(','),
-      maxFileSizeBytes: input.maxFileSizeBytes,
-      isActive: publish,
-      createdByUserId: actorUserId
-    }).returning({ id: corpsMemberDocumentRequirements.id });
-    if (!created) throw new Error('DOCUMENT_REQUIREMENT_CREATE_FAILED');
-    return created;
-  });
+  const [created] = await db.insert(corpsMemberDocumentRequirements).values({
+    lgaId: input.lgaId,
+    code: input.code.trim().toUpperCase(),
+    name: input.name.trim(),
+    description: input.description?.trim() || null,
+    isRequired: input.isRequired,
+    allowedMimeTypes: input.allowedMimeTypes.join(','),
+    maxFileSizeBytes: input.maxFileSizeBytes,
+    isActive: publish,
+    createdByUserId: actorUserId
+  }).returning({ id: corpsMemberDocumentRequirements.id });
+  if (!created) throw new Error('DOCUMENT_REQUIREMENT_CREATE_FAILED');
+  return created;
 }
 
 export async function updateDocumentRequirement(
@@ -526,30 +498,6 @@ export async function updateDocumentRequirement(
         409,
         'DOCUMENT_REFERENCE_SAMPLE_REQUIRED'
       );
-    }
-
-    await tx.select({ id: lgas.id })
-      .from(lgas)
-      .where(eq(lgas.id, existing.lgaId))
-      .for('update')
-      .limit(1);
-
-    if (input.isActive === true) {
-      const [activeCount] = await tx
-        .select({ value: count() })
-        .from(corpsMemberDocumentRequirements)
-        .where(and(
-          eq(corpsMemberDocumentRequirements.lgaId, existing.lgaId),
-          eq(corpsMemberDocumentRequirements.isActive, true),
-          ne(corpsMemberDocumentRequirements.id, requirementId)
-        ));
-      if (Number(activeCount?.value ?? 0) >= 5) {
-        throw new DocumentWorkflowError(
-          'An LGA can have at most five active document requirements. Disable one before publishing another.',
-          409,
-          'DOCUMENT_REQUIREMENT_ACTIVE_LIMIT'
-        );
-      }
     }
 
     const changes: Partial<typeof corpsMemberDocumentRequirements.$inferInsert> = {
