@@ -586,7 +586,7 @@ export async function updateCoordinator(
       }
     }
 
-      if (groups.length === 0) {
+      if (input.groupIds !== undefined && input.groupIds.length === 0) {
         // Preserve a login-capable LGA-scoped standby role after the final
         // group is released. The historical group rows remain inactive.
         const standbyLgaIds = [...new Set(
