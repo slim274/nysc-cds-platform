@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import CoordinatorLayout from '#lib/components/CoordinatorLayout.svelte';
   import {
     ApiError,
     getCurrentUser,
@@ -21,7 +22,6 @@
   let saving = $state(false);
   let errorMessage = $state('');
   let noticeMessage = $state('');
-  let mobileNavOpen = $state(false);
   let mappingOpen = $state(false);
   let editingGroup = $state<CoordinatorCourseMappingGroup | null>(null);
   let selectedCourseIds = $state<string[]>([]);
@@ -102,10 +102,7 @@
   }
 
   function handleWindowKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      mappingOpen = false;
-      mobileNavOpen = false;
-    }
+    if (event.key === 'Escape') mappingOpen = false;
   }
 </script>
 
@@ -120,12 +117,8 @@
 {:else if !currentUser}
   <main class="state-screen"><h2>Coordinator workspace unavailable</h2><p>{errorMessage}</p><a href="/login">Return to sign in</a></main>
 {:else}
-  <div class="workspace">
-    <header class="topbar">
-      <div class="brand"><span class="brand-icon">N</span><div><strong>NYSC CDS</strong><small>Coordinator workspace</small></div></div>
-      <div class="account"><a class="nav-link" href="/coordinator/documents">Document checklist</a><a class="nav-link" href="/coordinator/handovers">Handover inbox</a><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
-    </header>
-    <main class="content">
+  <CoordinatorLayout activePath="/coordinator/course-mapping" pageTitle="Course Mapping" userEmail={currentUser.email} onSignOut={signOut}>
+    <div class="module-content">
       <div class="eyebrow">CDS GROUP OPERATIONS</div>
       <h1>Course Mapping</h1>
       <p class="intro">Configure which academic courses are eligible for the CDS Groups assigned to you. The matching algorithm uses these rules after each member's mandatory documents have been verified.</p>
@@ -154,8 +147,8 @@
         </section>
       {/if}
       <div class="notice"><strong>How automatic matching works</strong><span>Only active CDS Groups with a matching course and available capacity are considered. Each Corps Member is matched after all mandatory documents have been verified. Manual reassignment remains an LGI exception tool.</span></div>
-    </main>
-  </div>
+    </div>
+  </CoordinatorLayout>
 {/if}
 
 {#if mappingOpen && editingGroup}
@@ -183,9 +176,9 @@
 <style>
   :global(*){box-sizing:border-box}:global(body){margin:0;background:#f4f7f5;color:#17251c;font-family:Inter,Arial,sans-serif}:global(button),:global(input),:global(select){font:inherit}
   .workspace{min-height:100vh}.topbar{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px clamp(16px,4vw,42px);background:#fff;border-bottom:1px solid #e5ebe6}.brand{display:flex;align-items:center;gap:10px}.brand-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:8px;background:#0a5c37;color:#fff;font-size:18px;font-weight:800}.brand strong,.brand small{display:block}.brand strong{color:#0a5c37;font-size:12px}.brand small{margin-top:4px;color:#819087;font-size:9px}.account{display:flex;align-items:center;gap:14px}.account>div:nth-child(2) strong,.account>div:nth-child(2) small{display:block}.account>div:nth-child(2) strong{font-size:10px}.account>div:nth-child(2) small{margin-top:4px;color:#819087;font-size:9px}.nav-link{color:#0a6841;font-size:10px;font-weight:700;text-decoration:none}
-  .content{max-width:1080px;margin:0 auto;padding:34px 24px}.eyebrow{color:#0a8050;font-size:9px;font-weight:800;letter-spacing:1.2px}h1{margin:8px 0;font-size:26px}.intro{max-width:750px;margin:0 0 24px;color:#718078;font-size:12px;line-height:1.7}
+  .module-content{width:100%;min-width:0}.eyebrow{color:#0a8050;font-size:9px;font-weight:800;letter-spacing:1.2px}h1{margin:8px 0;font-size:26px}.intro{max-width:750px;margin:0 0 24px;color:#718078;font-size:12px;line-height:1.7}
   .mapping-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.mapping-card{padding:20px;border:1px solid #e3ebe5;border-radius:11px;background:#fff}.card-top{display:flex;align-items:center;justify-content:space-between}.group-code{padding:6px 8px;border-radius:6px;background:#edf6ef;color:#0a6841;font-size:9px;font-weight:800}.status{padding:5px 8px;border-radius:14px;background:#e8f5ec;color:#0a6841;font-size:8px;font-weight:800}.status.inactive{background:#f0f2f0;color:#6a776e}.mapping-card h2{margin:14px 0 5px;font-size:15px;color:#1c3928}.mapping-card>p{margin:0;color:#819087;font-size:10px}.course-list{display:flex;flex-wrap:wrap;gap:6px;min-height:40px;margin:17px 0}.course-chip{padding:6px 8px;border:1px solid #e0ece2;border-radius:6px;background:#f7fbf7;color:#3d6048;font-size:9px}.unmapped{color:#9b6a38;font-size:10px;font-style:italic}.card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:13px;border-top:1px solid #edf1ed}.card-footer>span{color:#819087;font-size:9px}.primary-button,.secondary-button{min-height:36px;padding:8px 12px;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer}.primary-button{border:1px solid #0a5c37;background:#0a5c37;color:#fff}.primary-button:disabled{opacity:.45;cursor:not-allowed}.secondary-button{border:1px solid #dce5de;background:#fff;color:#355442}
   .notice{display:grid;gap:6px;padding:15px 17px;margin-top:18px;border-radius:9px;background:#eaf4ed}.notice strong{color:#245c3c;font-size:10px}.notice span{color:#718078;font-size:10px;line-height:1.6}.empty{padding:42px 18px;text-align:center;border:1px solid #e3ebe5;border-radius:11px;background:#fff}.empty h2{margin:8px 0;color:#203b2b;font-size:15px}.empty p{max-width:500px;margin:0 auto;color:#819087;font-size:11px;line-height:1.6}.empty-icon{color:#0a8050;font-size:26px}.message{padding:10px 13px;margin:0 0 12px;border-radius:7px;font-size:10px}.message.error{border:1px solid #efceca;background:#fff3f2;color:#a32920}.message.success{border:1px solid #cce6d3;background:#eef8f0;color:#16633b}
   .modal-layer{position:fixed;inset:0;z-index:80;display:grid;place-items:center;overflow-y:auto;padding:20px}.scrim{position:fixed;inset:0;border:0;background:#071b10a8}.modal{position:relative;width:min(100%,700px);max-height:92vh;overflow-y:auto;padding:22px;border-radius:12px;background:#fff;box-shadow:0 22px 70px #071e1250}.modal-header{display:flex;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid #edf1ed}.modal-header h2{margin:7px 0 4px;font-size:17px}.modal-header p{margin:0;color:#819087;font-size:10px}.close{width:32px;height:32px;border:1px solid #e0e8e1;border-radius:7px;background:#fff;color:#44554a;font-size:20px;cursor:pointer}.summary{display:flex;justify-content:space-between;gap:12px;padding:13px 0;color:#53665a;font-size:10px}.summary span{color:#819087}.tools{display:grid;grid-template-columns:1.4fr 1fr;gap:9px}.tools input,.tools select{width:100%;min-height:38px;padding:8px 10px;border:1px solid #dce5de;border-radius:7px;background:#fff;font-size:10px}.quick-actions{display:flex;justify-content:space-between;padding:9px 0}.quick-actions button{border:0;background:transparent;color:#0a6841;font-size:9px;font-weight:700;cursor:pointer}.quick-actions button:disabled{opacity:.4;cursor:not-allowed}.options{max-height:390px;overflow:auto;border:1px solid #e6ede7;border-radius:8px}.options label{display:flex;align-items:flex-start;gap:10px;padding:11px;border-bottom:1px solid #edf1ed;cursor:pointer}.options label:last-child{border-bottom:0}.options input{margin-top:2px;accent-color:#0a6841}.options label span{display:grid;gap:4px}.options strong{color:#263d30;font-size:10px}.options small{color:#819087;font-size:8px}.actions{display:flex;justify-content:flex-end;gap:8px;padding-top:14px;margin-top:14px;border-top:1px solid #edf1ed}
-  @media(max-width:760px){.content{padding:24px 14px}.mapping-list{grid-template-columns:1fr}.account>div:nth-child(2){display:none}.account{gap:8px}.nav-link{font-size:9px}.tools{grid-template-columns:1fr}.modal-layer{padding:10px}.modal{max-height:96vh;padding:17px}.actions{flex-direction:column-reverse}.actions button{width:100%}}
+  @media(max-width:760px){.module-content{width:100%}.mapping-list{grid-template-columns:1fr}.account>div:nth-child(2){display:none}.account{gap:8px}.nav-link{font-size:9px}.tools{grid-template-columns:1fr}.modal-layer{padding:10px}.modal{max-height:96vh;padding:17px}.actions{flex-direction:column-reverse}.actions button{width:100%}}
 </style>
