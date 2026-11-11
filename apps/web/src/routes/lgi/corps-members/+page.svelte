@@ -41,6 +41,8 @@
   let editingMember = $state<CorpsMemberDetail | null>(null);
   let search = $state('');
   let lgaFilter = $state('all');
+  let serviceYearFilter = $state('all');
+  let batchFilter = $state('all');
   let streamFilter = $state('all');
   let statusFilter = $state('all');
   let errorMessage = $state('');
@@ -65,6 +67,26 @@
     graduationYear: '',
     profileStatus: 'preloaded' as CorpsProfileStatus
   });
+
+  const availableStreamOptions = $derived((references?.streams ?? []).filter((stream) =>
+    stream.isActive && stream.batchIsActive && stream.serviceYearIsActive
+  ));
+  const serviceYearOptions = $derived(
+    [...new Set((references?.streams ?? []).map((stream) => stream.serviceYear))].sort((a, b) => b - a)
+  );
+  const batchOptions = $derived(
+    (references?.streams ?? [])
+      .filter((stream) => serviceYearFilter === 'all' || stream.serviceYear === Number(serviceYearFilter))
+      .filter((stream, index, rows) => rows.findIndex((candidate) => candidate.batchId === stream.batchId) === index)
+  );
+  const formStreamOptions = $derived([
+    ...availableStreamOptions,
+    ...((editingMember && references?.streams.some((stream) =>
+      stream.id === form.streamId && !(stream.isActive && stream.batchIsActive && stream.serviceYearIsActive)
+    ))
+      ? [references.streams.find((stream) => stream.id === form.streamId)!]
+      : [])
+  ]);
 
   const pageStart = $derived(pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1);
   const pageEnd = $derived(Math.min(pagination.page * pagination.pageSize, pagination.total));
@@ -104,6 +126,8 @@
       const result = await listCorpsMembers({
         search: search.trim() || undefined,
         lgaId: lgaFilter === 'all' ? undefined : lgaFilter,
+        serviceYear: serviceYearFilter === 'all' ? undefined : Number(serviceYearFilter),
+        batchId: batchFilter === 'all' ? undefined : batchFilter,
         streamId: streamFilter === 'all' ? undefined : streamFilter,
         profileStatus: statusFilter === 'all' ? undefined : statusFilter as CorpsProfileStatus,
         page,
@@ -347,6 +371,8 @@
   async function clearFilters() {
     search = '';
     lgaFilter = 'all';
+    serviceYearFilter = 'all';
+    batchFilter = 'all';
     streamFilter = 'all';
     statusFilter = 'all';
     await loadMembers(1);
@@ -372,7 +398,8 @@
   }
 
   function streamLabel(stream: CorpsMemberReferenceData['streams'][number]) {
-    return `${stream.serviceYear} · ${stream.batchName} · ${stream.name}`;
+    const available = stream.isActive && stream.batchIsActive && stream.serviceYearIsActive;
+    return `${stream.serviceYear} · ${stream.batchName} · ${stream.name}${available ? '' : ' (historical / inactive)'}`;
   }
 </script>
 
@@ -430,7 +457,9 @@
           <form class="filters" onsubmit={applyFilters}>
             <label class="search-field"><span>Search</span><input bind:value={search} placeholder="Name, state code or call-up number" /></label>
             <label><span>LGA</span><select bind:value={lgaFilter}><option value="all">All assigned LGAs</option>{#each (references?.lgas ?? []) as lga}<option value={lga.id}>{lga.name}, {lga.stateName}</option>{/each}</select></label>
-            <label><span>Batch / Stream</span><select bind:value={streamFilter}><option value="all">All batches and streams</option>{#each (references?.streams ?? []) as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
+            <label><span>Service year</span><select bind:value={serviceYearFilter} onchange={() => { batchFilter = 'all'; streamFilter = 'all'; }}><option value="all">All service years</option>{#each serviceYearOptions as year}<option value={String(year)}>{year}</option>{/each}</select></label>
+            <label><span>Batch</span><select bind:value={batchFilter} onchange={() => (streamFilter = 'all')}><option value="all">All batches</option>{#each batchOptions as batch}<option value={batch.batchId}>{batch.serviceYear} · {batch.batchName}</option>{/each}</select></label>
+            <label><span>Stream</span><select bind:value={streamFilter}><option value="all">All streams</option>{#each (references?.streams ?? []).filter((stream) => (serviceYearFilter === 'all' || stream.serviceYear === Number(serviceYearFilter)) && (batchFilter === 'all' || stream.batchId === batchFilter)) as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
             <label><span>Profile status</span><select bind:value={statusFilter}><option value="all">All statuses</option><option value="preloaded">Preloaded</option><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
             <div class="filter-actions"><button class="filter-button" type="submit" disabled={loadingList}>{loadingList ? 'Loading...' : 'Apply filters'}</button><button class="reset-button" type="button" onclick={clearFilters}>Reset</button></div>
           </form>
@@ -511,7 +540,7 @@
         <div class="form-section-title">Deployment details</div>
         <div class="form-grid">
           <label><span>Assigned LGA *</span><select bind:value={form.lgaId} required>{#each (references?.lgas ?? []) as lga}<option value={lga.id}>{lga.name}, {lga.stateName}</option>{/each}</select></label>
-          <label><span>Batch / Stream *</span><select bind:value={form.streamId} required><option value="">Select batch and stream</option>{#each (references?.streams ?? []) as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select></label>
+          <label><span>Service year / Batch / Stream *</span><select bind:value={form.streamId} required><option value="">Select active service year, batch and stream</option>{#each formStreamOptions as stream}<option value={stream.id}>{streamLabel(stream)}</option>{/each}</select>{#if editingMember && formStreamOptions.some((stream) => stream.id === form.streamId && !(stream.isActive && stream.batchIsActive && stream.serviceYearIsActive))}<small class="historical-stream-note">This is the member's existing historical cohort. It is retained for this record but cannot be selected for new intake.</small>{/if}</label>
           <label><span>Institution</span><select bind:value={form.institutionId}><option value="">Select institution</option>{#each (references?.institutions ?? []) as institution}<option value={institution.id}>{institution.name}{institution.abbreviation ? ` (${institution.abbreviation})` : ''}</option>{/each}</select></label>
           <label><span>Course of study</span><select bind:value={form.courseId}><option value="">Select course</option>{#each (references?.courses ?? []) as course}<option value={course.id}>{course.name}</option>{/each}</select></label>
           <label><span>Qualification</span><input bind:value={form.qualification} maxlength="100" placeholder="e.g. B.Sc." /></label>
@@ -680,5 +709,6 @@
     .pagination > div { width: 100%; }
     .pagination button { flex: 1; }
   }
+  .historical-stream-note { color: #9a5a20; font-size: 9px; font-weight: 500; line-height: 1.5; }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
 </style>
