@@ -110,7 +110,15 @@
   <meta name="description" content="Manage assigned CDS groups and designate group Presidents." />
 </svelte:head>
 
-{#if currentUser}
+{#if loading}
+  <main class="loading-screen"><div class="loader"></div><p>Verifying your account...</p></main>
+{:else if errorMessage && !currentUser}
+  <main class="error-screen">
+    <h2>Access unavailable</h2>
+    <p>{errorMessage}</p>
+    <button type="button" onclick={() => goto('/login')}>Return to login</button>
+  </main>
+{:else if currentUser}
   <CoordinatorLayout activePath="/coordinator" pageTitle="Coordinator Dashboard" userEmail={currentUser.email} onSignOut={signOut}>
     <div class="module-content">
         <section class="welcome">
