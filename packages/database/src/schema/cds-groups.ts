@@ -116,6 +116,12 @@ export const cdsGroupMemberships = pgTable(
     assignedByUserId: uuid('assigned_by_user_id')
       .references(() => users.id, { onDelete: 'set null' }),
 
+    courseMappingOverride: boolean('course_mapping_override')
+      .notNull()
+      .default(false),
+
+    courseMappingOverrideReason: text('course_mapping_override_reason'),
+
     assignedAt: timestamp('assigned_at', {
       withTimezone: true
     }).notNull().defaultNow(),
