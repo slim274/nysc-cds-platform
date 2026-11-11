@@ -309,6 +309,8 @@ export interface CdsGroupMember {
   courseName: string | null;
   profileStatus: string;
   assignedAt: string;
+  courseMappingOverride: boolean;
+  courseMappingOverrideReason: string | null;
 }
 
 export interface CdsGroupEligibleMember {
@@ -331,6 +333,7 @@ export interface CdsGroupRoster {
   group: CdsGroupSummary;
   members: CdsGroupMember[];
   eligibleMembers: CdsGroupEligibleMember[];
+  manualOverrideMembers: CdsGroupEligibleMember[];
 }
 
 export async function getCdsGroupRoster(
@@ -349,11 +352,12 @@ export async function getCdsGroupRoster(
 
 export async function assignCdsGroupMember(
   groupId: string,
-  memberId: string
+  memberId: string,
+  options: { overrideCourseMapping?: boolean; overrideReason?: string } = {}
 ): Promise<void> {
   await request(`/lgi/cds-groups/${encodeURIComponent(groupId)}/members`, {
     method: 'POST',
-    body: JSON.stringify({ memberId })
+    body: JSON.stringify({ memberId, ...options })
   });
 }
 
