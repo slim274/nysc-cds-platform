@@ -14,7 +14,9 @@ import {
   userRoleAssignments
 } from '@nysc/database';
 
-type AttendanceTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];\n\nexport type AttendanceStatus = 'not_marked' | 'present' | 'absent' | 'late' | 'excused';
+type AttendanceTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type AttendanceStatus = 'not_marked' | 'present' | 'absent' | 'late' | 'excused';
 export type MeetingStatus = 'scheduled' | 'attendance_open' | 'submitted' | 'reviewed' | 'cancelled';
 
 export class AttendanceServiceError extends Error {
