@@ -20,7 +20,8 @@
   import type {
     AuthUser,
     LgiDocumentRequirement,
-    LgiDocumentSubmission
+    LgiDocumentSubmission,
+    DocumentRequirementVerificationMode
   } from '#lib/api/client.ts';
 
   let currentUser = $state<AuthUser | null>(null);
@@ -47,6 +48,7 @@
     name: '',
     description: '',
     isRequired: true,
+    verificationMode: 'manual' as DocumentRequirementVerificationMode,
     allowPdf: true,
     allowJpeg: true,
     allowPng: true,
@@ -104,6 +106,7 @@
       name: '',
       description: '',
       isRequired: true,
+      verificationMode: 'manual' as DocumentRequirementVerificationMode,
       allowPdf: true,
       allowJpeg: true,
       allowPng: true,
@@ -119,6 +122,7 @@
       name: requirement.name,
       description: requirement.description ?? '',
       isRequired: requirement.isRequired,
+      verificationMode: requirement.verificationMode ?? 'manual',
       allowPdf: requirement.allowedMimeTypes.includes('application/pdf'),
       allowJpeg: requirement.allowedMimeTypes.includes('image/jpeg'),
       allowPng: requirement.allowedMimeTypes.includes('image/png'),
@@ -148,6 +152,7 @@
         name: form.name,
         description: form.description.trim() || null,
         isRequired: form.isRequired,
+        verificationMode: form.verificationMode,
         allowedMimeTypes,
         maxFileSizeBytes: Math.round(form.maxSizeMb * 1024 * 1024)
       };
@@ -310,10 +315,12 @@
         {#if errorMessage}<div class="message error" role="alert">{errorMessage}</div>{/if}
         {#if noticeMessage}<div class="message success" role="status">{noticeMessage}</div>{/if}
         <div class:mode-ai={verificationMode === 'ai'} class="verification-mode-banner">
-          <strong>{verificationMode === 'manual' ? 'Manual verification active' : 'AI verification active'}</strong>
-          <span>{verificationMode === 'manual'
-            ? (aiConfigured ? 'OpenAI is configured but not being called. Set DOCUMENT_VERIFICATION_MODE=ai in the API environment to enable it.' : 'No paid AI calls are being made. LGI reviews every submitted document manually.')
-            : 'OpenAI document comparison is enabled. Unclear or low-confidence results still require LGI review.'}</span>
+          <strong>{verificationMode === 'ai' ? 'AI service enabled' : 'AI service disabled · Manual fallback active'}</strong>
+          <span>{verificationMode === 'ai'
+            ? 'AI-enabled document requirements will use the provider. AI Auto-Verification can approve high-confidence matches; AI + LGI Approval always waits for a human decision.'
+            : aiConfigured
+              ? 'An API key is configured, but the server-level safety switch is set to manual. AI-selected requirements will be held for LGI review until the API setting is enabled.'
+              : 'AI is not configured on the server. AI-selected requirements will be held for LGI review, and no paid AI calls will be made.'}</span>
         </div>
 
         <section class="intro">
@@ -324,7 +331,7 @@
         <section class="stats">
           <article><span>Enabled requirements</span><strong>{activeCount}</strong></article>
           <article><span>Draft / disabled items</span><strong>{draftCount}</strong></article>
-          <article><span>{verificationMode === 'manual' ? 'Manual review queue' : 'AI exception queue'}</span><strong>{exceptions.length}</strong></article>
+          <article><span>Awaiting LGI review</span><strong>{exceptions.length}</strong></article>
         </section>
 
         <section class="panel">
@@ -339,7 +346,7 @@
                 <article class="requirement-row">
                   <div class="requirement-info">
                     <div class="doc-icon">▤</div>
-                    <div><div class="title-line"><h3>{requirement.name}</h3><span class:optional={!requirement.isRequired} class="requirement-badge">{requirement.isRequired ? 'Mandatory' : 'Optional'}</span></div><p>{requirement.code}{requirement.description ? ` · ${requirement.description}` : ''}</p><small>Accepts {requirement.allowedMimeTypes.replaceAll('application/pdf', 'PDF').replaceAll('image/jpeg', 'JPEG').replaceAll('image/png', 'PNG')} · Max {Math.round(requirement.maxFileSizeBytes / (1024 * 1024))} MB</small></div>
+                    <div><div class="title-line"><h3>{requirement.name}</h3><span class:optional={!requirement.isRequired} class="requirement-badge">{requirement.isRequired ? 'Mandatory' : 'Optional'}</span></div><p>{requirement.code}{requirement.description ? ` · ${requirement.description}` : ''}</p><span class="verification-method-badge">{requirement.verificationMode === 'ai_auto' ? 'AI Auto-Verification' : requirement.verificationMode === 'ai_assisted' ? 'AI + LGI Approval' : 'Manual Only'}</span><small>Accepts {requirement.allowedMimeTypes.replaceAll('application/pdf', 'PDF').replaceAll('image/jpeg', 'JPEG').replaceAll('image/png', 'PNG')} · Max {Math.round(requirement.maxFileSizeBytes / (1024 * 1024))} MB</small></div>
                   </div>
                   <div class="reference-area">
                     {#if requirement.hasReferenceSample}
@@ -365,9 +372,9 @@
         </section>
 
         <section class="panel exceptions-panel">
-          <div class="panel-heading"><div><h2>{verificationMode === 'manual' ? 'Manual document review' : 'AI exception review'}</h2><p>{verificationMode === 'manual' ? 'Manual mode is active: every submitted document waits for LGI review. No OpenAI API calls are made.' : 'AI mode is active: high-confidence matches are approved automatically; unclear submissions wait for LGI review.'}</p></div><span class="queue-badge">{exceptions.length} awaiting review</span></div>
+          <div class="panel-heading"><div><h2>Documents awaiting LGI review</h2><p>Manual-only submissions, AI-assisted submissions, uncertain AI results and AI service failures appear here. AI + LGI Approval documents always require a human decision.</p></div><span class="queue-badge">{exceptions.length} awaiting review</span></div>
           {#if exceptions.length === 0}
-            <div class="empty compact"><h3>No documents awaiting review</h3><p>{verificationMode === 'manual' ? 'New document submissions will appear here for LGI review.' : 'Submissions that the AI cannot confidently assess will appear here.'}</p></div>
+            <div class="empty compact"><h3>No documents awaiting review</h3><p>Manual-only submissions, AI-assisted checks and any uncertain or unavailable AI results will appear here.</p></div>
           {:else}
             <div class="exception-list">
               {#each exceptions as submission (submission.id)}
@@ -396,9 +403,25 @@
         <label><span>Document name *</span><input bind:value={form.name} placeholder="e.g. NYSC Call-up Letter" minlength="3" maxlength="160" required /></label>
         <label><span>Description</span><textarea bind:value={form.description} rows="3" maxlength="2000" placeholder="What should the Corps Member submit?"></textarea></label>
         <label class="check-line"><input type="checkbox" bind:checked={form.isRequired} /><span>Mandatory document (required before CDS matching)</span></label>
+        <label><span>Verification method *</span><select bind:value={form.verificationMode}>
+          <option value="manual">Manual Only — LGI reviews every submission</option>
+          <option value="ai_auto">AI Auto-Verification — AI verifies clear matches</option>
+          <option value="ai_assisted">AI + LGI Approval — AI checks, LGI approves</option>
+        </select></label>
         <fieldset><legend>Accepted file formats *</legend><label class="check-line"><input type="checkbox" bind:checked={form.allowPdf} /><span>PDF</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowJpeg} /><span>JPEG</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowPng} /><span>PNG</span></label></fieldset>
         <label><span>Maximum file size (MB)</span><input type="number" bind:value={form.maxSizeMb} min="1" max="50" required /></label>
-        <div class="info-note">New items are saved as drafts. Upload a reference sample, then enable the requirement to publish it to Corps Members and Coordinators. Mandatory items require a reference sample before they can be enabled. The LGI can publish as many requirements as the LGA's process requires.</div>
+        <div class="info-note">
+          {#if form.verificationMode === 'manual'}
+            Manual Only makes no AI provider calls. Every submission enters the LGI review queue.
+          {:else if verificationMode !== 'ai'}
+            This AI policy will be saved, but AI is currently disabled or not configured on the server. Submissions will safely fall back to the LGI review queue until the server-level AI switch and API key are available.
+          {:else if form.verificationMode === 'ai_auto'}
+            AI checks the uploaded document against the member record and LGI reference sample. High-confidence matches can be verified automatically; uncertain results go to LGI review.
+          {:else}
+            AI assesses the document and provides its recommendation, but every submission must be approved or returned by the LGI before it can count as verified.
+          {/if}
+          New items are saved as drafts. Upload a reference sample, then enable the requirement to publish it. Mandatory items require a reference sample before they can be enabled. The LGI can publish as many requirements as the LGA needs.
+        </div>
         <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : editingRequirement ? 'Save changes' : 'Save as draft'}</button></div>
       </form>
     </section>
@@ -415,6 +438,7 @@
   .verification-mode-banner strong{font-size:11px}
   .verification-mode-banner.mode-ai{border-color:#cfe1ee;background:#eff7fc;color:#245a7b}
   .publication-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:14px;background:#f2f4f2;color:#6d7a70;font-size:8px;font-weight:800;white-space:nowrap}
+  .verification-method-badge{display:inline-flex;align-items:center;padding:5px 8px;margin-top:4px;border-radius:14px;background:#eef4fb;color:#315d80;font-size:8px;font-weight:800;white-space:nowrap}
   .publication-badge.published-badge{background:#e8f6ec;color:#147244}
   .requirement-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .action-button,.remove-button{min-height:31px;padding:7px 9px;border:1px solid #dce5de;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:700;cursor:pointer}
