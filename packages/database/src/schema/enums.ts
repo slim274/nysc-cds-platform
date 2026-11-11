@@ -45,3 +45,9 @@ export const corpsDocumentVerificationStatusEnum = pgEnum('corps_document_verifi
   'needs_resubmission',
   'manual_review'
 ]);
+
+export const cdsLeadershipStatusEnum = pgEnum('cds_leadership_status', [
+  'pending_activation',
+  'active',
+  'ended'
+]);
