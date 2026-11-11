@@ -21,6 +21,8 @@
         await goto('/lgi');
       } else if (session.roles.some((role) => role.code === 'CDS_COORDINATOR')) {
         await goto('/coordinator/handovers');
+      } else if (session.roles.some((role) => role.code === 'CDS_PRESIDENT')) {
+        await goto('/cds-president');
       } else if (session.roles.some((role) => role.code === 'CORPS_MEMBER')) {
         await goto('/corps-member');
       } else {
