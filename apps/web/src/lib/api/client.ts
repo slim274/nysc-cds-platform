@@ -468,6 +468,66 @@ export async function uploadCorpsMemberDocument(
   return data.data;
 }
 
+export interface CoordinatorDocumentChecklist {
+  groups: Array<{
+    groupId: string;
+    groupCode: string;
+    groupName: string;
+    lgaId: string;
+    lgaName: string;
+    stateName: string;
+  }>;
+  requirements: Array<{
+    id: string;
+    lgaId: string;
+    lgaName: string;
+    stateName: string;
+    code: string;
+    name: string;
+    description: string | null;
+    isRequired: boolean;
+    isActive: boolean;
+    allowedMimeTypes: string;
+    maxFileSizeBytes: number;
+    hasReferenceSample: string | null;
+  }>;
+  members: Array<{
+    groupId: string;
+    memberId: string;
+    stateCode: string;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+  }>;
+  memberSubmissions: Array<{
+    groupId: string;
+    groupCode: string;
+    groupName: string;
+    memberId: string;
+    stateCode: string;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    requirementId: string;
+    requirementName: string;
+    isRequired: boolean;
+    fileName: string | null;
+    status: DocumentVerificationStatus | null;
+    confidence: number | null;
+    reason: string | null;
+    submittedAt: string | null;
+    verifiedAt: string | null;
+  }>;
+}
+
+export async function getMyCoordinatorDocuments(): Promise<CoordinatorDocumentChecklist> {
+  const response = await request<{
+    success: boolean;
+    data: CoordinatorDocumentChecklist;
+  }>('/coordinator/documents');
+  return response.data;
+}
+
 export interface LgiDocumentRequirement {
   id: string;
   lgaId: string;
@@ -540,6 +600,18 @@ export async function updateLgiDocumentRequirement(
     method: 'PATCH',
     body: JSON.stringify(input)
   });
+}
+
+export async function removeLgiDocumentRequirement(
+  requirementId: string
+): Promise<{ deleted: boolean; archived: boolean }> {
+  const response = await request<{
+    success: boolean;
+    data: { deleted: boolean; archived: boolean };
+  }>(`/lgi/document-requirements/${encodeURIComponent(requirementId)}`, {
+    method: 'DELETE'
+  });
+  return response.data;
 }
 
 export async function uploadDocumentReferenceSample(
