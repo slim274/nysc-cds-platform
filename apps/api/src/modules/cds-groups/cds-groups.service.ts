@@ -1044,6 +1044,14 @@ export async function endCdsGroupMemberMembership(
       );
     }
 
+    await tx
+      .update(cdsGroups)
+      .set({ whatsappAssistantMemberId: null, updatedAt: new Date() })
+      .where(and(
+        eq(cdsGroups.id, groupId),
+        eq(cdsGroups.whatsappAssistantMemberId, memberId)
+      ));
+
     return { membershipId: ended.id, status: 'ended' as const };
   });
 }

@@ -410,6 +410,7 @@ export interface CorpsMemberPortalData {
     code: string;
     name: string;
     description: string | null;
+    whatsappGroupLink: string | null;
     source: 'automatic' | 'manual';
     assignedAt: string;
   } | null;
@@ -963,6 +964,8 @@ export interface CoordinatorWorkspaceGroup {
   currentMemberCount: number;
   availableCapacity: number;
   president: { memberId: string; name: string; status: string } | null;
+  whatsappGroupLink: string | null;
+  whatsappAssistantMemberId: string | null;
   members: CoordinatorGroupMember[];
 }
 export interface CdsPresidentDesignation {
@@ -1007,6 +1010,16 @@ export interface PresidentWorkspaceGroup {
 export async function getMyCoordinatorGroups(): Promise<CoordinatorWorkspaceGroup[]> {
   const response = await request<{ success: boolean; data: CoordinatorWorkspaceGroup[] }>('/coordinator/groups');
   return response.data;
+}
+
+export async function saveMyCoordinatorWhatsAppGroup(
+  groupId: string,
+  input: { inviteLink: string | null; assistantMemberId: string | null }
+): Promise<void> {
+  await request(`/coordinator/groups/${encodeURIComponent(groupId)}/whatsapp-group`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
 }
 
 export async function listMyCoordinatorPresidents(): Promise<CdsPresidentDesignation[]> {

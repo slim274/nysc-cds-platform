@@ -279,6 +279,14 @@
             {portal.cdsGroup.source === 'automatic' ? 'Automatically matched' : 'LGI placement'}
           </span>
         </div>
+        {#if portal.cdsGroup.whatsappGroupLink}
+          <section class="whatsapp-card">
+            <div><span class="eyebrow">CDS WHATSAPP GROUP</span><strong>Join your CDS group on WhatsApp</strong><p>Connect with verified members and receive group updates. This invitation is available to members assigned to this CDS group.</p></div>
+            <a class="whatsapp-join" href={portal.cdsGroup.whatsappGroupLink} target="_blank" rel="noopener noreferrer">Join WhatsApp Group <span aria-hidden="true">↗</span></a>
+          </section>
+        {:else}
+          <div class="whatsapp-pending"><strong>WhatsApp group link not available yet</strong><span>Your CDS Coordinator has not added an invitation link for this group.</span></div>
+        {/if}
         <div class="contacts-grid">
           <article class="contact-card">
             <span class="contact-icon">C</span>
@@ -407,6 +415,14 @@
   .assignment-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px 0 17px; margin-top: 12px; border-bottom: 1px solid #edf1ed; color: #819087; font-size: 10px; }
   .source-pill { background: #f2f5f3; color: #647268; font-size: 8px; }
   .source-pill.automatic { background: #e8f5ec; color: #0a6841; }
+  .whatsapp-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 17px 18px; margin-top: 18px; border: 1px solid #cfe5d5; border-radius: 10px; background: #f1f8f3; }
+  .whatsapp-card > div { display: grid; gap: 6px; min-width: 0; }
+  .whatsapp-card strong { color: #245c3c; font-size: 12px; }
+  .whatsapp-card p { max-width: 620px; margin: 0; color: #718078; font-size: 10px; line-height: 1.6; }
+  .whatsapp-join { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px 14px; border-radius: 8px; background: #16834d; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
+  .whatsapp-pending { display: grid; gap: 5px; padding: 14px 16px; margin-top: 18px; border: 1px dashed #dce7de; border-radius: 9px; background: #fafcfa; }
+  .whatsapp-pending strong { color: #53665a; font-size: 10px; }
+  .whatsapp-pending span { color: #819087; font-size: 9px; line-height: 1.5; }
   .contacts-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; padding-top: 18px; }
   .contact-card { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e8eee9; border-radius: 10px; background: #fbfdfb; }
   .contact-icon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; background: #e8f4ec; color: #0a6841; font-size: 12px; font-weight: 800; }
@@ -514,4 +530,5 @@
     .modal-actions button { width: 100%; }
   }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
+  @media (max-width: 560px) { .whatsapp-card { align-items: stretch; flex-direction: column; } .whatsapp-join { width: 100%; } }
 </style>

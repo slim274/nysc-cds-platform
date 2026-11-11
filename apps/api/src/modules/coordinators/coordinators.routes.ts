@@ -18,6 +18,7 @@ import {
   listMyCoordinatorPresidents,
   designateCdsPresident,
   listMyPresidentGroups,
+  updateMyCoordinatorWhatsAppGroup,
   CoordinatorServiceError
 } from './coordinators.service';
 
@@ -209,6 +210,22 @@ const coordinatorCourseMappingSchema = z.object({
 
 
 // Coordinator workspace and leadership designation.
+const whatsappInviteLinkSchema = z.string()
+  .trim()
+  .max(500)
+  .url()
+  .refine((value) => {
+    const url = new URL(value);
+    return url.protocol === 'https:' &&
+      url.hostname === 'chat.whatsapp.com' &&
+      url.pathname.length > 1;
+  }, 'Enter a valid HTTPS WhatsApp group invite link.');
+
+const coordinatorWhatsAppGroupSchema = z.object({
+  inviteLink: whatsappInviteLinkSchema.nullable(),
+  assistantMemberId: z.string().uuid().nullable()
+});
+
 const presidentDesignationSchema = z.object({
   memberId: z.string().uuid(),
   replaceExisting: z.boolean().default(false),
@@ -222,6 +239,32 @@ coordinatorSelfServiceRoutes.get('/groups', async (c) => {
   try {
     const data = await listMyCoordinatorGroups(c.get('authUser').id);
     return c.json({ success: true, data });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorSelfServiceRoutes.patch('/groups/:groupId/whatsapp-group', async (c) => {
+  const groupId = coordinatorIdSchema.safeParse(c.req.param('groupId'));
+  const body = await c.req.json().catch(() => null);
+  const validation = coordinatorWhatsAppGroupSchema.safeParse(body);
+
+  if (!groupId.success || !validation.success) {
+    return c.json({
+      success: false,
+      message: 'Provide a valid WhatsApp invite link and active CDS group member.',
+      errors: validation.success ? undefined : validation.error.issues
+    }, 400);
+  }
+
+  try {
+    const data = await updateMyCoordinatorWhatsAppGroup(
+      c.get('authUser').id,
+      groupId.data,
+      validation.data.inviteLink,
+      validation.data.assistantMemberId
+    );
+    return c.json({ success: true, message: 'WhatsApp group settings saved.', data });
   } catch (error) {
     return handleCoordinatorError(c, error);
   }

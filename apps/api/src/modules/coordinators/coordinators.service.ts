@@ -1485,6 +1485,8 @@ export async function listMyCoordinatorGroups(userId: string) {
       code: cdsGroups.code,
       name: cdsGroups.name,
       description: cdsGroups.description,
+      whatsappGroupLink: cdsGroups.whatsappGroupLink,
+      whatsappAssistantMemberId: cdsGroups.whatsappAssistantMemberId,
       isActive: cdsGroups.isActive,
       maxCapacity: cdsGroups.maxCapacity,
       lgaId: cdsGroups.lgaId,
@@ -1562,6 +1564,84 @@ export async function listMyCoordinatorGroups(userId: string) {
       } : null,
       members
     };
+  });
+}
+
+export async function updateMyCoordinatorWhatsAppGroup(
+  userId: string,
+  groupId: string,
+  inviteLink: string | null,
+  assistantMemberId: string | null
+) {
+  return db.transaction(async (tx) => {
+    const [groupAssignment] = await tx
+      .select({ groupId: cdsGroups.id })
+      .from(userRoleAssignments)
+      .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+      .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+      .where(and(
+        eq(userRoleAssignments.userId, userId),
+        eq(userRoleAssignments.cdsGroupId, groupId),
+        eq(userRoleAssignments.isActive, true),
+        eq(roles.code, 'CDS_COORDINATOR'),
+        eq(cdsGroups.isActive, true)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!groupAssignment) {
+      throw new CoordinatorServiceError(
+        'You can only manage WhatsApp settings for an active CDS group assigned to you.',
+        403,
+        'COORDINATOR_GROUP_SCOPE_FORBIDDEN'
+      );
+    }
+
+    if (assistantMemberId) {
+      const [membership] = await tx
+        .select({ memberId: corpsMembers.id })
+        .from(cdsGroupMemberships)
+        .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+        .where(and(
+          eq(cdsGroupMemberships.cdsGroupId, groupId),
+          eq(cdsGroupMemberships.corpsMemberId, assistantMemberId),
+          eq(cdsGroupMemberships.status, 'active')
+        ))
+        .for('update')
+        .limit(1);
+
+      if (!membership) {
+        throw new CoordinatorServiceError(
+          'The WhatsApp assistant must be an active member of this CDS group.',
+          400,
+          'WHATSAPP_ASSISTANT_NOT_IN_GROUP'
+        );
+      }
+    }
+
+    const [updated] = await tx
+      .update(cdsGroups)
+      .set({
+        whatsappGroupLink: inviteLink,
+        whatsappAssistantMemberId: assistantMemberId,
+        updatedAt: new Date()
+      })
+      .where(eq(cdsGroups.id, groupId))
+      .returning({
+        groupId: cdsGroups.id,
+        inviteLink: cdsGroups.whatsappGroupLink,
+        assistantMemberId: cdsGroups.whatsappAssistantMemberId
+      });
+
+    if (!updated) {
+      throw new CoordinatorServiceError(
+        'The CDS group WhatsApp settings could not be saved.',
+        500,
+        'WHATSAPP_SETTINGS_SAVE_FAILED'
+      );
+    }
+
+    return updated;
   });
 }
 
