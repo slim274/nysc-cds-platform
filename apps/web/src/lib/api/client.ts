@@ -1130,17 +1130,59 @@ export interface CorpsMemberDetail {
   updatedAt: string;
 }
 
+export interface NyscStreamRecord {
+  id: string; batchId: string; code: string; name: string; isActive: boolean; memberCount: number;
+}
+export interface NyscBatchRecord {
+  id: string; serviceYearId: string; code: string; name: string; isActive: boolean; memberCount: number; streams: NyscStreamRecord[];
+}
+export interface NyscServiceYearRecord {
+  id: string; year: number; startDate: string | null; endDate: string | null; isActive: boolean; memberCount: number; batches: NyscBatchRecord[];
+}
+
+export async function listNyscCohorts(): Promise<NyscServiceYearRecord[]> {
+  const response = await request<{ success: boolean; data: NyscServiceYearRecord[] }>('/lgi/batches-streams');
+  return response.data;
+}
+
+export async function createServiceYear(input: { year: number; startDate?: string | null; endDate?: string | null; isActive?: boolean }): Promise<void> {
+  await request('/lgi/service-years', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function updateServiceYear(id: string, input: { year?: number; startDate?: string | null; endDate?: string | null; isActive?: boolean }): Promise<void> {
+  await request(`/lgi/service-years/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export async function createNyscBatch(serviceYearId: string, input: { code: string; name: string; isActive?: boolean }): Promise<void> {
+  await request(`/lgi/service-years/${encodeURIComponent(serviceYearId)}/batches`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function updateNyscBatch(id: string, input: { code?: string; name?: string; isActive?: boolean }): Promise<void> {
+  await request(`/lgi/batches/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export async function createNyscStream(batchId: string, input: { code: string; name: string; isActive?: boolean }): Promise<void> {
+  await request(`/lgi/batches/${encodeURIComponent(batchId)}/streams`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function updateNyscStream(id: string, input: { code?: string; name?: string; isActive?: boolean }): Promise<void> {
+  await request(`/lgi/streams/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
 export interface CorpsMemberReferenceData {
   lgas: Array<{ id: string; name: string; stateName: string }>;
   streams: Array<{
     id: string;
     code: string;
     name: string;
+    isActive: boolean;
     batchId: string;
     batchCode: string;
     batchName: string;
+    batchIsActive: boolean;
     serviceYearId: string;
     serviceYear: number;
+    serviceYearIsActive: boolean;
   }>;
   institutions: Array<{ id: string; name: string; abbreviation: string | null }>;
   courses: Array<{ id: string; name: string; disciplineCategory: string }>;
@@ -1174,6 +1216,8 @@ export async function listCorpsMembers(filters: {
   search?: string;
   lgaId?: string;
   streamId?: string;
+  batchId?: string;
+  serviceYear?: number;
   profileStatus?: CorpsProfileStatus;
   page?: number;
   pageSize?: number;
@@ -1185,6 +1229,8 @@ export async function listCorpsMembers(filters: {
   if (filters.search) query.set('search', filters.search);
   if (filters.lgaId) query.set('lgaId', filters.lgaId);
   if (filters.streamId) query.set('streamId', filters.streamId);
+  if (filters.batchId) query.set('batchId', filters.batchId);
+  if (filters.serviceYear !== undefined) query.set('serviceYear', String(filters.serviceYear));
   if (filters.profileStatus) query.set('profileStatus', filters.profileStatus);
   query.set('page', String(filters.page ?? 1));
   query.set('pageSize', String(filters.pageSize ?? 20));
@@ -1236,12 +1282,16 @@ export async function downloadCorpsMembersCsv(filters: {
   search?: string;
   lgaId?: string;
   streamId?: string;
+  batchId?: string;
+  serviceYear?: number;
   profileStatus?: CorpsProfileStatus;
 } = {}): Promise<Blob> {
   const query = new URLSearchParams();
   if (filters.search) query.set('search', filters.search);
   if (filters.lgaId) query.set('lgaId', filters.lgaId);
   if (filters.streamId) query.set('streamId', filters.streamId);
+  if (filters.batchId) query.set('batchId', filters.batchId);
+  if (filters.serviceYear !== undefined) query.set('serviceYear', String(filters.serviceYear));
   if (filters.profileStatus) query.set('profileStatus', filters.profileStatus);
 
   const response = await fetch(`/api/lgi/corps-members/export?${query.toString()}`, {
