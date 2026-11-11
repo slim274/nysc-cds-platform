@@ -7,6 +7,7 @@
     getCurrentUser,
     getMyCoordinatorGroups,
     listMyCoordinatorPresidents,
+    designateCdsPresident,
     logout
   } from '#lib/api/client.ts';
   import type {
@@ -276,7 +277,7 @@
   {@const replacementGroup = groupById.get(replacingPresident.groupId)}
   <div class="modal-layer">
     <button class="modal-scrim" type="button" aria-label="Close change President dialog" onclick={closeReplacement}></button>
-    <section class="replacement-modal" role="dialog" aria-modal="true" aria-labelledby="replacement-title">
+    <div class="replacement-modal" role="dialog" aria-modal="true" aria-labelledby="replacement-title">
       <header class="modal-heading">
         <div>
           <span class="eyebrow">LEADERSHIP CHANGE</span>
@@ -319,7 +320,7 @@
           </button>
         </div>
       </form>
-    </section>
+    </div>
   </div>
 {/if}
 
