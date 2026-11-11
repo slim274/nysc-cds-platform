@@ -14,7 +14,9 @@ import {
   corpsMemberOtpChallenges,
   users,
   roles,
-  userRoleAssignments
+  userRoleAssignments,
+  cdsGroupLeadershipAssignments,
+  cdsGroups
 } from '@nysc/database';
 
 import { hashPassword } from '../utils/password';
@@ -419,6 +421,46 @@ export async function registerCorpsMemberAccount(
       lgaId: null,
       cdsGroupId: null
     });
+
+    // A member designated as President before account activation keeps the
+    // same Corps Member identity. Promote that account into the scoped
+    // President role as part of registration instead of creating another user.
+    const [pendingLeadership] = await tx
+      .select({
+        id: cdsGroupLeadershipAssignments.id,
+        groupId: cdsGroupLeadershipAssignments.cdsGroupId,
+        lgaId: cdsGroups.lgaId
+      })
+      .from(cdsGroupLeadershipAssignments)
+      .innerJoin(cdsGroups, eq(cdsGroupLeadershipAssignments.cdsGroupId, cdsGroups.id))
+      .where(and(
+        eq(cdsGroupLeadershipAssignments.corpsMemberId, member.id),
+        eq(cdsGroupLeadershipAssignments.status, 'pending_activation'),
+        eq(cdsGroups.isActive, true)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (pendingLeadership) {
+      const [presidentRole] = await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.code, 'CDS_PRESIDENT'))
+        .limit(1);
+
+      if (!presidentRole) throw new Error('REGISTRATION_PRESIDENT_ROLE_MISSING');
+
+      await tx.insert(userRoleAssignments).values({
+        userId: user.id,
+        roleId: presidentRole.id,
+        lgaId: pendingLeadership.lgaId,
+        cdsGroupId: pendingLeadership.groupId
+      });
+
+      await tx.update(cdsGroupLeadershipAssignments)
+        .set({ userId: user.id, status: 'active' })
+        .where(eq(cdsGroupLeadershipAssignments.id, pendingLeadership.id));
+    }
 
     await tx.update(corpsMemberOtpChallenges)
       .set({ consumedAt: now, updatedAt: now })
