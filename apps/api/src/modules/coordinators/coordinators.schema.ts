@@ -32,7 +32,9 @@ export const createCoordinatorSchema = z.object({
 });
 
 export const updateCoordinatorSchema = z.object({
-  groupIds: groupIdsSchema.optional(),
+  // An empty list releases all group assignments and returns the Coordinator
+  // to an unassigned/standby state while preserving historical rows.
+  groupIds: optionalGroupIdsSchema.optional(),
   isEnabled: z.boolean().optional()
 }).refine((input) => Object.keys(input).length > 0, {
   message: 'Provide group assignments or an account status change.'
