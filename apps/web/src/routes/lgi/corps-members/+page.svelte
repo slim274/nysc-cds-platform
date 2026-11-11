@@ -196,7 +196,7 @@
       dateOfBirth: '',
       gender: '',
       lgaId: references?.lgas[0]?.id ?? '',
-      streamId: references?.streams[0]?.id ?? '',
+      streamId: availableStreamOptions[0]?.id ?? '',
       institutionId: '',
       courseId: '',
       qualification: '',
