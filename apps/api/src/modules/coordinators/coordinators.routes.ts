@@ -9,6 +9,7 @@ import {
   listLgiCoordinatorHandovers,
   createCoordinatorHandover,
   listMyCoordinatorHandovers,
+  listMyCoordinatorDocuments,
   listMyCoordinatorCourseMappings,
   updateMyCoordinatorCourseMapping,
   acceptCoordinatorHandover,
@@ -233,6 +234,15 @@ coordinatorSelfServiceRoutes.patch('/course-mappings/:groupId', async (c) => {
       message: 'Course mapping updated for your assigned CDS group.',
       data
     });
+  } catch (error) {
+    return handleCoordinatorError(c, error);
+  }
+});
+
+coordinatorSelfServiceRoutes.get('/documents', async (c) => {
+  try {
+    const data = await listMyCoordinatorDocuments(c.get('authUser').id);
+    return c.json({ success: true, data });
   } catch (error) {
     return handleCoordinatorError(c, error);
   }
