@@ -14,6 +14,10 @@ import {
   userRoleAssignments,
   cdsGroups,
   cdsGroupCourses,
+  cdsGroupMemberships,
+  corpsMembers,
+  corpsMemberDocumentRequirements,
+  corpsMemberDocumentSubmissions,
   courses,
   lgas,
   authTokens,
@@ -1002,6 +1006,125 @@ export async function updateMyCoordinatorCourseMapping(
 
     return { groupId, mappedCourseCount: courseIds.length };
   });
+}
+
+export async function listMyCoordinatorDocuments(userId: string) {
+  const assignments = await db
+    .select({
+      groupId: cdsGroups.id,
+      groupCode: cdsGroups.code,
+      groupName: cdsGroups.name,
+      lgaId: cdsGroups.lgaId,
+      lgaName: lgas.name,
+      stateName: lgas.stateName
+    })
+    .from(userRoleAssignments)
+    .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+    .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+    .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
+    .where(and(
+      eq(userRoleAssignments.userId, userId),
+      eq(userRoleAssignments.isActive, true),
+      eq(roles.code, 'CDS_COORDINATOR')
+    ))
+    .orderBy(asc(cdsGroups.name));
+
+  const groupIds = [...new Set(assignments.map((item) => item.groupId))];
+  const lgaIds = [...new Set(assignments.map((item) => item.lgaId))];
+  if (groupIds.length === 0) {
+    return { groups: [], requirements: [], memberSubmissions: [] };
+  }
+
+  const [requirements, members, submissions] = await Promise.all([
+    db
+      .select({
+        id: corpsMemberDocumentRequirements.id,
+        lgaId: corpsMemberDocumentRequirements.lgaId,
+        lgaName: lgas.name,
+        stateName: lgas.stateName,
+        code: corpsMemberDocumentRequirements.code,
+        name: corpsMemberDocumentRequirements.name,
+        description: corpsMemberDocumentRequirements.description,
+        isRequired: corpsMemberDocumentRequirements.isRequired,
+        isActive: corpsMemberDocumentRequirements.isActive,
+        allowedMimeTypes: corpsMemberDocumentRequirements.allowedMimeTypes,
+        maxFileSizeBytes: corpsMemberDocumentRequirements.maxFileSizeBytes,
+        hasReferenceSample: corpsMemberDocumentRequirements.referenceObjectKey
+      })
+      .from(corpsMemberDocumentRequirements)
+      .innerJoin(lgas, eq(corpsMemberDocumentRequirements.lgaId, lgas.id))
+      .where(and(
+        inArray(corpsMemberDocumentRequirements.lgaId, lgaIds),
+        eq(corpsMemberDocumentRequirements.isActive, true)
+      ))
+      .orderBy(asc(lgas.name), asc(corpsMemberDocumentRequirements.name)),
+    db
+      .select({
+        groupId: cdsGroupMemberships.cdsGroupId,
+        memberId: corpsMembers.id,
+        stateCode: corpsMembers.stateCode,
+        firstName: corpsMembers.firstName,
+        middleName: corpsMembers.middleName,
+        lastName: corpsMembers.lastName
+      })
+      .from(cdsGroupMemberships)
+      .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+      .where(and(
+        inArray(cdsGroupMemberships.cdsGroupId, groupIds),
+        eq(cdsGroupMemberships.status, 'active')
+      )),
+    db
+      .select({
+        groupId: cdsGroupMemberships.cdsGroupId,
+        groupCode: cdsGroups.code,
+        groupName: cdsGroups.name,
+        memberId: corpsMembers.id,
+        stateCode: corpsMembers.stateCode,
+        firstName: corpsMembers.firstName,
+        middleName: corpsMembers.middleName,
+        lastName: corpsMembers.lastName,
+        requirementId: corpsMemberDocumentRequirements.id,
+        requirementName: corpsMemberDocumentRequirements.name,
+        isRequired: corpsMemberDocumentRequirements.isRequired,
+        fileName: corpsMemberDocumentSubmissions.originalFileName,
+        status: corpsMemberDocumentSubmissions.status,
+        confidence: corpsMemberDocumentSubmissions.verificationConfidence,
+        reason: corpsMemberDocumentSubmissions.verificationReason,
+        submittedAt: corpsMemberDocumentSubmissions.submittedAt,
+        verifiedAt: corpsMemberDocumentSubmissions.verifiedAt
+      })
+      .from(cdsGroupMemberships)
+      .innerJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+      .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+      .innerJoin(corpsMemberDocumentRequirements, eq(corpsMemberDocumentRequirements.lgaId, cdsGroups.lgaId))
+      .leftJoin(
+        corpsMemberDocumentSubmissions,
+        and(
+          eq(corpsMemberDocumentSubmissions.requirementId, corpsMemberDocumentRequirements.id),
+          eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMembers.id)
+        )
+      )
+      .where(and(
+        inArray(cdsGroupMemberships.cdsGroupId, groupIds),
+        eq(cdsGroupMemberships.status, 'active'),
+        eq(corpsMemberDocumentRequirements.isActive, true)
+      ))
+      .orderBy(asc(cdsGroups.name), asc(corpsMembers.lastName), asc(corpsMembers.firstName), desc(corpsMemberDocumentSubmissions.submittedAt))
+  ]);
+
+  // Keep the latest submission for each member/document requirement pair.
+  const latest = new Map<string, typeof submissions[number]>();
+  for (const item of submissions) {
+    const key = `${item.memberId}:${item.requirementId}`;
+    if (!latest.has(key)) latest.set(key, item);
+  }
+
+  return {
+    groups: assignments,
+    requirements,
+    members,
+    memberSubmissions: [...latest.values()]
+  };
 }
 
 export async function listMyCoordinatorHandovers(coordinatorId: string) {
