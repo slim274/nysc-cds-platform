@@ -51,7 +51,6 @@
   });
 
   const activeCount = $derived(requirements.filter((item) => item.isActive).length);
-  const requiredCount = $derived(requirements.filter((item) => item.isActive && item.isRequired).length);
   const draftCount = $derived(requirements.filter((item) => !item.isActive).length);
   const remainingSlots = $derived(Math.max(0, 5 - activeCount));
 
@@ -315,8 +314,8 @@
 
         <section class="stats">
           <article><span>Enabled requirements</span><strong>{activeCount} / 5</strong></article>
+          <article><span>Available publication slots</span><strong>{remainingSlots}</strong></article>
           <article><span>Draft / disabled items</span><strong>{draftCount}</strong></article>
-          <article><span>AI exception queue</span><strong>{exceptions.length}</strong></article>
         </section>
 
         <section class="panel">
