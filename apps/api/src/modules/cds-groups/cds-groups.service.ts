@@ -6,6 +6,7 @@ import {
   eq,
   ilike,
   inArray,
+  isNotNull,
   ne,
   notExists,
   or
@@ -158,6 +159,67 @@ export async function listCdsGroups(
     currentMemberCount: countByGroup.get(row.id) ?? 0,
     availableCapacity: row.maxCapacity - (countByGroup.get(row.id) ?? 0)
   }));
+}
+
+export async function listPendingCdsGroupDeclines(
+  lgaIds: string[],
+  selectedLgaId?: string
+) {
+  assertLgaScope(lgaIds);
+  if (selectedLgaId && !lgaIds.includes(selectedLgaId)) {
+    throw new CdsGroupServiceError(
+      'You do not have access to the selected LGA.',
+      403,
+      'LGI_LGA_SCOPE_FORBIDDEN'
+    );
+  }
+
+  const scopedLgas = selectedLgaId ? [selectedLgaId] : lgaIds;
+  const rows = await db
+    .select({
+      membershipId: cdsGroupMemberships.id,
+      memberId: corpsMembers.id,
+      stateCode: corpsMembers.stateCode,
+      firstName: corpsMembers.firstName,
+      middleName: corpsMembers.middleName,
+      lastName: corpsMembers.lastName,
+      courseName: courses.name,
+      groupId: cdsGroups.id,
+      groupCode: cdsGroups.code,
+      groupName: cdsGroups.name,
+      reason: cdsGroupMemberships.declineReason,
+      notes: cdsGroupMemberships.declineNotes,
+      declinedAt: cdsGroupMemberships.declinedAt
+    })
+    .from(cdsGroupMemberships)
+    .innerJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+    .innerJoin(corpsMembers, eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id))
+    .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+    .where(and(
+      inArray(cdsGroups.lgaId, scopedLgas),
+      eq(cdsGroupMemberships.status, 'cancelled'),
+      isNotNull(cdsGroupMemberships.declinedAt),
+      notExists(
+        db
+          .select({ id: cdsGroupMemberships.id })
+          .from(cdsGroupMemberships)
+          .where(and(
+            eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id),
+            eq(cdsGroupMemberships.status, 'active')
+          ))
+      )
+    ))
+    .orderBy(desc(cdsGroupMemberships.declinedAt))
+    .limit(500);
+
+  const latestDeclineByMember = new Map<string, typeof rows[number]>();
+  for (const row of rows) {
+    if (!latestDeclineByMember.has(row.memberId)) {
+      latestDeclineByMember.set(row.memberId, row);
+    }
+  }
+
+  return [...latestDeclineByMember.values()];
 }
 
 export async function getCdsGroup(
