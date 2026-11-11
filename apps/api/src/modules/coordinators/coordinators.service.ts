@@ -465,7 +465,10 @@ export async function updateCoordinator(
 
     const roleId = await getCoordinatorRoleId(tx);
     const scopedAssignments = await tx
-      .select({ id: userRoleAssignments.id })
+      .select({
+        id: userRoleAssignments.id,
+        lgaId: userRoleAssignments.lgaId
+      })
       .from(userRoleAssignments)
       .where(and(
         eq(userRoleAssignments.userId, coordinatorId),
@@ -582,6 +585,38 @@ export async function updateCoordinator(
       }
     }
 
+      if (groups.length === 0) {
+        // Preserve a login-capable LGA-scoped standby role after the final
+        // group is released. The historical group rows remain inactive.
+        const standbyLgaIds = [...new Set(
+          scopedAssignments.map((assignment) => assignment.lgaId).filter((id): id is string => Boolean(id))
+        )];
+        for (const standbyLgaId of standbyLgaIds) {
+          const [standby] = await tx
+            .select({ id: userRoleAssignments.id })
+            .from(userRoleAssignments)
+            .where(and(
+              eq(userRoleAssignments.userId, coordinatorId),
+              eq(userRoleAssignments.roleId, roleId),
+              eq(userRoleAssignments.lgaId, standbyLgaId),
+              isNull(userRoleAssignments.cdsGroupId)
+            ))
+            .limit(1);
+          if (standby) {
+            await tx.update(userRoleAssignments)
+              .set({ isActive: true })
+              .where(eq(userRoleAssignments.id, standby.id));
+          } else {
+            await tx.insert(userRoleAssignments).values({
+              userId: coordinatorId,
+              roleId,
+              lgaId: standbyLgaId,
+              cdsGroupId: null
+            });
+          }
+        }
+      }
+
     if (input.isEnabled === false && user.status !== 'disabled') {
       if (user.status === 'suspended') {
         throw new CoordinatorServiceError(
@@ -623,6 +658,38 @@ export async function updateCoordinator(
           updatedAt: new Date()
         })
         .where(eq(users.id, coordinatorId));
+
+      // Reactivation restores scoped standby access only. The LGI must
+      // explicitly assign any CDS groups again to avoid reclaiming a group.
+      if (user.passwordHash) {
+        const standbyLgaIds = [...new Set(
+          scopedAssignments.map((assignment) => assignment.lgaId).filter((id): id is string => Boolean(id))
+        )];
+        for (const standbyLgaId of standbyLgaIds) {
+          const [standby] = await tx
+            .select({ id: userRoleAssignments.id })
+            .from(userRoleAssignments)
+            .where(and(
+              eq(userRoleAssignments.userId, coordinatorId),
+              eq(userRoleAssignments.roleId, roleId),
+              eq(userRoleAssignments.lgaId, standbyLgaId),
+              isNull(userRoleAssignments.cdsGroupId)
+            ))
+            .limit(1);
+          if (standby) {
+            await tx.update(userRoleAssignments)
+              .set({ isActive: true })
+              .where(eq(userRoleAssignments.id, standby.id));
+          } else {
+            await tx.insert(userRoleAssignments).values({
+              userId: coordinatorId,
+              roleId,
+              lgaId: standbyLgaId,
+              cdsGroupId: null
+            });
+          }
+        }
+      }
     }
 
     return {
