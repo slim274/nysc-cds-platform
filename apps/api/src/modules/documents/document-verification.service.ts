@@ -222,10 +222,15 @@ async function verifyDocumentWithAi(input: {
     graduationYear: number | null;
   };
 }): Promise<VerificationOutcome> {
+  const configuredMode = (Bun.env.DOCUMENT_VERIFICATION_MODE ?? 'manual').trim().toLowerCase();
+  if (configuredMode !== 'ai') {
+    return manualReview('Manual verification mode is active. Your document is awaiting review by your LGI.');
+  }
+
   const apiKey = Bun.env.OPENAI_API_KEY;
   const model = Bun.env.DOCUMENT_VERIFICATION_MODEL ?? 'gpt-4.1-mini';
   if (!apiKey) {
-    return manualReview('AI document verification is not configured. Set OPENAI_API_KEY to enable automatic checks.');
+    return manualReview('AI mode is selected but OPENAI_API_KEY is not configured. Your document is awaiting manual review by your LGI.');
   }
 
   const memberReference = {
