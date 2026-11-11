@@ -166,7 +166,7 @@
                   <select id="president-{group.id}" bind:value={selectedMembers[group.id]} disabled={!group.isActive || group.members.length === 0}>
                     <option value="">Choose an active group member</option>
                     {#each group.members as member (member.memberId)}
-                      <option value={member.memberId}>{memberName(member)} · {member.stateCode}</option>
+                      <option value={member.memberId} disabled={member.memberId === group.president?.memberId}>{memberName(member)} · {member.stateCode}{member.memberId === group.president?.memberId ? ' · Current President' : ''}</option>
                     {/each}
                   </select>
                   <button class="primary-button" type="button" onclick={() => void assignPresident(group)} disabled={!group.isActive || !selectedMembers[group.id] || savingGroupId === group.id}>{savingGroupId === group.id ? 'Saving…' : group.president ? 'Replace President' : 'Designate President'}</button>
