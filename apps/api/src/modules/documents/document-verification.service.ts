@@ -201,6 +201,12 @@ function manualReview(reason: string): VerificationOutcome {
   };
 }
 
+export function getDocumentVerificationMode(): 'manual' | 'ai' {
+  return (Bun.env.DOCUMENT_VERIFICATION_MODE ?? 'manual').trim().toLowerCase() === 'ai'
+    ? 'ai'
+    : 'manual';
+}
+
 async function verifyDocumentWithAi(input: {
   bytes: Uint8Array;
   fileName: string;
