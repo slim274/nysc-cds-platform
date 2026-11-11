@@ -127,7 +127,7 @@
               <button class="primary submit" type="button" onclick={submit} disabled={saving || selected.attendance.some((r) => r.status === 'not_marked')}>{saving ? 'Submitting…' : 'Submit attendance to Coordinator'}</button>
             {:else if selected.status === 'submitted'}
               <div class="message success">Attendance submitted. It is locked while awaiting Coordinator review.</div>
-              <AttendanceSummary {selected} />
+              {@render AttendanceSummary(selected)}
             {:else if selected.status === 'reviewed'}
               <div class="message success">Your Coordinator approved this attendance register. It is now locked.</div>
               <AttendanceSummary {selected} />
