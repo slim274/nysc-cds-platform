@@ -4,9 +4,11 @@ import { basename, join, resolve } from 'node:path';
 import {
   and,
   asc,
+  count,
   desc,
   eq,
-  inArray
+  inArray,
+  ne
 } from 'drizzle-orm';
 
 import {
@@ -440,19 +442,47 @@ export async function createDocumentRequirement(
   if (!lgaIds.includes(input.lgaId)) {
     throw new DocumentWorkflowError('You can only configure documents for your assigned LGA(s).', 403, 'DOCUMENT_LGA_FORBIDDEN');
   }
-  const [created] = await db.insert(corpsMemberDocumentRequirements).values({
-    lgaId: input.lgaId,
-    code: input.code.trim().toUpperCase(),
-    name: input.name.trim(),
-    description: input.description?.trim() || null,
-    isRequired: input.isRequired,
-    allowedMimeTypes: input.allowedMimeTypes.join(','),
-    maxFileSizeBytes: input.maxFileSizeBytes,
-    isActive: input.isActive ?? true,
-    createdByUserId: actorUserId
-  }).returning({ id: corpsMemberDocumentRequirements.id });
-  if (!created) throw new Error('DOCUMENT_REQUIREMENT_CREATE_FAILED');
-  return created;
+  return db.transaction(async (tx) => {
+    // Lock the LGA row so concurrent LGI requests cannot exceed five
+    // simultaneously published requirements.
+    await tx.select({ id: lgas.id })
+      .from(lgas)
+      .where(eq(lgas.id, input.lgaId))
+      .for('update')
+      .limit(1);
+
+    const publish = input.isActive ?? false;
+    if (publish) {
+      const [activeCount] = await tx
+        .select({ value: count() })
+        .from(corpsMemberDocumentRequirements)
+        .where(and(
+          eq(corpsMemberDocumentRequirements.lgaId, input.lgaId),
+          eq(corpsMemberDocumentRequirements.isActive, true)
+        ));
+      if (Number(activeCount?.value ?? 0) >= 5) {
+        throw new DocumentWorkflowError(
+          'An LGA can have at most five active document requirements. Disable one before publishing another.',
+          409,
+          'DOCUMENT_REQUIREMENT_ACTIVE_LIMIT'
+        );
+      }
+    }
+
+    const [created] = await tx.insert(corpsMemberDocumentRequirements).values({
+      lgaId: input.lgaId,
+      code: input.code.trim().toUpperCase(),
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      isRequired: input.isRequired,
+      allowedMimeTypes: input.allowedMimeTypes.join(','),
+      maxFileSizeBytes: input.maxFileSizeBytes,
+      isActive: publish,
+      createdByUserId: actorUserId
+    }).returning({ id: corpsMemberDocumentRequirements.id });
+    if (!created) throw new Error('DOCUMENT_REQUIREMENT_CREATE_FAILED');
+    return created;
+  });
 }
 
 export async function updateDocumentRequirement(
@@ -461,32 +491,127 @@ export async function updateDocumentRequirement(
   lgaIds: string[]
 ) {
   assertLgaScope(lgaIds);
-  const [existing] = await db
-    .select({ id: corpsMemberDocumentRequirements.id })
-    .from(corpsMemberDocumentRequirements)
-    .where(and(
-      eq(corpsMemberDocumentRequirements.id, requirementId),
-      inArray(corpsMemberDocumentRequirements.lgaId, lgaIds)
-    ))
-    .limit(1);
-  if (!existing) {
-    throw new DocumentWorkflowError('Document requirement not found in your assigned LGA(s).', 404, 'DOCUMENT_REQUIREMENT_NOT_FOUND');
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({
+        id: corpsMemberDocumentRequirements.id,
+        lgaId: corpsMemberDocumentRequirements.lgaId,
+        isRequired: corpsMemberDocumentRequirements.isRequired,
+        referenceObjectKey: corpsMemberDocumentRequirements.referenceObjectKey
+      })
+      .from(corpsMemberDocumentRequirements)
+      .where(and(
+        eq(corpsMemberDocumentRequirements.id, requirementId),
+        inArray(corpsMemberDocumentRequirements.lgaId, lgaIds)
+      ))
+      .for('update')
+      .limit(1);
+    if (!existing) {
+      throw new DocumentWorkflowError('Document requirement not found in your assigned LGA(s).', 404, 'DOCUMENT_REQUIREMENT_NOT_FOUND');
+    }
+
+    const nextIsRequired = input.isRequired ?? existing.isRequired;
+    const nextIsActive = input.isActive ?? false;
+    if (input.isActive === true && nextIsRequired && !existing.referenceObjectKey) {
+      throw new DocumentWorkflowError(
+        'Upload a reference sample before publishing a mandatory document requirement.',
+        409,
+        'DOCUMENT_REFERENCE_SAMPLE_REQUIRED'
+      );
+    }
+
+    await tx.select({ id: lgas.id })
+      .from(lgas)
+      .where(eq(lgas.id, existing.lgaId))
+      .for('update')
+      .limit(1);
+
+    if (input.isActive === true) {
+      const [activeCount] = await tx
+        .select({ value: count() })
+        .from(corpsMemberDocumentRequirements)
+        .where(and(
+          eq(corpsMemberDocumentRequirements.lgaId, existing.lgaId),
+          eq(corpsMemberDocumentRequirements.isActive, true),
+          ne(corpsMemberDocumentRequirements.id, requirementId)
+        ));
+      if (Number(activeCount?.value ?? 0) >= 5) {
+        throw new DocumentWorkflowError(
+          'An LGA can have at most five active document requirements. Disable one before publishing another.',
+          409,
+          'DOCUMENT_REQUIREMENT_ACTIVE_LIMIT'
+        );
+      }
+    }
+
+    const changes: Partial<typeof corpsMemberDocumentRequirements.$inferInsert> = {
+      updatedAt: new Date()
+    };
+    if (input.code !== undefined) changes.code = input.code.trim().toUpperCase();
+    if (input.name !== undefined) changes.name = input.name.trim();
+    if (input.description !== undefined) changes.description = input.description?.trim() || null;
+    if (input.isRequired !== undefined) changes.isRequired = input.isRequired;
+    if (input.allowedMimeTypes !== undefined) changes.allowedMimeTypes = input.allowedMimeTypes.join(',');
+    if (input.maxFileSizeBytes !== undefined) changes.maxFileSizeBytes = input.maxFileSizeBytes;
+    if (input.isActive !== undefined) changes.isActive = input.isActive;
+
+    await tx.update(corpsMemberDocumentRequirements)
+      .set(changes)
+      .where(eq(corpsMemberDocumentRequirements.id, requirementId));
+    return { id: requirementId, isActive: changes.isActive ?? false };
+  });
+}
+
+export async function removeDocumentRequirement(
+  requirementId: string,
+  lgaIds: string[]
+): Promise<{ deleted: boolean; archived: boolean }> {
+  assertLgaScope(lgaIds);
+
+  const result = await db.transaction(async (tx) => {
+    const [requirement] = await tx
+      .select({
+        id: corpsMemberDocumentRequirements.id,
+        referenceObjectKey: corpsMemberDocumentRequirements.referenceObjectKey
+      })
+      .from(corpsMemberDocumentRequirements)
+      .where(and(
+        eq(corpsMemberDocumentRequirements.id, requirementId),
+        inArray(corpsMemberDocumentRequirements.lgaId, lgaIds)
+      ))
+      .for('update')
+      .limit(1);
+
+    if (!requirement) {
+      throw new DocumentWorkflowError('Document requirement not found in your assigned LGA(s).', 404, 'DOCUMENT_REQUIREMENT_NOT_FOUND');
+    }
+
+    const [submission] = await tx
+      .select({ id: corpsMemberDocumentSubmissions.id })
+      .from(corpsMemberDocumentSubmissions)
+      .where(eq(corpsMemberDocumentSubmissions.requirementId, requirementId))
+      .limit(1);
+
+    if (submission) {
+      await tx.update(corpsMemberDocumentRequirements)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(corpsMemberDocumentRequirements.id, requirementId));
+      return { deleted: false, archived: true, referenceObjectKey: null as string | null };
+    }
+
+    await tx.delete(corpsMemberDocumentRequirements)
+      .where(eq(corpsMemberDocumentRequirements.id, requirementId));
+    return {
+      deleted: true,
+      archived: false,
+      referenceObjectKey: requirement.referenceObjectKey
+    };
+  });
+
+  if (result.referenceObjectKey) {
+    await removeStoredDocument(result.referenceObjectKey);
   }
-
-  const changes: Partial<typeof corpsMemberDocumentRequirements.$inferInsert> = {
-    updatedAt: new Date()
-  };
-  if (input.code !== undefined) changes.code = input.code.trim().toUpperCase();
-  if (input.name !== undefined) changes.name = input.name.trim();
-  if (input.description !== undefined) changes.description = input.description?.trim() || null;
-  if (input.isRequired !== undefined) changes.isRequired = input.isRequired;
-  if (input.allowedMimeTypes !== undefined) changes.allowedMimeTypes = input.allowedMimeTypes.join(',');
-  if (input.maxFileSizeBytes !== undefined) changes.maxFileSizeBytes = input.maxFileSizeBytes;
-  if (input.isActive !== undefined) changes.isActive = input.isActive;
-
-  await db.update(corpsMemberDocumentRequirements)
-    .set(changes)
-    .where(eq(corpsMemberDocumentRequirements.id, requirementId));
+  return { deleted: result.deleted, archived: result.archived };
 }
 
 export async function saveDocumentReferenceSample(
