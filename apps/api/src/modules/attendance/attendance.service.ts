@@ -314,6 +314,11 @@ export async function getPresidentMeeting(userId: string, meetingId: string) {
     .from(cdsGroupMeetings)
     .innerJoin(cdsGroups, eq(cdsGroupMeetings.cdsGroupId, cdsGroups.id))
     .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
+    .innerJoin(cdsGroupLeadershipAssignments, and(
+      eq(cdsGroupLeadershipAssignments.cdsGroupId, cdsGroups.id),
+      eq(cdsGroupLeadershipAssignments.userId, userId),
+      eq(cdsGroupLeadershipAssignments.status, 'active')
+    ))
     .innerJoin(userRoleAssignments, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
     .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
     .where(and(
