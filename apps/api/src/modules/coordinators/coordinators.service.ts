@@ -4,7 +4,8 @@ import {
   desc,
   eq,
   inArray,
-  isNull
+  isNull,
+  ne
 } from 'drizzle-orm';
 
 import {
@@ -1653,16 +1654,6 @@ export async function designateCdsPresident(
       );
     }
 
-    const [otherLeadership] = await tx
-      .select({ id: cdsGroupLeadershipAssignments.id, groupId: cdsGroupLeadershipAssignments.cdsGroupId })
-      .from(cdsGroupLeadershipAssignments)
-      .where(and(
-        eq(cdsGroupLeadershipAssignments.corpsMemberId, memberId),
-        inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation']),
-        eq(cdsGroupLeadershipAssignments.cdsGroupId, groupId)
-      ))
-      .limit(1);
-
     const [currentLeader] = await tx
       .select({ id: cdsGroupLeadershipAssignments.id, memberId: cdsGroupLeadershipAssignments.corpsMemberId, userId: cdsGroupLeadershipAssignments.userId })
       .from(cdsGroupLeadershipAssignments)
@@ -1694,12 +1685,12 @@ export async function designateCdsPresident(
       .from(cdsGroupLeadershipAssignments)
       .where(and(
         eq(cdsGroupLeadershipAssignments.corpsMemberId, memberId),
-        inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation']),
-        // The selected member must not already lead another CDS group.
+        ne(cdsGroupLeadershipAssignments.cdsGroupId, groupId),
+        inArray(cdsGroupLeadershipAssignments.status, ['active', 'pending_activation'])
       ))
       .limit(1);
 
-    if (memberHasOtherLeadership && !otherLeadership) {
+    if (memberHasOtherLeadership) {
       throw new CoordinatorServiceError(
         'This Corps Member is already designated to lead another CDS group.',
         409,
