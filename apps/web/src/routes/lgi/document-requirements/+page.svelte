@@ -6,6 +6,7 @@
     ApiError,
     getCurrentUser,
     getCdsGroupReferenceData,
+    getDocumentVerificationMode,
     listLgiDocumentRequirements,
     createLgiDocumentRequirement,
     updateLgiDocumentRequirement,
@@ -27,6 +28,8 @@
   let requirements = $state<LgiDocumentRequirement[]>([]);
   let exceptions = $state<LgiDocumentSubmission[]>([]);
   let selectedLga = $state('');
+  let verificationMode = $state<'manual' | 'ai'>('manual');
+  let aiConfigured = $state(false);
   let loading = $state(true);
   let saving = $state(false);
   let uploadingId = $state('');
@@ -65,8 +68,13 @@
         return;
       }
       currentUser = auth.user;
-      const refs = await getCdsGroupReferenceData();
+      const [refs, mode] = await Promise.all([
+        getCdsGroupReferenceData(),
+        getDocumentVerificationMode()
+      ]);
       lgas = refs.lgas;
+      verificationMode = mode.mode;
+      aiConfigured = mode.aiConfigured;
       if (!selectedLga && lgas.length > 0) selectedLga = lgas[0].id;
       await loadLists();
     } catch (error) {
@@ -301,6 +309,12 @@
       <main class="page-content">
         {#if errorMessage}<div class="message error" role="alert">{errorMessage}</div>{/if}
         {#if noticeMessage}<div class="message success" role="status">{noticeMessage}</div>{/if}
+        <div class:mode-ai={verificationMode === 'ai'} class="verification-mode-banner">
+          <strong>{verificationMode === 'manual' ? 'Manual verification active' : 'AI verification active'}</strong>
+          <span>{verificationMode === 'manual'
+            ? (aiConfigured ? 'OpenAI is configured but not being called. Set DOCUMENT_VERIFICATION_MODE=ai in the API environment to enable it.' : 'No paid AI calls are being made. LGI reviews every submitted document manually.')
+            : 'OpenAI document comparison is enabled. Unclear or low-confidence results still require LGI review.'}</span>
+        </div>
 
         <section class="intro">
           <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Configure required documents</h2>Create as many document requirements as your LGA needs. Save items as drafts, edit them at any time, upload reference samples, and enable or disable publication. Only enabled items appear on Corps Member and Coordinator checklists.</div>
@@ -310,7 +324,7 @@
         <section class="stats">
           <article><span>Enabled requirements</span><strong>{activeCount}</strong></article>
           <article><span>Draft / disabled items</span><strong>{draftCount}</strong></article>
-          <article><span>AI exception queue</span><strong>{exceptions.length}</strong></article>
+          <article><span>{verificationMode === 'manual' ? 'Manual review queue' : 'AI exception queue'}</span><strong>{exceptions.length}</strong></article>
         </section>
 
         <section class="panel">
@@ -351,9 +365,9 @@
         </section>
 
         <section class="panel exceptions-panel">
-          <div class="panel-heading"><div><h2>AI exception review</h2><p>Only unclear or low-confidence submissions need an LGI decision. High-confidence matches are approved automatically.</p></div><span class="queue-badge">{exceptions.length} awaiting review</span></div>
+          <div class="panel-heading"><div><h2>{verificationMode === 'manual' ? 'Manual document review' : 'AI exception review'}</h2><p>{verificationMode === 'manual' ? 'Manual mode is active: every submitted document waits for LGI review. No OpenAI API calls are made.' : 'AI mode is active: high-confidence matches are approved automatically; unclear submissions wait for LGI review.'}</p></div><span class="queue-badge">{exceptions.length} awaiting review</span></div>
           {#if exceptions.length === 0}
-            <div class="empty compact"><h3>No documents awaiting exception review</h3><p>Submissions that the AI cannot confidently assess will appear here.</p></div>
+            <div class="empty compact"><h3>No documents awaiting review</h3><p>{verificationMode === 'manual' ? 'New document submissions will appear here for LGI review.' : 'Submissions that the AI cannot confidently assess will appear here.'}</p></div>
           {:else}
             <div class="exception-list">
               {#each exceptions as submission (submission.id)}
@@ -397,6 +411,9 @@
   .page-content{max-width:1200px;padding:30px;margin:0 auto}.intro{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:26px 29px;border:1px solid #dcebe0;border-radius:12px;background:#eaf4ed}.eyebrow{color:#0a8050;font-size:9px;font-weight:800;letter-spacing:1.2px}.intro h2{margin:9px 0 7px;font-size:22px}.intro p{max-width:800px;margin:0;color:#718078;font-size:11px;line-height:1.7}.primary-button,.secondary-button{min-height:38px;padding:9px 13px;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap}.primary-button{border:1px solid #0a5c37;background:#0a5c37;color:#fff}.secondary-button{border:1px solid #dce5de;background:#fff;color:#355442}.primary-button:disabled,.secondary-button:disabled{opacity:.5;cursor:not-allowed}
   .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.stats article{display:grid;gap:7px;padding:15px;border:1px solid #e4ebe6;border-radius:9px;background:#fff}.stats span{color:#819087;font-size:10px}.stats strong{color:#0a5c37;font-size:21px}
   .panel{padding:20px;margin-bottom:16px;border:1px solid #e4ebe6;border-radius:10px;background:#fff}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.panel-heading h2{margin:0 0 5px;font-size:14px}.panel-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.lga-filter{display:grid;grid-template-columns:minmax(230px,360px);gap:6px;margin-bottom:14px;color:#56685c;font-size:9px;font-weight:700}.lga-filter select{min-height:39px;padding:9px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#26392d;font-size:10px}
+  .verification-mode-banner{display:grid;gap:5px;padding:12px 14px;margin-bottom:14px;border:1px solid #cfe5d5;border-radius:8px;background:#eef8f0;color:#155b37;font-size:10px;line-height:1.5}
+  .verification-mode-banner strong{font-size:11px}
+  .verification-mode-banner.mode-ai{border-color:#cfe1ee;background:#eff7fc;color:#245a7b}
   .publication-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:14px;background:#f2f4f2;color:#6d7a70;font-size:8px;font-weight:800;white-space:nowrap}
   .publication-badge.published-badge{background:#e8f6ec;color:#147244}
   .requirement-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
