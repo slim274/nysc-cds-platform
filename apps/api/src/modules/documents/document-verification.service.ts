@@ -545,10 +545,18 @@ export async function updateDocumentRequirement(
     if (input.maxFileSizeBytes !== undefined) changes.maxFileSizeBytes = input.maxFileSizeBytes;
     if (input.isActive !== undefined) changes.isActive = input.isActive;
 
-    await tx.update(corpsMemberDocumentRequirements)
+    const [updated] = await tx.update(corpsMemberDocumentRequirements)
       .set(changes)
-      .where(eq(corpsMemberDocumentRequirements.id, requirementId));
-    return { id: requirementId, isActive: nextIsActive };
+      .where(eq(corpsMemberDocumentRequirements.id, requirementId))
+      .returning({
+        verificationMode: corpsMemberDocumentRequirements.verificationMode
+      });
+    if (!updated) throw new Error('DOCUMENT_REQUIREMENT_UPDATE_FAILED');
+    return {
+      id: requirementId,
+      isActive: nextIsActive,
+      verificationMode: updated.verificationMode
+    };
   });
 }
 
