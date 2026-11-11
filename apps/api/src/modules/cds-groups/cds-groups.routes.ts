@@ -6,6 +6,7 @@ import {
   getCdsGroupReferenceData,
   listCdsGroups,
   listPendingCdsGroupDeclines,
+  previewCdsGroupCourseMappingImpact,
   getCdsGroup,
   createCdsGroup,
   updateCdsGroup,
@@ -56,6 +57,10 @@ const listQuerySchema = z.object({
 });
 const declineListQuerySchema = z.object({
   lgaId: z.string().uuid().optional()
+});
+const courseMappingImpactSchema = z.object({
+  courseIds: z.array(z.string().uuid()).min(1).max(80)
+    .refine((ids) => new Set(ids).size === ids.length, 'A course can only be mapped once.')
 });
 
 function getAssignedLgaIds(c: Context<AuthEnv>): string[] {
@@ -292,6 +297,31 @@ lgiRoutes.get('/cds-groups/:groupId', async (c) => {
       success: true,
       data: group
     });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// Preview the impact of removing courses from a CDS group's mapping.
+lgiRoutes.post('/cds-groups/:groupId/course-mapping-impact', async (c) => {
+  const id = groupIdSchema.safeParse(c.req.param('groupId'));
+  const body = await c.req.json().catch(() => null);
+  const validation = courseMappingImpactSchema.safeParse(body);
+
+  if (!id.success || !validation.success) {
+    return c.json({
+      success: false,
+      message: 'Provide a valid CDS group ID and course selection.'
+    }, 400);
+  }
+
+  try {
+    const data = await previewCdsGroupCourseMappingImpact(
+      id.data,
+      validation.data.courseIds,
+      getAssignedLgaIds(c)
+    );
+    return c.json({ success: true, data });
   } catch (error) {
     return handleServiceError(c, error);
   }
