@@ -63,7 +63,8 @@ async function validateReferences(
     institutionId?: string | null;
     courseId?: string | null;
   },
-  lgaIds: string[]
+  lgaIds: string[],
+  allowExistingStreamId?: string
 ) {
   assertSelectedLga(input.lgaId, lgaIds);
 
@@ -81,14 +82,22 @@ async function validateReferences(
     );
   }
 
+  const streamAvailabilityCondition = allowExistingStreamId === input.streamId
+    ? eq(streams.id, allowExistingStreamId)
+    : and(
+        eq(streams.isActive, true),
+        eq(batches.isActive, true),
+        eq(serviceYears.isActive, true)
+      );
+
   const [stream] = await db
     .select({ id: streams.id })
     .from(streams)
     .innerJoin(batches, eq(streams.batchId, batches.id))
+    .innerJoin(serviceYears, eq(batches.serviceYearId, serviceYears.id))
     .where(and(
       eq(streams.id, input.streamId),
-      eq(streams.isActive, true),
-      eq(batches.isActive, true)
+      streamAvailabilityCondition
     ))
     .limit(1);
 
@@ -154,15 +163,17 @@ export async function getCorpsMemberReferenceData(lgaIds: string[]) {
       id: streams.id,
       code: streams.code,
       name: streams.name,
+      isActive: streams.isActive,
       batchId: batches.id,
       batchCode: batches.code,
       batchName: batches.name,
+      batchIsActive: batches.isActive,
       serviceYearId: serviceYears.id,
-      serviceYear: serviceYears.year
+      serviceYear: serviceYears.year,
+      serviceYearIsActive: serviceYears.isActive
     }).from(streams)
       .innerJoin(batches, eq(streams.batchId, batches.id))
       .innerJoin(serviceYears, eq(batches.serviceYearId, serviceYears.id))
-      .where(and(eq(streams.isActive, true), eq(batches.isActive, true)))
       .orderBy(asc(serviceYears.year), asc(batches.code), asc(streams.code)),
     db.select({ id: institutions.id, name: institutions.name, abbreviation: institutions.abbreviation })
       .from(institutions)
@@ -183,6 +194,8 @@ export async function listCorpsMembers(
     search?: string;
     lgaId?: string;
     streamId?: string;
+    batchId?: string;
+    serviceYear?: number;
     profileStatus?: 'preloaded' | 'draft' | 'submitted' | 'approved' | 'rejected';
     page: number;
     pageSize: number;
@@ -195,6 +208,8 @@ export async function listCorpsMembers(
     inArray(corpsMembers.lgaId, filters.lgaId ? [filters.lgaId] : lgaIds)
   ];
   if (filters.streamId) conditions.push(eq(corpsMembers.streamId, filters.streamId));
+  if (filters.batchId) conditions.push(eq(batches.id, filters.batchId));
+  if (filters.serviceYear !== undefined) conditions.push(eq(serviceYears.year, filters.serviceYear));
   if (filters.profileStatus) conditions.push(eq(corpsMembers.profileStatus, filters.profileStatus));
   if (filters.search) {
     const pattern = `%${filters.search}%`;
@@ -361,7 +376,7 @@ export async function updateCorpsMember(memberId: string, input: UpdateCorpsMemb
     streamId: nextStreamId,
     institutionId: input.institutionId === undefined ? current.institutionId : input.institutionId,
     courseId: input.courseId === undefined ? current.courseId : input.courseId
-  }, lgaIds);
+  }, lgaIds, current.streamId);
 
   try {
     await db.update(corpsMembers).set({
