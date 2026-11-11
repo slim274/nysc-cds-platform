@@ -8,6 +8,8 @@
     getCdsGroupReferenceData,
     listLgiDocumentRequirements,
     createLgiDocumentRequirement,
+    updateLgiDocumentRequirement,
+    removeLgiDocumentRequirement,
     uploadDocumentReferenceSample,
     listLgiDocumentSubmissions,
     downloadLgiDocumentSubmission,
@@ -32,6 +34,7 @@
   let signingOut = $state(false);
   let mobileNavOpen = $state(false);
   let formOpen = $state(false);
+  let editingRequirement = $state<LgiDocumentRequirement | null>(null);
   let errorMessage = $state('');
   let noticeMessage = $state('');
   let formError = $state('');
@@ -49,6 +52,8 @@
 
   const activeCount = $derived(requirements.filter((item) => item.isActive).length);
   const requiredCount = $derived(requirements.filter((item) => item.isActive && item.isRequired).length);
+  const draftCount = $derived(requirements.filter((item) => !item.isActive).length);
+  const remainingSlots = $derived(Math.max(0, 5 - activeCount));
 
   onMount(() => { void loadPage(); });
 
@@ -87,6 +92,7 @@
   }
 
   function resetForm() {
+    editingRequirement = null;
     form = {
       code: '',
       name: '',
@@ -98,6 +104,22 @@
       maxSizeMb: 10
     };
     formError = '';
+  }
+
+  function openEditForm(requirement: LgiDocumentRequirement) {
+    editingRequirement = requirement;
+    form = {
+      code: requirement.code,
+      name: requirement.name,
+      description: requirement.description ?? '',
+      isRequired: requirement.isRequired,
+      allowPdf: requirement.allowedMimeTypes.includes('application/pdf'),
+      allowJpeg: requirement.allowedMimeTypes.includes('image/jpeg'),
+      allowPng: requirement.allowedMimeTypes.includes('image/png'),
+      maxSizeMb: Math.round(requirement.maxFileSizeBytes / (1024 * 1024))
+    };
+    formError = '';
+    formOpen = true;
   }
 
   async function saveRequirement(event: SubmitEvent) {
@@ -115,23 +137,77 @@
     }
     saving = true;
     try {
-      await createLgiDocumentRequirement({
-        lgaId: selectedLga,
+      const input = {
         code: form.code,
         name: form.name,
         description: form.description.trim() || null,
         isRequired: form.isRequired,
         allowedMimeTypes,
-        maxFileSizeBytes: Math.round(form.maxSizeMb * 1024 * 1024),
-        isActive: true
-      });
+        maxFileSizeBytes: Math.round(form.maxSizeMb * 1024 * 1024)
+      };
+      if (editingRequirement) {
+        await updateLgiDocumentRequirement(editingRequirement.id, input);
+        noticeMessage = 'Document requirement updated. The published checklist will reflect the changes.';
+      } else {
+        await createLgiDocumentRequirement({
+          lgaId: selectedLga,
+          ...input,
+          isActive: false
+        });
+        noticeMessage = 'Requirement saved as a draft. Upload its reference sample if mandatory, then enable it to publish the item to Corps Members and Coordinators.';
+      }
       formOpen = false;
-      noticeMessage = 'Document requirement created. Upload an LGI reference sample to improve automated comparison.';
+      resetForm();
       await loadLists();
     } catch (error) {
       formError = error instanceof ApiError || error instanceof Error ? error.message : 'Unable to create this document requirement.';
     } finally {
       saving = false;
+    }
+  }
+
+  async function toggleRequirement(requirement: LgiDocumentRequirement) {
+    errorMessage = '';
+    noticeMessage = '';
+    if (!requirement.isActive && activeCount >= 5) {
+      errorMessage = 'You already have five enabled document requirements for this LGA. Disable one before enabling another.';
+      return;
+    }
+    const next = !requirement.isActive;
+    if (next && requirement.isRequired && !requirement.hasReferenceSample) {
+      errorMessage = 'Upload a reference sample before enabling this mandatory requirement.';
+      return;
+    }
+    try {
+      await updateLgiDocumentRequirement(requirement.id, { isActive: next });
+      noticeMessage = next
+        ? `${requirement.name} is now enabled and visible to Corps Members and their assigned Coordinators.`
+        : `${requirement.name} has been disabled and hidden from new Corps Member checklists.`;
+      await loadLists();
+    } catch (error) {
+      errorMessage = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to update this document requirement.';
+    }
+  }
+
+  async function removeRequirement(requirement: LgiDocumentRequirement) {
+    const confirmed = window.confirm(
+      `Remove "${requirement.name}"? If submissions already exist, the requirement will be archived to preserve the submission history.`
+    );
+    if (!confirmed) return;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      const result = await removeLgiDocumentRequirement(requirement.id);
+      noticeMessage = result.archived
+        ? `${requirement.name} was archived because submission history exists.`
+        : `${requirement.name} was deleted.`;
+      await loadLists();
+    } catch (error) {
+      errorMessage = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to remove this document requirement.';
     }
   }
 
@@ -233,13 +309,13 @@
         {#if noticeMessage}<div class="message success" role="status">{noticeMessage}</div>{/if}
 
         <section class="intro">
-          <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Configure required documents</h2><p>Choose what Corps Members must submit. Add a reference sample for each document type so the verification service can compare document type, layout and visible member details. Matching starts only after every mandatory requirement is verified.</p></div>
+          <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Configure required documents</h2><p>Create up to five enabled requirements for each LGA. Save items as drafts, edit them at any time, upload reference samples, and enable or disable publication. Only enabled items appear on Corps Member and Coordinator checklists.</p></div>
           <button class="primary-button" type="button" onclick={() => { resetForm(); formOpen = true; }} disabled={!selectedLga}>＋ Add requirement</button>
         </section>
 
         <section class="stats">
-          <article><span>Active requirements</span><strong>{activeCount}</strong></article>
-          <article><span>Mandatory documents</span><strong>{requiredCount}</strong></article>
+          <article><span>Enabled requirements</span><strong>{activeCount} / 5</strong></article>
+          <article><span>Draft / disabled items</span><strong>{draftCount}</strong></article>
           <article><span>AI exception queue</span><strong>{exceptions.length}</strong></article>
         </section>
 
@@ -267,6 +343,12 @@
                       {uploadingId === requirement.id ? 'Uploading…' : requirement.hasReferenceSample ? 'Replace sample' : 'Upload sample'}
                       <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onchange={(event) => void handleReferenceUpload(requirement.id, event)} disabled={uploadingId === requirement.id} />
                     </label>
+                    <span class:published-badge={requirement.isActive} class="publication-badge">{requirement.isActive ? 'Enabled · Published' : 'Draft / Disabled'}</span>
+                    <div class="requirement-actions">
+                      <button class="action-button" type="button" onclick={() => openEditForm(requirement)}>Edit</button>
+                      <button class:turn-off={!requirement.isActive} class="action-button" type="button" onclick={() => void toggleRequirement(requirement)}>{requirement.isActive ? 'Disable' : 'Enable'}</button>
+                      <button class="remove-button" type="button" onclick={() => void removeRequirement(requirement)}>Remove</button>
+                    </div>
                   </div>
                 </article>
               {/each}
@@ -299,7 +381,7 @@
   <div class="modal-layer">
     <button class="scrim" type="button" aria-label="Close form" onclick={() => (formOpen = false)}></button>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="requirement-title">
-      <header class="modal-header"><div><span class="eyebrow">DOCUMENT CONFIGURATION</span><h2 id="requirement-title">Add document requirement</h2><p>Use a unique code for each document type within the selected LGA.</p></div><button class="close" type="button" aria-label="Close" onclick={() => (formOpen = false)}>×</button></header>
+      <header class="modal-header"><div><span class="eyebrow">DOCUMENT CONFIGURATION</span><h2 id="requirement-title">{editingRequirement ? 'Edit document requirement' : 'Create document requirement'}</h2><p>Configure the checklist item for {selectedLga ? lgas.find((lga) => lga.id === selectedLga)?.name : 'this LGA'}. New items are saved as drafts until enabled.</p></div><button class="close" type="button" aria-label="Close" onclick={() => (formOpen = false)}>×</button></header>
       {#if formError}<div class="message error" role="alert">{formError}</div>{/if}
       <form class="requirement-form" onsubmit={saveRequirement}>
         <label><span>Requirement code *</span><input bind:value={form.code} placeholder="e.g. CALL_UP_LETTER" minlength="2" maxlength="50" required /></label>
@@ -308,8 +390,8 @@
         <label class="check-line"><input type="checkbox" bind:checked={form.isRequired} /><span>Mandatory document (required before CDS matching)</span></label>
         <fieldset><legend>Accepted file formats *</legend><label class="check-line"><input type="checkbox" bind:checked={form.allowPdf} /><span>PDF</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowJpeg} /><span>JPEG</span></label><label class="check-line"><input type="checkbox" bind:checked={form.allowPng} /><span>PNG</span></label></fieldset>
         <label><span>Maximum file size (MB)</span><input type="number" bind:value={form.maxSizeMb} min="1" max="50" required /></label>
-        <div class="info-note">After creating the requirement, upload a real sample/template issued by the LGI or relevant institution. A reference sample is required for automatic verification of mandatory documents.</div>
-        <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Create requirement'}</button></div>
+        <div class="info-note">New items are saved as drafts. Upload a reference sample, then enable the requirement to publish it to Corps Members and Coordinators. Mandatory items require a reference sample before they can be enabled. No more than five requirements can be enabled per LGA.</div>
+        <div class="modal-actions"><button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button><button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : editingRequirement ? 'Save changes' : 'Save as draft'}</button></div>
       </form>
     </section>
   </div>
@@ -321,6 +403,12 @@
   .page-content{max-width:1200px;padding:30px;margin:0 auto}.intro{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:26px 29px;border:1px solid #dcebe0;border-radius:12px;background:#eaf4ed}.eyebrow{color:#0a8050;font-size:9px;font-weight:800;letter-spacing:1.2px}.intro h2{margin:9px 0 7px;font-size:22px}.intro p{max-width:800px;margin:0;color:#718078;font-size:11px;line-height:1.7}.primary-button,.secondary-button{min-height:38px;padding:9px 13px;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap}.primary-button{border:1px solid #0a5c37;background:#0a5c37;color:#fff}.secondary-button{border:1px solid #dce5de;background:#fff;color:#355442}.primary-button:disabled,.secondary-button:disabled{opacity:.5;cursor:not-allowed}
   .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.stats article{display:grid;gap:7px;padding:15px;border:1px solid #e4ebe6;border-radius:9px;background:#fff}.stats span{color:#819087;font-size:10px}.stats strong{color:#0a5c37;font-size:21px}
   .panel{padding:20px;margin-bottom:16px;border:1px solid #e4ebe6;border-radius:10px;background:#fff}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.panel-heading h2{margin:0 0 5px;font-size:14px}.panel-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.lga-filter{display:grid;grid-template-columns:minmax(230px,360px);gap:6px;margin-bottom:14px;color:#56685c;font-size:9px;font-weight:700}.lga-filter select{min-height:39px;padding:9px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#26392d;font-size:10px}
+  .publication-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:14px;background:#f2f4f2;color:#6d7a70;font-size:8px;font-weight:800;white-space:nowrap}
+  .publication-badge.published-badge{background:#e8f6ec;color:#147244}
+  .requirement-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .action-button,.remove-button{min-height:31px;padding:7px 9px;border:1px solid #dce5de;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:700;cursor:pointer}
+  .action-button.turn-off{background:#0a5c37;border-color:#0a5c37;color:#fff}
+  .remove-button{border-color:#eed5d1;color:#a34238}
   .requirement-list,.exception-list{display:grid}.requirement-row,.exception-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 3px;border-bottom:1px solid #edf1ed}.requirement-row:last-child,.exception-row:last-child{border-bottom:0}.requirement-info{display:flex;align-items:flex-start;gap:12px;min-width:0}.doc-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:9px;background:#edf5ef;color:#0a6841}.title-line{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.title-line h3{margin:0;color:#263d30;font-size:11px}.requirement-info p{margin:5px 0;color:#718078;font-size:9px;line-height:1.5}.requirement-info small{color:#8a968e;font-size:8px}.requirement-badge,.queue-badge{padding:5px 8px;border-radius:15px;background:#e8f6ec;color:#147244;font-size:8px;font-weight:800}.requirement-badge.optional{background:#f0f3f1;color:#66756b}.reference-area{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:9px}.sample-status,.no-sample{color:#147244;font-size:9px}.no-sample{color:#a36a2d}.upload-button{position:relative;overflow:hidden;display:inline-flex;align-items:center;min-height:34px;padding:8px 10px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#355442;font-size:9px;font-weight:700;cursor:pointer}.upload-button input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
   .queue-badge{background:#fff3e5;color:#92571b}.exception-row>div:first-child{display:grid;gap:5px;min-width:0}.exception-row strong{color:#263d30;font-size:10px}.exception-row span,.exception-row small{color:#819087;font-size:9px}.exception-row p{margin:3px 0 0;color:#8b6135;font-size:9px;line-height:1.5}.exception-actions{display:grid;justify-items:end;gap:8px;min-width:225px}.exception-actions>span{color:#8b6135;font-size:9px}.exception-actions>div{display:flex;gap:6px}.view-button{min-height:32px;padding:7px 9px;border:1px solid #dce5de;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:700;cursor:pointer}.approve-button,.reject-button{min-height:32px;padding:7px 9px;border-radius:6px;font-size:8px;font-weight:700;cursor:pointer}.approve-button{border:1px solid #0a6841;background:#0a6841;color:#fff}.reject-button{border:1px solid #ead5d1;background:#fff;color:#a34238}.approve-button:disabled,.reject-button:disabled{opacity:.5;cursor:wait}
   .empty{padding:32px 14px;text-align:center;color:#819087;font-size:10px;line-height:1.6}.empty h3{margin:0 0 6px;color:#263d30;font-size:13px}.empty p{margin:0 auto 12px;max-width:560px}.empty.compact{padding:22px}.message{padding:10px 13px;margin:0 0 12px;border-radius:7px;font-size:10px}.message.error{border:1px solid #efceca;background:#fff3f2;color:#a32920}.message.success{border:1px solid #cce6d3;background:#eef8f0;color:#16633b}.footer{padding:17px 24px;border-top:1px solid #e5ebe6;color:#89948c;font-size:9px;text-align:center}
