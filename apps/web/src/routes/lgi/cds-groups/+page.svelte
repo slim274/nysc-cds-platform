@@ -12,6 +12,7 @@
     getCdsGroup,
     createCdsGroup,
     updateCdsGroup,
+    previewCdsGroupCourseMappingImpact,
     getCdsGroupRoster,
     assignCdsGroupMember,
     endCdsGroupMemberMembership,
@@ -26,6 +27,7 @@
     CdsGroupDecline,
     CdsGroupReferenceData,
     CdsGroupDetail,
+    CdsGroupCourseMappingImpact,
     CreateCdsGroupInput,
     CdsGroupRoster
   } from '#lib/api/client.ts';
@@ -40,6 +42,7 @@
   let mobileNavOpen = $state(false);
   let formOpen = $state(false);
   let editingGroup = $state<CdsGroupDetail | null>(null);
+  let mappingImpact = $state<CdsGroupCourseMappingImpact | null>(null);
   let errorMessage = $state('');
   let formError = $state('');
   let search = $state('');
@@ -164,6 +167,7 @@
       isActive: true
     };
     editingGroup = null;
+    mappingImpact = null;
     formError = '';
   }
 
@@ -174,6 +178,7 @@
 
   async function openEditForm(group: CdsGroupSummary) {
     formError = '';
+    mappingImpact = null;
     errorMessage = '';
 
     try {
@@ -195,14 +200,69 @@
   }
 
   function toggleCourse(courseId: string, checked: boolean) {
+    mappingImpact = null;
     form.courseIds = checked
       ? [...form.courseIds, courseId]
       : form.courseIds.filter((id) => id !== courseId);
   }
 
+  function getGroupUpdateInput() {
+    return {
+      code: form.code,
+      name: form.name,
+      description: form.description.trim() || null,
+      maxCapacity: Number(form.maxCapacity),
+      courseIds: form.courseIds,
+      isActive: form.isActive
+    };
+  }
+
+  async function finishGroupUpdate() {
+    if (!editingGroup) return;
+    await updateCdsGroup(editingGroup.id, getGroupUpdateInput());
+    mappingImpact = null;
+    formOpen = false;
+    await loadGroups();
+  }
+
+  async function confirmCourseMappingChange() {
+    if (!editingGroup || !mappingImpact) return;
+    saving = true;
+    formError = '';
+    try {
+      const refreshedImpact = await previewCdsGroupCourseMappingImpact(
+        editingGroup.id,
+        form.courseIds
+      );
+      const previousCounts = mappingImpact.removedCourses
+        .map((course) => `${course.id}:${course.assignedMemberCount}`)
+        .sort()
+        .join('|');
+      const currentCounts = refreshedImpact.removedCourses
+        .map((course) => `${course.id}:${course.assignedMemberCount}`)
+        .sort()
+        .join('|');
+
+      if (previousCounts !== currentCounts) {
+        mappingImpact = refreshedImpact;
+        formError = 'The affected member count changed while you were reviewing this update. Please review the updated numbers and confirm again.';
+        return;
+      }
+
+      await finishGroupUpdate();
+    } catch (error) {
+      formError = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to save this CDS group.';
+    } finally {
+      saving = false;
+    }
+  }
+
   async function saveGroup(event: SubmitEvent) {
     event.preventDefault();
     formError = '';
+    mappingImpact = null;
 
     if (form.courseIds.length === 0) {
       formError = 'Select at least one eligible course.';
@@ -218,14 +278,22 @@
 
     try {
       if (editingGroup) {
-        await updateCdsGroup(editingGroup.id, {
-          code: form.code,
-          name: form.name,
-          description: form.description.trim() || null,
-          maxCapacity: Number(form.maxCapacity),
-          courseIds: form.courseIds,
-          isActive: form.isActive
-        });
+        const originalIds = editingGroup.courses.map((course) => course.id).sort();
+        const proposedIds = [...form.courseIds].sort();
+        const mappingChanged = originalIds.join('|') !== proposedIds.join('|');
+
+        if (mappingChanged) {
+          const impact = await previewCdsGroupCourseMappingImpact(
+            editingGroup.id,
+            form.courseIds
+          );
+          if (impact.removedCourses.length > 0) {
+            mappingImpact = impact;
+            return;
+          }
+        }
+
+        await finishGroupUpdate();
       } else {
         const input: CreateCdsGroupInput = {
           lgaId: form.lgaId,
@@ -238,10 +306,9 @@
 
         await createCdsGroup(input);
         selectedLga = form.lgaId;
+        formOpen = false;
+        await loadGroups();
       }
-
-      formOpen = false;
-      await loadGroups();
     } catch (error) {
       formError = error instanceof ApiError
         ? error.message
@@ -252,7 +319,6 @@
       saving = false;
     }
   }
-
   async function handleLogout() {
     signingOut = true;
 
@@ -698,9 +764,42 @@
           </label>
         {/if}
 
+        {#if mappingImpact}
+          <section class="mapping-impact-panel" role="alert" aria-labelledby="mapping-impact-title">
+            <div class="mapping-impact-heading">
+              <span class="mapping-impact-icon" aria-hidden="true">!</span>
+              <div>
+                <strong id="mapping-impact-title">Review course-mapping changes</strong>
+                <p>You are removing {mappingImpact.removedCourses.length} course{mappingImpact.removedCourses.length === 1 ? '' : 's'} from {mappingImpact.groupName}.</p>
+              </div>
+            </div>
+            <div class="mapping-impact-courses">
+              {#each mappingImpact.removedCourses as course (course.id)}
+                <div class="mapping-impact-course">
+                  <span>{course.name}</span>
+                  <strong>{course.assignedMemberCount} current member{course.assignedMemberCount === 1 ? '' : 's'}</strong>
+                </div>
+              {/each}
+            </div>
+            <div class="mapping-impact-total">
+              <strong>{mappingImpact.affectedMemberCount} existing member{mappingImpact.affectedMemberCount === 1 ? '' : 's'} affected</strong>
+              <p>They will remain assigned to {mappingImpact.groupName}. Their memberships, attendance access and group portal will not be changed by this mapping update.</p>
+            </div>
+            <div class="mapping-impact-note">
+              This change only affects future automatic matching and standard course-eligible placement. It does not move, remove or reassign current members.
+            </div>
+            <div class="mapping-impact-actions">
+              <button class="secondary-button" type="button" onclick={() => (mappingImpact = null)} disabled={saving}>Keep editing</button>
+              <button class="primary-button" type="button" onclick={() => void confirmCourseMappingChange()} disabled={saving}>
+                {saving ? 'Saving…' : 'Confirm mapping change'}
+              </button>
+            </div>
+          </section>
+        {/if}
+
         <div class="modal-actions">
           <button class="secondary-button" type="button" onclick={() => (formOpen = false)} disabled={saving}>Cancel</button>
-          <button class="primary-button" type="submit" disabled={saving}>{saving ? 'Saving...' : editingGroup ? 'Save changes' : 'Create group'}</button>
+          <button class="primary-button" type="submit" disabled={saving || Boolean(mappingImpact)}>{saving ? 'Saving...' : mappingImpact ? 'Review impact above' : editingGroup ? 'Save changes' : 'Create group'}</button>
         </div>
       </form>
     </section>
@@ -1024,6 +1123,20 @@
   .course-selection-actions button { padding: 3px 0; border: 0; background: transparent; color: #0a6841; font-size: 9px; font-weight: 700; cursor: pointer; }
   .course-selection-actions button:disabled { opacity: .45; cursor: not-allowed; }
   .course-empty { padding: 18px 10px; border: 1px dashed #dce5de; border-radius: 8px; color: #819087; font-size: 10px; text-align: center; }
+  .mapping-impact-panel { display: grid; gap: 12px; padding: 15px; border: 1px solid #edc99f; border-radius: 10px; background: #fff9f1; }
+  .mapping-impact-heading { display: flex; align-items: flex-start; gap: 10px; }
+  .mapping-impact-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; background: #ffead5; color: #a85a16; font-size: 16px; font-weight: 900; }
+  .mapping-impact-heading strong { display: block; color: #70421d; font-size: 12px; }
+  .mapping-impact-heading p { margin: 4px 0 0; color: #8a6a4e; font-size: 10px; line-height: 1.5; }
+  .mapping-impact-courses { display: grid; gap: 6px; }
+  .mapping-impact-course { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 11px; border: 1px solid #f2e0cb; border-radius: 7px; background: #fff; color: #594633; font-size: 10px; }
+  .mapping-impact-course strong { color: #9a591d; white-space: nowrap; }
+  .mapping-impact-total { padding: 10px 12px; border-radius: 8px; background: #fff0dd; color: #74471f; }
+  .mapping-impact-total strong { font-size: 11px; }
+  .mapping-impact-total p { margin: 4px 0 0; color: #82644a; font-size: 9px; line-height: 1.5; }
+  .mapping-impact-note { padding: 10px 12px; border-left: 3px solid #0a8050; border-radius: 5px; background: #eef8f1; color: #315d42; font-size: 9px; line-height: 1.55; }
+  .mapping-impact-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; }
+  @media(max-width:520px){.mapping-impact-course{align-items:flex-start;flex-direction:column;gap:4px}.mapping-impact-actions{flex-direction:column-reverse}.mapping-impact-actions button{width:100%}}
   .course-aliases { color: #89948c !important; font-weight: 400; line-height: 1.4; }
   .course-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 280px; overflow-y: auto; padding: 2px; }
   .course-option { min-width: 0; display: flex !important; align-items: center; gap: 9px !important; padding: 10px; border: 1px solid #edf0ed; border-radius: 8px; cursor: pointer; }
