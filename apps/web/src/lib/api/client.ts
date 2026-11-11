@@ -939,6 +939,97 @@ export async function updateCoordinator(
   return response.data;
 }
 
+
+export interface CoordinatorGroupMember {
+  groupId: string;
+  memberId: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  courseName: string | null;
+  userId: string | null;
+}
+export interface CoordinatorWorkspaceGroup {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  maxCapacity: number;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+  currentMemberCount: number;
+  availableCapacity: number;
+  president: { memberId: string; name: string; status: string } | null;
+  members: CoordinatorGroupMember[];
+}
+export interface CdsPresidentDesignation {
+  id: string;
+  groupId: string;
+  memberId: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  memberEmail: string | null;
+  accountUserId: string | null;
+  status: 'pending_activation' | 'active' | 'ended' | string;
+  assignedAt: string;
+  endedAt: string | null;
+  endedReason: string | null;
+}
+export interface PresidentWorkspaceGroup {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  lgaName: string;
+  stateName: string;
+  maxCapacity: number;
+  presidentAssignmentId: string;
+  members: Array<{
+    groupId: string;
+    memberId: string;
+    stateCode: string;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    courseName: string | null;
+  }>;
+}
+
+export async function getMyCoordinatorGroups(): Promise<CoordinatorWorkspaceGroup[]> {
+  const response = await request<{ success: boolean; data: CoordinatorWorkspaceGroup[] }>('/coordinator/groups');
+  return response.data;
+}
+
+export async function listMyCoordinatorPresidents(): Promise<CdsPresidentDesignation[]> {
+  const response = await request<{ success: boolean; data: CdsPresidentDesignation[] }>('/coordinator/presidents');
+  return response.data;
+}
+
+export async function designateCdsPresident(
+  groupId: string,
+  memberId: string,
+  replaceExisting = false
+): Promise<{ id: string; groupId: string; groupName: string; memberId: string; memberName: string; stateCode: string; status: string }> {
+  const response = await request<{
+    success: boolean;
+    data: { id: string; groupId: string; groupName: string; memberId: string; memberName: string; stateCode: string; status: string };
+  }>(`/coordinator/groups/${encodeURIComponent(groupId)}/president`, {
+    method: 'POST',
+    body: JSON.stringify({ memberId, replaceExisting })
+  });
+  return response.data;
+}
+
+export async function getMyPresidentGroups(): Promise<PresidentWorkspaceGroup[]> {
+  const response = await request<{ success: boolean; data: PresidentWorkspaceGroup[] }>('/cds-president/groups');
+  return response.data;
+}
+
 export function getCourseDisciplineLabel(code: string): string {
   const labels: Record<string, string> = {
     AGRICULTURE: 'Agriculture & Agricultural Sciences',
