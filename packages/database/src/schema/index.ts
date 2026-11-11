@@ -11,3 +11,4 @@ export * from './user-role-assignments';
 export * from './course-aliases';
 export * from './corps-member-otp';
 export * from './corps-member-documents';
+export * from './cds-group-leadership';
