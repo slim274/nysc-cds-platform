@@ -24,7 +24,6 @@
     { label: 'Course Catalogue', href: '/lgi/course-catalogue', icon: '▤' },
     { label: 'Course Mapping', href: '/lgi/course-mapping', icon: '⌘' },
     { label: 'CDS Coordinators', href: '/lgi/coordinators', icon: '♧' },
-    { label: 'President Designations', href: '/lgi/president-designations', icon: '★' },
     { label: 'Attendance', href: null, icon: '✓' },
     { label: 'Monthly Clearance', href: null, icon: '▣' },
     { label: 'Reports', href: null, icon: '▥' }
