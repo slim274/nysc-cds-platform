@@ -15,7 +15,8 @@ import {
   updateMeetingAttendance,
   submitMeetingAttendance,
   listLgiMeetings,
-  getLgiMeeting
+  getLgiMeeting,
+  listCorpsMemberApprovedAttendance
 } from './attendance.service';
 
 import {
