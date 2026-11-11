@@ -145,56 +145,32 @@ async function getAttendanceRows(meetingId: string) {
     .orderBy(asc(corpsMembers.lastName), asc(corpsMembers.firstName));
 }
 
-async function attachMeetingSummaries(
-  rows: Array<{
-    id: string;
-    groupId: string;
-    groupCode: string;
-    groupName: string;
-    lgaId: string;
-    lgaName: string;
-    stateName: string;
-    title: string;
-    description: string | null;
-    venue: string | null;
-    startsAt: Date;
-    endsAt: Date;
-    status: string;
-    createdByUserId: string | null;
-    submittedAt: Date | null;
-    reviewedAt: Date | null;
-    reviewedByUserId: string | null;
-    reviewDecision: string | null;
-    reviewNotes: string | null;
-    cancelledAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }[]async function attachMeetingSummaries(
-  rows: Array<{
-    id: string;
-    groupId: string;
-    groupCode: string;
-    groupName: string;
-    lgaId: string;
-    lgaName: string;
-    stateName: string;
-    title: string;
-    description: string | null;
-    venue: string | null;
-    startsAt: Date;
-    endsAt: Date;
-    status: string;
-    createdByUserId: string | null;
-    submittedAt: Date | null;
-    reviewedAt: Date | null;
-    reviewedByUserId: string | null;
-    reviewDecision: string | null;
-    reviewNotes: string | null;
-    cancelledAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }
-) {
+type MeetingListRow = {
+  id: string;
+  groupId: string;
+  groupCode: string;
+  groupName: string;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+  title: string;
+  description: string | null;
+  venue: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  status: string;
+  createdByUserId: string | null;
+  submittedAt: Date | null;
+  reviewedAt: Date | null;
+  reviewedByUserId: string | null;
+  reviewDecision: string | null;
+  reviewNotes: string | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+async function attachMeetingSummaries(rows: MeetingListRow[]) {
   if (rows.length === 0) return [];
   const attendanceRows = await db
     .select({
@@ -204,7 +180,14 @@ async function attachMeetingSummaries(
     .from(cdsMeetingAttendance)
     .where(inArray(cdsMeetingAttendance.meetingId, rows.map((row) => row.id)));
 
-  const summaries = new Map<string, { present: number; absent: number; late: number; excused: number; unmarked: number; total: number }>();
+  const summaries = new Map<string, {
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    unmarked: number;
+    total: number;
+  }>();
   for (const row of attendanceRows) {
     const summary = summaries.get(row.meetingId) ?? {
       present: 0, absent: 0, late: 0, excused: 0, unmarked: 0, total: 0
