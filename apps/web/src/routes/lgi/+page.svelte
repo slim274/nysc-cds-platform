@@ -186,6 +186,13 @@
           </article>
 
           <article class="feature-card">
+            <div class="feature-icon green">▤</div>
+            <h3>Batches &amp; Streams</h3>
+            <p>Manage NYSC service years, mobilisation batches and streams used for Corps Member intake.</p>
+            <a class="feature-link" href="/lgi/batches-streams">Manage batches &amp; streams →</a>
+          </article>
+
+          <article class="feature-card">
             <div class="feature-icon orange">◎</div>
             <h3>CDS Groups</h3>
             <p>
