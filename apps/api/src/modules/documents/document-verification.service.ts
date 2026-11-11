@@ -452,7 +452,7 @@ export async function createDocumentRequirement(
       .limit(1);
 
     const publish = input.isActive ?? false;
-    if (publish && input.isRequired && true) {
+    if (publish && input.isRequired) {
       throw new DocumentWorkflowError(
         'Create this requirement as a draft, upload its reference sample, and then enable it.',
         409,
