@@ -130,7 +130,7 @@
               {@render AttendanceSummary(selected)}
             {:else if selected.status === 'reviewed'}
               <div class="message success">Your Coordinator approved this attendance register. It is now locked.</div>
-              <AttendanceSummary {selected} />
+              {@render AttendanceSummary(selected)}
             {:else}
               <div class="message warning">This meeting was cancelled. Attendance cannot be recorded.</div>
             {/if}
