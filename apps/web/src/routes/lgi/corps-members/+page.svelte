@@ -343,6 +343,8 @@
       const blob = await downloadCorpsMembersCsv({
         search: search.trim() || undefined,
         lgaId: lgaFilter === 'all' ? undefined : lgaFilter,
+        serviceYear: serviceYearFilter === 'all' ? undefined : Number(serviceYearFilter),
+        batchId: batchFilter === 'all' ? undefined : batchFilter,
         streamId: streamFilter === 'all' ? undefined : streamFilter,
         profileStatus: statusFilter === 'all' ? undefined : statusFilter as CorpsProfileStatus
       });
