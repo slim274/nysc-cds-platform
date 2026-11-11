@@ -237,6 +237,7 @@
           <div><h2>Quick Access</h2><p>Continue managing your CDS responsibilities.</p></div>
         </section>
         <section class="feature-grid quick-links">
+          <a class="feature-card quick-card" href="/coordinator/presidents"><div class="feature-icon purple">♙</div><h3>CDS Presidents</h3><p>View active, pending and former Presidents for your assigned groups.</p><span class="feature-link">View CDS Presidents →</span></a>
           <a class="feature-card quick-card" href="/coordinator/course-mapping"><div class="feature-icon blue">⌘</div><h3>Course Mapping</h3><p>Review eligibility mappings for the CDS groups assigned to you.</p><span class="feature-link">Open course mapping →</span></a>
           <a class="feature-card quick-card" href="/coordinator/documents"><div class="feature-icon green">▣</div><h3>Document Checklist</h3><p>Monitor published document requirements and member submissions.</p><span class="feature-link">Open document checklist →</span></a>
           <a class="feature-card quick-card" href="/coordinator/handovers"><div class="feature-icon purple">⇄</div><h3>Handover Inbox</h3><p>Review and acknowledge transferred group responsibilities.</p><span class="feature-link">Open handover inbox →</span></a>
