@@ -294,6 +294,7 @@ export async function importCorpsMembers(rows: CorpsMemberImportRow[], lgaIds: s
             sql`lower(${streams.code}) = lower(${row.streamCode})`,
             sql`lower(${batches.code}) = lower(${row.batchCode})`,
             eq(serviceYears.year, row.serviceYear),
+            eq(serviceYears.isActive, true),
             eq(streams.isActive, true),
             eq(batches.isActive, true)
           )).limit(1);
