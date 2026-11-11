@@ -30,6 +30,8 @@ const listQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   lgaId: z.string().uuid().optional(),
   streamId: z.string().uuid().optional(),
+  batchId: z.string().uuid().optional(),
+  serviceYear: z.coerce.number().int().min(2000).max(2200).optional(),
   profileStatus: z.enum(['preloaded', 'draft', 'submitted', 'approved', 'rejected']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(5).max(100).default(20)
