@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import CoordinatorLayout from '#lib/components/CoordinatorLayout.svelte';
   import {
     ApiError,
     getCurrentUser,
@@ -97,13 +98,8 @@
 {:else if !currentUser}
   <main class="state-screen"><h2>Coordinator workspace unavailable</h2><p>{errorMessage}</p><a href="/login">Return to sign in</a></main>
 {:else}
-  <div class="workspace">
-    <header class="topbar">
-      <div class="brand"><span class="brand-icon">N</span><div><strong>NYSC CDS</strong><small>Coordinator workspace</small></div></div>
-      <div class="account"><a class="workspace-link" href="/coordinator/course-mapping">Course Mapping</a><div><strong>{currentUser.email}</strong><small>CDS Coordinator</small></div><button class="secondary-button" type="button" onclick={signOut}>Sign out</button></div>
-    </header>
-
-    <main class="content">
+  <CoordinatorLayout activePath="/coordinator/handovers" pageTitle="Handover Inbox" userEmail={currentUser.email} onSignOut={signOut}>
+    <div class="module-content">
       <div class="eyebrow">CDS GROUP OPERATIONS</div>
       <h1>Handover inbox</h1>
       <p class="intro">Review the information provided by the outgoing Coordinator or LGI, understand outstanding responsibilities, and acknowledge the transfer.</p>
@@ -155,27 +151,16 @@
           {/each}
         </section>
       {/if}
-    </main>
-    <footer>NYSC CDS Management Platform · Coordinator Workspace</footer>
-  </div>
+    </div>
+  </CoordinatorLayout>
 {/if}
 
 <style>
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; background: #f5f7f5; color: #19251e; font-family: Inter, Arial, sans-serif; }
   button, textarea { font: inherit; }
-  .workspace { min-height: 100vh; display: flex; flex-direction: column; }
-  .topbar { min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px clamp(18px, 5vw, 64px); border-bottom: 1px solid #e5ebe6; background: #fff; }
-  .brand, .account { display: flex; align-items: center; gap: 12px; }
-  .brand-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 9px; background: #0a5c37; color: #fff; font-weight: 800; font-size: 21px; }
-  .brand strong, .brand small, .account strong, .account small { display: block; }
-  .brand strong { color: #0a5c37; font-size: 14px; }
-  .brand small, .account small { margin-top: 4px; color: #819087; font-size: 10px; }
-  .workspace-link { color: #0a6841; font-size: 10px; font-weight: 700; text-decoration: none; }
-  .workspace-link:hover { text-decoration: underline; }
-  .account { gap: 16px; }
   .account strong { font-size: 11px; }
-  .content { width: min(100%, 1040px); margin: 0 auto; padding: 42px 22px; flex: 1; }
+  .module-content { width: 100%; min-width: 0; }
   .eyebrow { color: #0a8050; font-size: 9px; font-weight: 700; letter-spacing: 1.4px; }
   h1 { margin: 9px 0; font-size: clamp(25px, 4vw, 34px); }
   .intro { max-width: 760px; margin: 0 0 25px; color: #718078; font-size: 13px; line-height: 1.7; }
@@ -214,9 +199,8 @@
   .message { margin: 15px 0; padding: 11px 13px; border-radius: 8px; font-size: 11px; }
   .message.error { border: 1px solid #efceca; background: #fff3f2; color: #a32920; }
   .message.success { border: 1px solid #cce6d3; background: #eef8f0; color: #16633b; }
-  footer { padding: 20px; border-top: 1px solid #e5ebe6; color: #89948c; font-size: 10px; text-align: center; }
   .state-screen { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 10px; color: #53665a; font: 13px Inter, Arial, sans-serif; }
   .loader { width: 28px; height: 28px; border: 3px solid #dce8df; border-top-color: #0a8050; border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 700px) { .topbar { flex-wrap: wrap; } .detail-grid { grid-template-columns: 1fr; gap: 0; } .account { align-items: flex-end; gap: 9px; } .account > div { max-width: 180px; overflow-wrap: anywhere; } .summary { flex-wrap: wrap; } }
+  @media (max-width: 760px) { .detail-grid { grid-template-columns: 1fr; gap: 0; } .summary { flex-wrap: wrap; } }
 </style>
