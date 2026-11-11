@@ -35,6 +35,11 @@ export const corpsMemberDocumentRequirements = pgTable(
 
     isRequired: boolean('is_required').notNull().default(true),
 
+    verificationMode: varchar('verification_mode', { length: 30 })
+      .$type<'manual' | 'ai_auto' | 'ai_assisted'>()
+      .notNull()
+      .default('manual'),
+
     allowedMimeTypes: text('allowed_mime_types')
       .notNull()
       .default('application/pdf,image/jpeg,image/png'),
@@ -68,6 +73,10 @@ export const corpsMemberDocumentRequirements = pgTable(
     check(
       'corps_member_doc_requirements_size_check',
       sql`${table.maxFileSizeBytes} BETWEEN 1024 AND 52428800`
+    ),
+    check(
+      'corps_member_doc_requirements_verification_mode_check',
+      sql`${table.verificationMode} IN ('manual', 'ai_auto', 'ai_assisted')`
     )
   ]
 );
