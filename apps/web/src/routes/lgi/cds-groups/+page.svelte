@@ -324,6 +324,40 @@
     }
   }
 
+  async function assignMemberWithCourseOverride(memberId: string, memberName: string, courseName: string | null) {
+    if (!rosterGroup) return;
+    const warning = `You are placing ${memberName} (${courseName ?? 'course not recorded'}) into ${rosterGroup.name}, even though their course is not mapped to this group. This exception will be recorded in the assignment history. Continue?`;
+    if (!window.confirm(warning)) return;
+
+    const reason = window.prompt(
+      'Record the LGI reason for this course-mapping exception (minimum 10 characters):'
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      rosterError = 'Enter an override reason of at least 10 characters.';
+      return;
+    }
+
+    rosterSavingMemberId = memberId;
+    rosterError = '';
+    rosterNotice = '';
+    try {
+      await assignCdsGroupMember(rosterGroup.id, memberId, {
+        overrideCourseMapping: true,
+        overrideReason: reason.trim()
+      });
+      rosterNotice = 'Manual exception placement saved. The course-mapping override reason has been recorded.';
+      await loadRoster();
+      await loadGroups();
+    } catch (error) {
+      rosterError = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Unable to save this course-mapping exception.';
+    } finally {
+      rosterSavingMemberId = '';
+    }
+  }
+
   async function removeMember(memberId: string) {
     if (!rosterGroup) return;
     const confirmed = window.confirm('End this Corps Member’s active membership in the selected CDS group?');
@@ -710,6 +744,9 @@
                     <strong>{member.lastName}, {member.firstName} {member.middleName ?? ''}</strong>
                     <span>{member.stateCode} · {member.courseName ?? 'Course not recorded'}</span>
                     <small>Added {new Date(member.assignedAt).toLocaleDateString()}</small>
+                    {#if member.courseMappingOverride}
+                      <small class="course-override-history">Course-mapping exception · {member.courseMappingOverrideReason ?? 'Reason not recorded'}</small>
+                    {/if}
                   </div>
                   <div class="roster-actions">
                     <span class="roster-status">{member.profileStatus}</span>
@@ -725,7 +762,7 @@
 
         <section class="roster-section">
           <div class="roster-section-heading">
-            <div><h3>Manual placement &amp; reassignment</h3><p>Use this exception tool when automatic matching found no group or a member declined an assignment. Only unassigned members in this LGA whose course matches this group are listed.</p></div>
+            <div><h3>Manual placement &amp; reassignment</h3><p>Standard placements remain limited to unassigned, approved Corps Members whose academic course is mapped to this group.</p></div>
           </div>
           <form class="roster-search" onsubmit={(event) => { event.preventDefault(); void loadRoster(); }}>
             <input bind:value={rosterSearch} placeholder="Search by name or state code…" aria-label="Search eligible Corps Members" />
@@ -758,6 +795,45 @@
             </div>
           {/if}
         </section>
+        <section class="roster-section course-override-section">
+          <div class="roster-section-heading">
+            <div>
+              <h3>Outside course mapping — manual exception</h3>
+              <p>Use only when the LGI approves an exception. The member's course will not match this group's configured course list, and your reason is saved with the assignment for audit.</p>
+            </div>
+          </div>
+          <div class="course-override-warning" role="note">
+            <strong>Exception placement</strong>
+            <span>Automatic matching will continue to respect course mappings. This override applies only to the individual manual placement below. Mandatory document verification, LGA scope, active group status and capacity checks still apply.</span>
+          </div>
+          {#if !roster.group.isActive}
+            <div class="roster-empty">This group is inactive. Reactivate it before adding members.</div>
+          {:else if roster.group.availableCapacity <= 0}
+            <div class="roster-empty">This group has reached its maximum capacity.</div>
+          {:else if roster.manualOverrideMembers.length === 0}
+            <div class="roster-empty">No approved, unassigned Corps Members outside this group's course mapping were found.</div>
+          {:else}
+            <div class="roster-list eligible-list">
+              {#each roster.manualOverrideMembers as member (member.id)}
+                <article class="roster-row">
+                  <div class="roster-person">
+                    <strong>{member.lastName}, {member.firstName} {member.middleName ?? ''}</strong>
+                    <span>{member.stateCode} · {member.courseName ?? 'Course not recorded'}</span>
+                    <small class="course-mismatch-label">Course is not mapped to {rosterGroup.name}</small>
+                    {#if member.previousDecline}
+                      <small class="previous-decline">Previously declined {member.previousDecline.groupName}{member.previousDecline.reason ? ` · ${member.previousDecline.reason.replaceAll('_', ' ')}` : ''}</small>
+                      {#if member.previousDecline.notes}<small class="previous-decline-note">Member's note: {member.previousDecline.notes}</small>{/if}
+                    {/if}
+                  </div>
+                  <button class="override-member-button" type="button" onclick={() => void assignMemberWithCourseOverride(member.id, `${member.firstName} ${member.lastName}`, member.courseName)} disabled={Boolean(rosterSavingMemberId)}>
+                    {rosterSavingMemberId === member.id ? 'Saving…' : 'Override & place'}
+                  </button>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+
       {:else if rosterLoading}
         <div class="roster-empty">Loading group roster…</div>
       {/if}
@@ -796,6 +872,14 @@
   .previous-decline { color: #a15a28 !important; font-weight: 700; text-transform: capitalize; }
   .previous-decline-note { color: #7b6555 !important; font-style: italic; white-space: normal; }
   .roster-success { padding: 10px 12px; margin-top: 14px; border: 1px solid #cce6d3; border-radius: 8px; background: #eef8f0; color: #16633b; font-size: 10px; }
+  .course-override-section { padding: 16px; border: 1px solid #efd4b2; border-radius: 10px; background: #fffdfa; }
+  .course-override-warning { display: grid; gap: 5px; padding: 11px 13px; margin: 0 0 12px; border: 1px solid #f0dfc7; border-radius: 8px; background: #fff7ec; color: #74502b; font-size: 9px; line-height: 1.55; }
+  .course-override-warning strong { color: #995719; font-size: 10px; }
+  .course-mismatch-label { color: #a35b19 !important; font-weight: 800; }
+  .course-override-history { color: #8b5b28 !important; font-weight: 700; white-space: normal; }
+  .override-member-button { min-height: 38px; flex: 0 0 auto; padding: 9px 13px; border: 1px solid #b86d2d; border-radius: 8px; background: #fff6eb; color: #925119; font-size: 10px; font-weight: 800; cursor: pointer; }
+  .override-member-button:hover:not(:disabled) { background: #ffecd5; }
+  .override-member-button:disabled { opacity: .5; cursor: wait; }
   @media (max-width: 600px) {
     .roster-summary { grid-template-columns: 1fr; }
     .roster-row { align-items: flex-start; flex-direction: column; }
