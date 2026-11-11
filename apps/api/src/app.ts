@@ -20,7 +20,8 @@ import {
 
 import {
   coordinatorRoutes,
-  coordinatorSelfServiceRoutes
+  coordinatorSelfServiceRoutes,
+  presidentSelfServiceRoutes
 } from './modules/coordinators/coordinators.routes';
 
 
@@ -95,6 +96,9 @@ app.route('/lgi', coordinatorRoutes);
 
 // Coordinator-facing handover inbox and acceptance.
 app.route('/coordinator', coordinatorSelfServiceRoutes);
+
+// CDS President scoped workspace.
+app.route('/cds-president', presidentSelfServiceRoutes);
 
 // NYSC service years, batches and streams shared reference management.
 app.route('/lgi', cohortRoutes);
