@@ -126,60 +126,14 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Mount the notification overlay directly under <html>, outside every
-  // route-specific layout and scroll container. Track document scrolling and
-  // compute its document coordinates from the viewport so it remains in the
-  // same visible top-right position even on legacy nested-scroll pages.
-  function pinToViewport(node: HTMLElement) {
-    document.documentElement.appendChild(node);
-
-    let frame = 0;
-
-    const syncPosition = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const compact = window.innerWidth <= 480;
-        const topOffset = compact ? 10 : 12;
-        const rightOffset = compact ? 12 : 20;
-        const width = node.getBoundingClientRect().width;
-
-        node.style.setProperty('position', 'absolute', 'important');
-        node.style.setProperty('top', `${window.scrollY + topOffset}px`, 'important');
-        node.style.setProperty(
-          'left',
-          `${window.scrollX + window.innerWidth - width - rightOffset}px`,
-          'important'
-        );
-        node.style.setProperty('right', 'auto', 'important');
-        node.style.setProperty('bottom', 'auto', 'important');
-      });
-    };
-
-    node.style.setProperty('inset', 'auto', 'important');
-    node.style.setProperty('position', 'absolute', 'important');
-    node.style.setProperty('margin', '0', 'important');
-    node.style.setProperty('padding', '0', 'important');
-    node.style.setProperty('border', '0', 'important');
-    node.style.setProperty('background', 'transparent', 'important');
-    node.style.setProperty('overflow', 'visible', 'important');
-    node.style.setProperty('z-index', '2147483647', 'important');
-    node.style.setProperty('pointer-events', 'none', 'important');
-
-    syncPosition();
-    window.addEventListener('scroll', syncPosition, { passive: true });
-    document.addEventListener('scroll', syncPosition, { capture: true, passive: true });
-    window.addEventListener('resize', syncPosition, { passive: true });
-    window.visualViewport?.addEventListener('scroll', syncPosition, { passive: true });
-    window.visualViewport?.addEventListener('resize', syncPosition, { passive: true });
-
+  // Mount in the dedicated fixed overlay host added in app.html. This host
+  // is a sibling of the SvelteKit page root, so module-specific scroll areas,
+  // overflow rules and stacking contexts cannot move or clip the bell.
+  function portalToOverlay(node: HTMLElement) {
+    const host = document.getElementById('global-overlay-root');
+    (host ?? document.body).appendChild(node);
     return {
       destroy() {
-        cancelAnimationFrame(frame);
-        window.removeEventListener('scroll', syncPosition);
-        document.removeEventListener('scroll', syncPosition, true);
-        window.removeEventListener('resize', syncPosition);
-        window.visualViewport?.removeEventListener('scroll', syncPosition);
-        window.visualViewport?.removeEventListener('resize', syncPosition);
         node.remove();
       }
     };
@@ -221,7 +175,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" use:pinToViewport>
+  <div class="notification-bell" use:portalToOverlay>
     <button
       class:active={open}
       class="bell-button"
@@ -293,7 +247,7 @@
 <style>
   .notification-bell {
     position: absolute !important;
-    inset: auto !important;
+    inset: 12px 20px auto auto !important;
     width: fit-content !important;
     height: fit-content !important;
     margin: 0 !important;
@@ -302,7 +256,7 @@
     overflow: visible !important;
     background: transparent !important;
     color: inherit;
-    z-index: 2147483647 !important;
+    z-index: 1 !important;
     pointer-events: none !important;
   }
   .bell-button, .notification-panel { pointer-events: auto; }
@@ -351,6 +305,9 @@
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
   @media (max-width: 480px) {
+    .notification-bell {
+      inset: 10px 12px auto auto !important;
+    }
     .bell-button { width: 42px; height: 42px; }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
   }
