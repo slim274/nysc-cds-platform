@@ -19,6 +19,8 @@
 
       if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
         await goto('/lgi');
+      } else if (session.roles.some((role) => role.code === 'CLO')) {
+        await goto('/clo/documents');
       } else if (session.roles.some((role) => role.code === 'CDS_COORDINATOR')) {
         await goto('/coordinator');
       } else if (session.roles.some((role) => role.code === 'CDS_PRESIDENT')) {

@@ -878,7 +878,8 @@ export async function submitCorpsMemberDocument(
         updatedAt: now
       }).returning({
         id: corpsMemberDocumentSubmissions.id,
-        status: corpsMemberDocumentSubmissions.status
+        status: corpsMemberDocumentSubmissions.status,
+        verificationResult: corpsMemberDocumentSubmissions.verificationResult
       });
       if (!created) throw new Error('DOCUMENT_SUBMISSION_CREATE_FAILED');
 
@@ -923,6 +924,8 @@ export async function listDocumentSubmissions(
       requirementName: corpsMemberDocumentRequirements.name,
       verificationMode: corpsMemberDocumentRequirements.verificationMode,
       memberId: corpsMembers.id,
+      lgaName: lgas.name,
+      stateName: lgas.stateName,
       stateCode: corpsMembers.stateCode,
       firstName: corpsMembers.firstName,
       middleName: corpsMembers.middleName,
@@ -937,9 +940,9 @@ export async function listDocumentSubmissions(
     .from(corpsMemberDocumentSubmissions)
     .innerJoin(corpsMemberDocumentRequirements, eq(corpsMemberDocumentSubmissions.requirementId, corpsMemberDocumentRequirements.id))
     .innerJoin(corpsMembers, eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMembers.id))
+    .innerJoin(lgas, eq(corpsMembers.lgaId, lgas.id))
     .where(and(...filters))
-    .orderBy(desc(corpsMemberDocumentSubmissions.submittedAt))
-    .limit(250);
+    .orderBy(desc(corpsMemberDocumentSubmissions.submittedAt));
 }
 
 export async function getDocumentSubmissionFileForLgi(
@@ -998,7 +1001,8 @@ export async function decideDocumentManualReview(
   decision: 'verified' | 'needs_resubmission',
   reason: string,
   lgaIds: string[],
-  actorUserId: string
+  actorUserId: string,
+  actorRole: 'LGI_ADMIN' | 'CLO' = 'LGI_ADMIN'
 ) {
   assertLgaScope(lgaIds);
   return db.transaction(async (tx) => {
@@ -1006,7 +1010,8 @@ export async function decideDocumentManualReview(
       .select({
         id: corpsMemberDocumentSubmissions.id,
         corpsMemberId: corpsMemberDocumentSubmissions.corpsMemberId,
-        status: corpsMemberDocumentSubmissions.status
+        status: corpsMemberDocumentSubmissions.status,
+        verificationResult: corpsMemberDocumentSubmissions.verificationResult
       })
       .from(corpsMemberDocumentSubmissions)
       .innerJoin(corpsMembers, eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMembers.id))
@@ -1025,8 +1030,16 @@ export async function decideDocumentManualReview(
     await tx.update(corpsMemberDocumentSubmissions)
       .set({
         status: decision,
-        verificationProvider: 'lgi_exception_review',
+        verificationProvider: actorRole === 'CLO' ? 'clo_document_review' : 'lgi_exception_review',
         verificationReason: reason.trim(),
+        verificationResult: {
+          ...(submission.verificationResult ?? {}),
+          review: {
+            reviewedByUserId: actorUserId,
+            reviewedByRole: actorRole,
+            reviewedAt: now.toISOString()
+          }
+        },
         verifiedAt: decision === 'verified' ? now : null,
         updatedAt: now
       })
@@ -1039,6 +1052,6 @@ export async function decideDocumentManualReview(
         .set({ profileStatus: 'submitted', updatedAt: now })
         .where(eq(corpsMembers.id, submission.corpsMemberId));
     }
-    return { status: decision, reviewedByUserId: actorUserId };
+    return { status: decision, reviewedByUserId: actorUserId, reviewedByRole: actorRole };
   });
 }
