@@ -7,6 +7,7 @@ import {
   createCdsAnnouncement,
   listAnnouncementTargetGroups,
   listCdsAnnouncements,
+  markAllCdsAnnouncementsRead,
   markCdsAnnouncementRead,
   resubmitCdsAnnouncement,
   reviewCdsAnnouncement
@@ -53,6 +54,21 @@ function handleError(c: Context<AuthEnv>, error: unknown) {
   }
   console.error('CDS announcement request failed:', error);
   return c.json({ success: false, message: 'Unable to complete the announcement request.' }, 500);
+}
+
+function registerReadAllRoute(router: Hono<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDENT' | 'CORPS_MEMBER') {
+  router.post('/read-all', async (c) => {
+    try {
+      const data = await markAllCdsAnnouncementsRead(
+        c.get('authUser').id,
+        roleCode,
+        roleCode === 'LGI_ADMIN' ? getAssignedLgaIds(c) : []
+      );
+      return c.json({ success: true, data });
+    } catch (error) {
+      return handleError(c, error);
+    }
+  });
 }
 
 function registerReadRoute(router: Hono<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDENT' | 'CORPS_MEMBER') {
@@ -146,6 +162,7 @@ coordinatorAnnouncementRoutes.post('/:announcementId/review', async (c) => {
     });
   } catch (error) { return handleError(c, error); }
 });
+registerReadAllRoute(coordinatorAnnouncementRoutes, 'CDS_COORDINATOR');
 registerReadRoute(coordinatorAnnouncementRoutes, 'CDS_COORDINATOR');
 
 export const presidentAnnouncementRoutes = new Hono<AuthEnv>();
@@ -190,6 +207,7 @@ presidentAnnouncementRoutes.patch('/:announcementId/resubmit', async (c) => {
   } catch (error) { return handleError(c, error); }
 });
 
+registerReadAllRoute(presidentAnnouncementRoutes, 'CDS_PRESIDENT');
 registerReadRoute(presidentAnnouncementRoutes, 'CDS_PRESIDENT');
 
 export const lgiAnnouncementRoutes = new Hono<AuthEnv>();
@@ -207,6 +225,7 @@ lgiAnnouncementRoutes.get('/', async (c) => {
   } catch (error) { return handleError(c, error); }
 });
 lgiAnnouncementRoutes.post('/', createHandler('LGI_ADMIN'));
+registerReadAllRoute(lgiAnnouncementRoutes, 'LGI_ADMIN');
 registerReadRoute(lgiAnnouncementRoutes, 'LGI_ADMIN');
 
 export const corpsMemberAnnouncementRoutes = new Hono<AuthEnv>();
@@ -217,4 +236,5 @@ corpsMemberAnnouncementRoutes.get('/', async (c) => {
     return c.json({ success: true, data });
   } catch (error) { return handleError(c, error); }
 });
+registerReadAllRoute(corpsMemberAnnouncementRoutes, 'CORPS_MEMBER');
 registerReadRoute(corpsMemberAnnouncementRoutes, 'CORPS_MEMBER');
