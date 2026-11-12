@@ -336,3 +336,55 @@ export async function markCdsAnnouncementRead(
   await db.insert(cdsAnnouncementReads).values({ announcementId, userId }).onConflictDoNothing();
   return { announcementId, read: true };
 }
+
+
+export async function resubmitCdsAnnouncement(
+  userId: string,
+  announcementId: string,
+  input: { title: string; body: string; priority: AnnouncementPriority }
+) {
+  return db.transaction(async (tx) => {
+    const [announcement] = await tx.select({
+      id: cdsAnnouncements.id,
+      status: cdsAnnouncements.status,
+      createdByUserId: cdsAnnouncements.createdByUserId,
+      expiresAt: cdsAnnouncements.expiresAt
+    }).from(cdsAnnouncements)
+      .where(eq(cdsAnnouncements.id, announcementId))
+      .for('update')
+      .limit(1);
+
+    if (!announcement || announcement.createdByUserId !== userId) {
+      throw new AnnouncementServiceError('Returned announcement not found in your submissions.', 404, 'ANNOUNCEMENT_NOT_FOUND');
+    }
+    if (announcement.status !== 'returned') {
+      throw new AnnouncementServiceError('Only announcements returned by your Coordinator can be resubmitted.', 409, 'ANNOUNCEMENT_NOT_RETURNED');
+    }
+    if (announcement.expiresAt && announcement.expiresAt <= new Date()) {
+      throw new AnnouncementServiceError('This announcement has expired. Submit a new announcement instead.', 409, 'ANNOUNCEMENT_EXPIRED');
+    }
+
+    const submittedAt = new Date();
+    await tx.update(cdsAnnouncements).set({
+      title: input.title.trim(),
+      body: input.body.trim(),
+      priority: input.priority,
+      status: 'pending_review',
+      submittedAt,
+      publishedAt: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      reviewNotes: null,
+      updatedAt: submittedAt
+    }).where(eq(cdsAnnouncements.id, announcementId));
+
+    await tx.insert(cdsAnnouncementAuditLogs).values({
+      announcementId,
+      actorUserId: userId,
+      eventType: 'resubmitted_for_review',
+      details: {}
+    });
+
+    return { id: announcementId, status: 'pending_review' as const, submittedAt };
+  });
+}
