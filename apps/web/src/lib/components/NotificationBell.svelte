@@ -139,7 +139,6 @@
     }
 
     node.style.setProperty('position', 'fixed', 'important');
-    node.style.setProperty('inset', 'auto', 'important');
     node.style.setProperty('margin', '0', 'important');
     node.style.setProperty('padding', '0', 'important');
     node.style.setProperty('border', '0', 'important');
@@ -264,7 +263,6 @@
 <style>
   .notification-bell {
     position: fixed;
-    inset: auto;
     margin: 0;
     padding: 0;
     border: 0;
@@ -278,7 +276,8 @@
   }
   .notification-bell:popover-open {
     position: fixed;
-    inset: auto;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
     margin: 0;
   }
   .bell-button, .notification-panel { pointer-events: auto; }
