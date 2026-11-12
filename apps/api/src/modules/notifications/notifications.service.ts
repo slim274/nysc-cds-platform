@@ -556,14 +556,20 @@ export async function notifyMonthlyClearanceDecision(input: {
 }) {
   const statusLabel = input.status === 'cleared' ? 'cleared' : 'not cleared';
   const noteText = input.status === 'not_cleared' && input.note
-    ? ` LGI note: ${input.note.slice(0, 350)}`
+    ? ` Decision note: ${input.note.slice(0, 350)}`
     : '';
-  await notifyUser(input.userId, 'CORPS_MEMBER', {
-    type: 'monthly_clearance_decision',
-    title: 'Monthly clearance updated',
-    message: `Your ${input.month} monthly clearance has been marked ${statusLabel}.${noteText}`,
-    hrefSuffix: '/attendance',
-    entityType: 'monthly_clearance',
-    entityId: input.clearanceId
-  });
+  try {
+    await notifyUser(input.userId, 'CORPS_MEMBER', {
+      type: 'monthly_clearance_decision',
+      title: 'Monthly clearance updated',
+      message: `Your ${input.month} monthly clearance has been marked ${statusLabel}.${noteText}`,
+      hrefSuffix: '/attendance',
+      entityType: 'monthly_clearance',
+      entityId: input.clearanceId
+    });
+  } catch (error) {
+    // Notification delivery must not make a successfully committed clearance
+    // decision appear to have failed to the LGI or Coordinator.
+    console.error('Unable to notify Corps Member about monthly clearance:', error);
+  }
 }
