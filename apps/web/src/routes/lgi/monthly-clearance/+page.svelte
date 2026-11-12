@@ -34,7 +34,6 @@
   let decisionStatus = $state<MonthlyClearanceStatus>('cleared');
   let decisionNote = $state('');
 
-  const filteredItems = $derived(data?.items ?? []);
   const isNotClearedReasonMissing = $derived(
     decisionStatus === 'not_cleared' && decisionNote.trim().length < 10
   );
