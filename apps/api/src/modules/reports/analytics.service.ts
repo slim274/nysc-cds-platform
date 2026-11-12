@@ -113,8 +113,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
     currentLagosMonth.month - months,
     1
   ) - 60 * 60 * 1000);
-  const [groupRows] = await Promise.all([
-    db.select({
+  const groupRows = await db.select({
       id: cdsGroups.id,
       code: cdsGroups.code,
       name: cdsGroups.name,
@@ -124,12 +123,11 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
     })
       .from(cdsGroups)
       .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
-      .where(and(
-        inArray(cdsGroups.lgaId, lgaIds),
-        eq(cdsGroups.isActive, true)
-      ))
-      .orderBy(asc(lgas.name), asc(cdsGroups.name))
-  ]);
+    .where(and(
+      inArray(cdsGroups.lgaId, lgaIds),
+      eq(cdsGroups.isActive, true)
+    ))
+    .orderBy(asc(lgas.name), asc(cdsGroups.name));
 
   const groupIds = groupRows.map((group) => group.id);
   if (groupIds.length === 0) {
@@ -164,8 +162,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
 
   const [membershipRows, meetingRows, coordinatorRows, presidentRows] = await Promise.all([
     db.select({
-      groupId: cdsGroupMemberships.cdsGroupId,
-      memberId: cdsGroupMemberships.corpsMemberId
+      groupId: cdsGroupMemberships.cdsGroupId
     })
       .from(cdsGroupMemberships)
       .where(and(
