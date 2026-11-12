@@ -1785,7 +1785,7 @@ export async function getLgiAnalytics(months: 3 | 6 | 12 = 6): Promise<LgiAnalyt
 export type MonthlyClearanceStatus = 'pending' | 'cleared' | 'not_cleared';
 
 export interface LgiMonthlyClearanceItem {
-  clearanceId: string;
+  clearanceId?: string;
   month: string;
   status: MonthlyClearanceStatus;
   decisionNote: string | null;
