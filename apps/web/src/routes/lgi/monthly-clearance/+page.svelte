@@ -319,7 +319,7 @@
                           <small>{item.indicators.attendanceMarked} marks · {item.indicators.present} present · {item.indicators.late} late</small>
                           <small>{item.indicators.absent} absent · {item.indicators.excused} excused</small>
                         </td>
-                        <td><span class="status-pill" class:pending={item.status === 'pending'} class:cleared={item.status === 'cleared'} class:not-cleared={item.status === 'not_cleared'}>{statusLabel(item.status)}</span><small>{item.decidedAt ? formatDate(item.decidedAt) : 'Not yet decided'}</small></td>
+                        <td><span class="status-pill" class:pending={item.status === 'pending'} class:cleared={item.status === 'cleared'} class:rejected={item.status === 'not_cleared'}>{statusLabel(item.status)}</span><small>{item.decidedAt ? formatDate(item.decidedAt) : 'Not yet decided'}</small></td>
                         <td class="actions no-print">
                           <button type="button" class="action-clear" onclick={() => openDecision(item, 'cleared')} disabled={item.status === 'cleared'}>Clear</button>
                           <button type="button" class="action-return" onclick={() => openDecision(item, 'not_cleared')} disabled={item.status === 'not_cleared'}>Not cleared</button>
@@ -352,7 +352,7 @@
             <section class="mobile-records">
               {#each data.items as item (item.clearanceId)}
                 <article class="panel member-card">
-                  <div class="member-card-heading"><div><strong>{item.member.name}</strong><small>{item.member.stateCode} · {item.member.lgaName}</small></div><span class="status-pill" class:pending={item.status === 'pending'} class:cleared={item.status === 'cleared'} class:not-cleared={item.status === 'not_cleared'}>{statusLabel(item.status)}</span></div>
+                  <div class="member-card-heading"><div><strong>{item.member.name}</strong><small>{item.member.stateCode} · {item.member.lgaName}</small></div><span class="status-pill" class:pending={item.status === 'pending'} class:cleared={item.status === 'cleared'} class:rejected={item.status === 'not_cleared'}>{statusLabel(item.status)}</span></div>
                   <div class="mobile-evidence">
                     <div><span>CDS group</span><strong>{item.member.groupCode ? `${item.member.groupCode} · ${item.member.groupName}` : 'No active CDS group'}</strong></div>
                     <div><span>Documents</span><strong>{item.indicators.verifiedDocuments}/{item.indicators.requiredDocuments} verified · {item.indicators.documentsOutstanding} outstanding</strong></div>
@@ -472,7 +472,7 @@
   .status-pill{display:inline-flex;padding:5px 8px;border-radius:14px;font-size:8px;font-weight:800;white-space:nowrap}
   .status-pill.pending{background:#fff3df;color:#9a6412}
   .status-pill.cleared{background:#e7f5eb;color:#0c7543}
-  .status-pill.not-cleared{background:#fff0ed;color:#ae4436}
+  .status-pill.rejected{background:#fff0ed;color:#ae4436}
   .actions{min-width:205px}
   .actions button,.mobile-actions button{margin:0 3px 4px 0;padding:6px 8px;border:1px solid #dce7df;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:800;cursor:pointer}
   .actions .action-clear,.mobile-actions .action-clear{border-color:#0a6841;background:#0a6841;color:#fff}
