@@ -1737,6 +1737,7 @@ export interface LgiAnalyticsGroup {
   unmarked: number;
   eligibleAttendanceRecords: number;
   attendanceRatePercent: number | null;
+  eligibleAttendanceRecords: number;
   reviewedRegisters: number;
   approvedRegisters: number;
   registerApprovalRatePercent: number | null;
@@ -1755,6 +1756,7 @@ export interface LgiAnalyticsData {
     approvedRegisters: number;
     reviewedRegisters: number;
     attendanceRatePercent: number | null;
+    eligibleAttendanceRecords: number;
     groupsBelowThreshold: number;
   };
   monthlyTrend: Array<{
@@ -1762,6 +1764,7 @@ export interface LgiAnalyticsData {
     label: string;
     meetings: number;
     attendanceRatePercent: number | null;
+    eligibleRecords: number;
     present: number;
     late: number;
     absent: number;
