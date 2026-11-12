@@ -13,3 +13,4 @@ export * from './corps-member-otp';
 export * from './corps-member-documents';
 export * from './cds-group-leadership';
 export * from './cds-meetings';
+export * from './cds-announcements';

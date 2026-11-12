@@ -41,6 +41,13 @@ import {
 } from './modules/attendance/attendance.routes';
 
 import {
+  coordinatorAnnouncementRoutes,
+  presidentAnnouncementRoutes,
+  lgiAnnouncementRoutes,
+  corpsMemberAnnouncementRoutes
+} from './modules/announcements/announcements.routes';
+
+import {
   lgiDocumentRoutes,
   corpsMemberDocumentRoutes
 } from './modules/documents/documents.routes';
@@ -104,13 +111,16 @@ app.route('/lgi', coordinatorRoutes);
 // Coordinator-facing handover inbox and attendance review.
 app.route('/coordinator', coordinatorSelfServiceRoutes);
 app.route('/coordinator/attendance', coordinatorAttendanceRoutes);
+app.route('/coordinator/announcements', coordinatorAnnouncementRoutes);
 
 // CDS President scoped workspace and attendance recording.
 app.route('/cds-president', presidentSelfServiceRoutes);
 app.route('/cds-president/attendance', presidentAttendanceRoutes);
+app.route('/cds-president/announcements', presidentAnnouncementRoutes);
 
 // LGI read-only attendance reports, limited to assigned LGA(s).
 app.route('/lgi/attendance', lgiAttendanceRoutes);
+app.route('/lgi/announcements', lgiAnnouncementRoutes);
 
 // NYSC service years, batches and streams shared reference management.
 app.route('/lgi', cohortRoutes);
@@ -121,6 +131,7 @@ app.route('/lgi', corpsMemberRoutes);
 // Corps Member self-service portal, CDS group decline and approved attendance history.
 app.route('/corps-member', corpsMemberPortalRoutes);
 app.route('/corps-member/attendance', corpsMemberAttendanceRoutes);
+app.route('/corps-member/announcements', corpsMemberAnnouncementRoutes);
 
 // LGI document requirements and exception review queue.
 app.route('/lgi', lgiDocumentRoutes);

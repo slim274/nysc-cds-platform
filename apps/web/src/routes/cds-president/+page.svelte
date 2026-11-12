@@ -67,6 +67,7 @@
       <nav class:open={menuOpen} aria-label="President navigation">
         <a class="active" href="/cds-president">Dashboard</a>
          <a href="/cds-president/attendance">Attendance</a>
+        <a href="/cds-president/announcements">Announcements</a>
         <a href="/corps-member">Corps Member portal</a>
         <span class="user-email">{currentUser.email}</span>
         <button class="signout" type="button" onclick={signOut}>Sign out</button>

@@ -361,7 +361,7 @@
       {/if}
     </section>
     <section class="coming-grid">
-      <article><span class="coming-icon">◉</span><div><strong>Announcements</strong><p>Receive updates from your LGI and Coordinator.</p><small>Coming next</small></div></article>
+      <a class="announcement-link" href="/corps-member/announcements"><span class="coming-icon">◉</span><div><strong>Announcements</strong><p>Receive updates from your LGI and Coordinator.</p><small>View announcements →</small></div></a>
     </section>
   {/if}
 </main>
