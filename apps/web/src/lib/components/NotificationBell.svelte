@@ -126,12 +126,29 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Mount in the dedicated fixed overlay host added in app.html. This host
-  // is a sibling of the SvelteKit page root, so module-specific scroll areas,
-  // overflow rules and stacking contexts cannot move or clip the bell.
+  // Mount into a dedicated viewport overlay host directly under <html>.
+  // Keeping this host outside <body> means legacy body overflow rules, sticky
+  // headers and nested module scrollers cannot affect the notification bell.
   function portalToOverlay(node: HTMLElement) {
     const host = document.getElementById('global-overlay-root');
-    (host ?? document.body).appendChild(node);
+
+    if (host) {
+      document.documentElement.appendChild(host);
+      host.style.setProperty('position', 'fixed', 'important');
+      host.style.setProperty('inset', '0', 'important');
+      host.style.setProperty('width', '100vw', 'important');
+      host.style.setProperty('height', '100vh', 'important');
+      host.style.setProperty('height', '100dvh', 'important');
+      host.style.setProperty('overflow', 'visible', 'important');
+      host.style.setProperty('pointer-events', 'none', 'important');
+      host.style.setProperty('z-index', '2147483647', 'important');
+      host.style.setProperty('isolation', 'isolate', 'important');
+      host.appendChild(node);
+    } else {
+      // Defensive fallback for deployments that have not yet received app.html.
+      document.documentElement.appendChild(node);
+    }
+
     return {
       destroy() {
         node.remove();
@@ -247,6 +264,10 @@
 <style>
   .notification-bell {
     position: absolute !important;
+    top: 12px !important;
+    right: 20px !important;
+    bottom: auto !important;
+    left: auto !important;
     inset: 12px 20px auto auto !important;
     width: fit-content !important;
     height: fit-content !important;
