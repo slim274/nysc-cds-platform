@@ -126,16 +126,31 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Mount the bell outside both route layouts and the body element.
-  // Some legacy LGI pages apply different overflow and sticky-header rules
-  // to body; the document root keeps the bell tied to the viewport instead.
-  function portalToViewport(node: HTMLElement) {
-    document.documentElement.appendChild(node);
+  // Promote the bell into the browser top layer. Unlike ordinary fixed
+  // elements, top-layer elements are not clipped by page overflow, transformed
+  // wrappers or local stacking contexts used by individual LGI modules.
+  function pinToTopLayer(node: HTMLElement) {
+    try {
+      node.showPopover();
+    } catch (error) {
+      // Keep a fixed-position fallback for browsers without Popover API support.
+      console.warn('Notification top-layer promotion unavailable; using fixed positioning.', error);
+      document.body.appendChild(node);
+    }
+
     node.style.setProperty('position', 'fixed', 'important');
+    node.style.setProperty('inset', 'auto', 'important');
+    node.style.setProperty('margin', '0', 'important');
+    node.style.setProperty('padding', '0', 'important');
+    node.style.setProperty('border', '0', 'important');
+    node.style.setProperty('background', 'transparent', 'important');
+    node.style.setProperty('overflow', 'visible', 'important');
     node.style.setProperty('z-index', '2147483647', 'important');
     node.style.setProperty('pointer-events', 'none', 'important');
+
     return {
       destroy() {
+        if (node.matches(':popover-open')) node.hidePopover();
         node.remove();
       }
     };
@@ -177,7 +192,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" use:portalToViewport>
+  <div class="notification-bell" popover="manual" use:pinToTopLayer>
     <button
       class:active={open}
       class="bell-button"
@@ -249,10 +264,22 @@
 <style>
   .notification-bell {
     position: fixed;
-    z-index: 1200;
+    inset: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    background: transparent;
+    color: inherit;
+    z-index: 2147483647;
     top: max(12px, env(safe-area-inset-top));
     right: max(20px, env(safe-area-inset-right));
     pointer-events: none;
+  }
+  .notification-bell:popover-open {
+    position: fixed;
+    inset: auto;
+    margin: 0;
   }
   .bell-button, .notification-panel { pointer-events: auto; }
   .bell-button {
