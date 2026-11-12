@@ -311,8 +311,13 @@
                         </td>
                         <td>{#if item.member.groupCode}<strong>{item.member.groupCode}</strong><small>{item.member.groupName}</small>{:else}<span class="muted">No active CDS group</span>{/if}</td>
                         <td>
-                          <strong>{item.indicators.verifiedDocuments} / {item.indicators.requiredDocuments} verified</strong>
-                          <small>{item.indicators.documentsOutstanding} outstanding</small>
+                          {#if item.indicators.hasRequirementsConfigured}
+                            <strong>{item.indicators.verifiedDocuments} / {item.indicators.requiredDocuments} verified</strong>
+                            <small>{item.indicators.documentsOutstanding} outstanding</small>
+                          {:else}
+                            <strong>No mandatory requirements</strong>
+                            <small>Not configured for this LGA</small>
+                          {/if}
                         </td>
                         <td>
                           <strong>{item.indicators.approvedAttendanceMeetings} approved registers</strong>
@@ -335,7 +340,7 @@
                               {#if item.auditHistory.length === 0}<p>No changes have been recorded yet.</p>
                               {:else}
                                 {#each item.auditHistory as audit}
-                                  <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.note || 'No note'}</p>
+                                  <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.actorEmail ?? 'System'} · {audit.note || 'No note'}</p>
                                 {/each}
                               {/if}
                             </div>
@@ -355,7 +360,7 @@
                   <div class="member-card-heading"><div><strong>{item.member.name}</strong><small>{item.member.stateCode} · {item.member.lgaName}</small></div><span class="status-pill" class:pending={item.status === 'pending'} class:cleared={item.status === 'cleared'} class:rejected={item.status === 'not_cleared'}>{statusLabel(item.status)}</span></div>
                   <div class="mobile-evidence">
                     <div><span>CDS group</span><strong>{item.member.groupCode ? `${item.member.groupCode} · ${item.member.groupName}` : 'No active CDS group'}</strong></div>
-                    <div><span>Documents</span><strong>{item.indicators.verifiedDocuments}/{item.indicators.requiredDocuments} verified · {item.indicators.documentsOutstanding} outstanding</strong></div>
+                    <div><span>Documents</span><strong>{item.indicators.hasRequirementsConfigured ? `${item.indicators.verifiedDocuments}/${item.indicators.requiredDocuments} verified · ${item.indicators.documentsOutstanding} outstanding` : 'No mandatory requirements configured for this LGA'}</strong></div>
                     <div><span>Approved attendance registers</span><strong>{item.indicators.approvedAttendanceMeetings} · {item.indicators.present} present · {item.indicators.late} late · {item.indicators.absent} absent</strong></div>
                   </div>
                   {#if item.decisionNote}<p class="decision-note">{item.decisionNote}</p>{/if}
@@ -368,7 +373,7 @@
                   {#if expandedId === item.clearanceId}
                     <div class="mobile-history">
                       {#each item.auditHistory as audit}
-                        <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)}<br />{audit.note || 'No note'}</p>
+                        <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.actorEmail ?? 'System'}<br />{audit.note || 'No note'}</p>
                       {/each}
                       {#if item.auditHistory.length === 0}<p>No changes have been recorded yet.</p>{/if}
                     </div>
