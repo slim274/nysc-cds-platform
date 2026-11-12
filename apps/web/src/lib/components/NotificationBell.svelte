@@ -126,28 +126,37 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Promote the bell into the browser top layer. Unlike ordinary fixed
-  // elements, top-layer elements are not clipped by page overflow, transformed
-  // wrappers or local stacking contexts used by individual LGI modules.
-  function pinToTopLayer(node: HTMLElement) {
-    try {
-      node.showPopover();
-    } catch (error) {
-      // Keep a fixed-position fallback for browsers without Popover API support.
-      console.warn('Notification top-layer promotion unavailable; using fixed positioning.', error);
-      document.body.appendChild(node);
-    }
+  // Mount the notification overlay directly under <html>, outside every
+  // route-specific layout and scroll container. Track document scrolling and
+  // compute its document coordinates from the viewport so it remains in the
+  // same visible top-right position even on legacy nested-scroll pages.
+  function pinToViewport(node: HTMLElement) {
+    document.documentElement.appendChild(node);
 
-    // The browser's default [popover] rule sets all four insets to 0.
-    // Clear those UA coordinates before the responsive CSS positions the bell.
+    let frame = 0;
+
+    const syncPosition = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const compact = window.innerWidth <= 480;
+        const topOffset = compact ? 10 : 12;
+        const rightOffset = compact ? 12 : 20;
+        const width = node.getBoundingClientRect().width;
+
+        node.style.setProperty('position', 'absolute', 'important');
+        node.style.setProperty('top', `${window.scrollY + topOffset}px`, 'important');
+        node.style.setProperty(
+          'left',
+          `${window.scrollX + window.innerWidth - width - rightOffset}px`,
+          'important'
+        );
+        node.style.setProperty('right', 'auto', 'important');
+        node.style.setProperty('bottom', 'auto', 'important');
+      });
+    };
+
     node.style.setProperty('inset', 'auto', 'important');
-    node.style.setProperty('top', 'max(12px, env(safe-area-inset-top))', 'important');
-    node.style.setProperty('right', 'max(20px, env(safe-area-inset-right))', 'important');
-    node.style.setProperty('bottom', 'auto', 'important');
-    node.style.setProperty('left', 'auto', 'important');
-    node.style.setProperty('position', 'fixed', 'important');
-    node.style.setProperty('width', 'fit-content', 'important');
-    node.style.setProperty('height', 'fit-content', 'important');
+    node.style.setProperty('position', 'absolute', 'important');
     node.style.setProperty('margin', '0', 'important');
     node.style.setProperty('padding', '0', 'important');
     node.style.setProperty('border', '0', 'important');
@@ -156,9 +165,21 @@
     node.style.setProperty('z-index', '2147483647', 'important');
     node.style.setProperty('pointer-events', 'none', 'important');
 
+    syncPosition();
+    window.addEventListener('scroll', syncPosition, { passive: true });
+    document.addEventListener('scroll', syncPosition, { capture: true, passive: true });
+    window.addEventListener('resize', syncPosition, { passive: true });
+    window.visualViewport?.addEventListener('scroll', syncPosition, { passive: true });
+    window.visualViewport?.addEventListener('resize', syncPosition, { passive: true });
+
     return {
       destroy() {
-        if (node.matches(':popover-open')) node.hidePopover();
+        cancelAnimationFrame(frame);
+        window.removeEventListener('scroll', syncPosition);
+        document.removeEventListener('scroll', syncPosition, true);
+        window.removeEventListener('resize', syncPosition);
+        window.visualViewport?.removeEventListener('scroll', syncPosition);
+        window.visualViewport?.removeEventListener('resize', syncPosition);
         node.remove();
       }
     };
@@ -200,7 +221,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" popover="manual" use:pinToTopLayer>
+  <div class="notification-bell" use:pinToViewport>
     <button
       class:active={open}
       class="bell-button"
@@ -270,14 +291,9 @@
 {/if}
 
 <style>
-  .notification-bell,
-  .notification-bell:popover-open {
-    position: fixed !important;
+  .notification-bell {
+    position: absolute !important;
     inset: auto !important;
-    top: max(12px, env(safe-area-inset-top)) !important;
-    right: max(20px, env(safe-area-inset-right)) !important;
-    bottom: auto !important;
-    left: auto !important;
     width: fit-content !important;
     height: fit-content !important;
     margin: 0 !important;
@@ -335,11 +351,6 @@
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
   @media (max-width: 480px) {
-    .notification-bell,
-    .notification-bell:popover-open {
-      top: max(10px, env(safe-area-inset-top)) !important;
-      right: max(12px, env(safe-area-inset-right)) !important;
-    }
     .bell-button { width: 42px; height: 42px; }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
   }
