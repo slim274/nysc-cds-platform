@@ -21,25 +21,100 @@
   let fileLoadingId = $state('');
   let search = $state('');
   let statusFilter = $state('all');
+  let lgaFilter = $state('all');
+  let expandedMemberIds = $state<string[]>([]);
   let errorMessage = $state('');
   let noticeMessage = $state('');
   let signOutPending = $state(false);
 
-  const visibleSubmissions = $derived(submissions.filter((submission) => {
+  type MemberSubmissionGroup = {
+    memberId: string;
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    stateCode: string;
+    lgaName: string;
+    stateName: string;
+    documents: LgiDocumentSubmission[];
+    verifiedCount: number;
+    awaitingReviewCount: number;
+    resubmissionCount: number;
+    pendingCount: number;
+    notVerifiedCount: number;
+  };
+
+  const memberCount = $derived(new Set(submissions.map((submission) => submission.memberId)).size);
+
+  const lgaOptions = $derived(
+    [...new Map(submissions.map((submission) => {
+      const key = `${submission.lgaName}::${submission.stateName}`;
+      return [key, { key, label: `${submission.lgaName}, ${submission.stateName}` }];
+    })).values()].sort((a, b) => a.label.localeCompare(b.label))
+  );
+
+  // Apply the active filters first, then group matching submissions by their
+  // stable Corps Member ID so each person's documents stay together.
+  const visibleMemberGroups = $derived.by(() => {
     const term = search.trim().toLocaleLowerCase();
-    const matchesStatus = statusFilter === 'all' || submission.status === statusFilter;
-    if (!term) return matchesStatus;
-    const matchesSearch = [
-      submission.firstName,
-      submission.middleName ?? '',
-      submission.lastName,
-      submission.stateCode,
-      submission.requirementName,
-      submission.lgaName,
-      submission.stateName
-    ].join(' ').toLocaleLowerCase().includes(term);
-    return matchesStatus && matchesSearch;
-  }));
+    const grouped = new Map<string, LgiDocumentSubmission[]>();
+
+    for (const submission of submissions) {
+      const matchesStatus = statusFilter === 'all' || submission.status === statusFilter;
+      const submissionLgaKey = `${submission.lgaName}::${submission.stateName}`;
+      const matchesLga = lgaFilter === 'all' || submissionLgaKey === lgaFilter;
+      const matchesSearch = !term || [
+        submission.firstName,
+        submission.middleName ?? '',
+        submission.lastName,
+        submission.stateCode,
+        submission.requirementName,
+        submission.fileName,
+        submission.lgaName,
+        submission.stateName
+      ].join(' ').toLocaleLowerCase().includes(term);
+
+      if (!matchesStatus || !matchesLga || !matchesSearch) continue;
+      const memberDocuments = grouped.get(submission.memberId) ?? [];
+      memberDocuments.push(submission);
+      grouped.set(submission.memberId, memberDocuments);
+    }
+
+    return [...grouped.entries()]
+      .map(([memberId, documents]): MemberSubmissionGroup => {
+        const member = documents[0];
+        const verifiedCount = documents.filter((document) => document.status === 'verified').length;
+        const awaitingReviewCount = documents.filter((document) => document.status === 'manual_review').length;
+        const resubmissionCount = documents.filter((document) => document.status === 'needs_resubmission').length;
+        const pendingCount = documents.filter((document) => document.status === 'pending_verification').length;
+
+        return {
+          memberId,
+          firstName: member.firstName,
+          middleName: member.middleName,
+          lastName: member.lastName,
+          stateCode: member.stateCode,
+          lgaName: member.lgaName,
+          stateName: member.stateName,
+          documents,
+          verifiedCount,
+          awaitingReviewCount,
+          resubmissionCount,
+          pendingCount,
+          notVerifiedCount: documents.length - verifiedCount
+        };
+      })
+      .sort((a, b) =>
+        b.awaitingReviewCount - a.awaitingReviewCount ||
+        b.notVerifiedCount - a.notVerifiedCount ||
+        `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+      );
+  });
+
+  function toggleMember(memberId: string) {
+    expandedMemberIds = expandedMemberIds.includes(memberId)
+      ? expandedMemberIds.filter((id) => id !== memberId)
+      : [...expandedMemberIds, memberId];
+  }
 
   onMount(() => { void loadPage(); });
 
@@ -158,8 +233,8 @@
 
     <section class="stats">
       <article><span>Active document requirements</span><strong>{requirements.length}</strong><small>Published by your LGI</small></article>
-      <article><span>Submitted document records</span><strong>{submissions.length}</strong><small>All statuses · Across every LGA</small></article>
-      <article><span>Document coverage</span><strong>All LGAs</strong><small>Every Corps Member on the platform</small></article>
+      <article><span>Corps Members with submissions</span><strong>{memberCount}</strong><small>Across every LGA</small></article>
+      <article><span>Submitted documents</span><strong>{submissions.length}</strong><small>All statuses · All LGAs</small></article>
     </section>
 
     <section class="panel">
@@ -183,9 +258,12 @@
     </section>
 
     <section class="panel">
-      <div class="panel-heading"><div><h3>All Corps Member document submissions</h3><p>View document records from every LGA. Filter by status; only submissions awaiting manual review can be approved or returned.</p></div><span class="queue-count">{submissions.length} total records</span></div>
+      <div class="panel-heading">
+        <div><h3>All Corps Member document submissions</h3><p>Documents are grouped by Corps Member. Open a person's record to review each submitted document individually.</p></div>
+        <span class="queue-count">{submissions.length} documents · {memberCount} Corps Members</span>
+      </div>
       <div class="filters">
-        <label class="search"><span>Search submissions</span><input bind:value={search} placeholder="Search by name, State Code, LGA or document…" /></label>
+        <label class="search"><span>Search Corps Members or documents</span><input bind:value={search} placeholder="Name, State Code, LGA or document…" /></label>
         <label class="status-filter"><span>Document status</span>
           <select bind:value={statusFilter}>
             <option value="all">All statuses</option>
@@ -195,31 +273,84 @@
             <option value="needs_resubmission">Resubmission required</option>
           </select>
         </label>
+        <label class="lga-filter"><span>LGA / State</span>
+          <select bind:value={lgaFilter}>
+            <option value="all">All LGAs</option>
+            {#each lgaOptions as option (option.key)}
+              <option value={option.key}>{option.label}</option>
+            {/each}
+          </select>
+        </label>
       </div>
-      {#if visibleSubmissions.length === 0}
-        <div class="empty compact"><div class="empty-icon">✓</div><h4>{submissions.length === 0 ? 'No document submissions yet' : 'No matching submissions'}</h4><p>{submissions.length === 0 ? 'Submitted documents from Corps Members across all LGAs will appear here.' : 'Try another search term or status.'}</p></div>
+      {#if visibleMemberGroups.length === 0}
+        <div class="empty compact"><div class="empty-icon">✓</div><h4>{submissions.length === 0 ? 'No document submissions yet' : 'No matching Corps Members'}</h4><p>{submissions.length === 0 ? 'Submitted documents from Corps Members across all LGAs will appear here.' : 'Try another name, State Code, LGA or document status.'}</p></div>
       {:else}
-        <div class="review-list">
-          {#each visibleSubmissions as submission (submission.id)}
-            <article class="review-card">
-              <div class="member">
-                <div class="member-avatar">{submission.firstName.slice(0,1)}{submission.lastName.slice(0,1)}</div>
-                <div><strong>{submission.lastName}, {submission.firstName} {submission.middleName ?? ''}</strong><span>{submission.stateCode} · {submission.lgaName}, {submission.stateName} · {submission.requirementName}</span><small>{submission.fileName} · {new Date(submission.submittedAt).toLocaleString()}</small></div>
+        <div class="member-groups">
+          {#each visibleMemberGroups as group (group.memberId)}
+            <article class="member-group" class:has-review={group.awaitingReviewCount > 0}>
+              <div class="member-group-heading">
+                <div class="member-identity">
+                  <div class="member-avatar">{group.firstName.slice(0,1)}{group.lastName.slice(0,1)}</div>
+                  <div class="member-copy">
+                    <strong>{group.lastName}, {group.firstName} {group.middleName ?? ''}</strong>
+                    <span>{group.stateCode}</span>
+                    <small>{group.lgaName}, {group.stateName}</small>
+                  </div>
+                </div>
+                <div class="member-overview">
+                  <strong>{group.verifiedCount} of {group.documents.length} verified</strong>
+                  <div class="member-status-summary">
+                    {#if group.awaitingReviewCount > 0}<span class="summary-review">{group.awaitingReviewCount} awaiting review</span>{/if}
+                    {#if group.resubmissionCount > 0}<span class="summary-return">{group.resubmissionCount} resubmission</span>{/if}
+                    {#if group.pendingCount > 0}<span class="summary-pending">{group.pendingCount} pending</span>{/if}
+                    {#if group.notVerifiedCount === 0}<span class="summary-complete">All submitted documents verified</span>{/if}
+                  </div>
+                </div>
+                <button
+                  class="expand-button"
+                  type="button"
+                  aria-expanded={expandedMemberIds.includes(group.memberId)}
+                  aria-controls={`member-documents-${group.memberId}`}
+                  onclick={() => toggleMember(group.memberId)}
+                >
+                  {expandedMemberIds.includes(group.memberId) ? 'Hide documents' : `View ${group.documents.length} documents`}
+                  <span aria-hidden="true">{expandedMemberIds.includes(group.memberId) ? '⌃' : '⌄'}</span>
+                </button>
               </div>
-              <div class="review-meta">
-                <span class="status">{statusLabel(submission.status)}</span>
-                <span>{submission.confidence === null ? 'No confidence score' : `Confidence: ${submission.confidence}%`}</span>
-                <p>{submission.reason ?? 'The verification process needs a human review.'}</p>
-              </div>
-              <div class="actions">
-                <button class="view-button" type="button" onclick={() => void openSubmissionFile(submission)} disabled={fileLoadingId === submission.id}>{fileLoadingId === submission.id ? 'Opening…' : 'View document'}</button>
-                {#if submission.status === 'manual_review'}
-                  <button class="approve-button" type="button" onclick={() => void reviewSubmission(submission, 'verified')} disabled={savingId === submission.id}>{savingId === submission.id ? 'Saving…' : 'Mark verified'}</button>
-                  <button class="return-button" type="button" onclick={() => void reviewSubmission(submission, 'needs_resubmission')} disabled={savingId === submission.id}>Request resubmission</button>
-                {:else}
-                  <span class="completed-label">No action pending</span>
-                {/if}
-              </div>
+
+              {#if expandedMemberIds.includes(group.memberId)}
+                <div class="member-documents" id={`member-documents-${group.memberId}`}>
+                  {#each group.documents as submission (submission.id)}
+                    <article class="document-row">
+                      <div class="document-copy">
+                        <strong>{submission.requirementName}</strong>
+                        <span>{submission.fileName}</span>
+                        <small>Submitted {new Date(submission.submittedAt).toLocaleString()}</small>
+                      </div>
+                      <div class="document-review">
+                        <span
+                          class="document-status"
+                          class:status-verified={submission.status === 'verified'}
+                          class:status-review={submission.status === 'manual_review'}
+                          class:status-return={submission.status === 'needs_resubmission'}
+                          class:status-pending={submission.status === 'pending_verification'}
+                        >{statusLabel(submission.status)}</span>
+                        {#if submission.confidence !== null}<small>Confidence: {submission.confidence}%</small>{/if}
+                        {#if submission.reason}<p>{submission.reason}</p>{/if}
+                      </div>
+                      <div class="document-actions">
+                        <button class="view-button" type="button" onclick={() => void openSubmissionFile(submission)} disabled={fileLoadingId === submission.id}>{fileLoadingId === submission.id ? 'Opening…' : 'View document'}</button>
+                        {#if submission.status === 'manual_review'}
+                          <button class="approve-button" type="button" onclick={() => void reviewSubmission(submission, 'verified')} disabled={savingId === submission.id}>{savingId === submission.id ? 'Saving…' : 'Mark verified'}</button>
+                          <button class="return-button" type="button" onclick={() => void reviewSubmission(submission, 'needs_resubmission')} disabled={savingId === submission.id}>Request resubmission</button>
+                        {:else}
+                          <span class="completed-label">No action pending</span>
+                        {/if}
+                      </div>
+                    </article>
+                  {/each}
+                </div>
+              {/if}
             </article>
           {/each}
         </div>
@@ -256,27 +387,51 @@
   .requirement-copy p { margin: 8px 0; color: #65736a; font-size: 10px; line-height: 1.6; }
   .requirement-copy small { margin-top: 7px; color: #78877d; font-size: 9px; }
   .published { padding: 5px 8px; border-radius: 20px; background: #e7f4eb; color: #087443; font-size: 9px; font-weight: 700; white-space: nowrap; }
-  .filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 230px); gap: 12px; align-items: end; margin-bottom: 15px; }
-  .search, .status-filter { display: grid; gap: 7px; margin-bottom: 0; color: #344b3d; font-size: 10px; font-weight: 700; }
+  .filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(170px, 210px) minmax(180px, 220px); gap: 12px; align-items: end; margin-bottom: 15px; }
+  .search, .status-filter, .lga-filter { display: grid; gap: 7px; margin-bottom: 0; color: #344b3d; font-size: 10px; font-weight: 700; }
   .filters input, .filters select { width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid #dce5de; border-radius: 8px; color: #253c2e; font-size: 11px; }
   .completed-label { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 10px; border-radius: 7px; background: #f2f5f2; color: #718078; font-size: 10px; }
-  .review-list { display: grid; gap: 11px; }
-  .review-card { display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(210px, 1fr) minmax(170px, .75fr); gap: 15px; align-items: center; padding: 15px; border: 1px solid #e8eee9; border-radius: 10px; }
-  .member { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
-  .member-avatar { width: 35px; height: 35px; flex: 0 0 35px; display: grid; place-items: center; border-radius: 50%; background: #eaf3ed; color: #0a5c37; font-size: 10px; font-weight: 800; }
-  .member > div:last-child { min-width: 0; }
-  .member strong, .member span, .member small { display: block; overflow-wrap: anywhere; }
-  .member strong { color: #263d30; font-size: 11px; }
-  .member span { margin-top: 5px; color: #6f7e74; font-size: 9px; }
-  .member small { margin-top: 6px; color: #8a968e; font-size: 9px; }
-  .review-meta { min-width: 0; }
-  .review-meta > span { display: inline-block; margin: 2px 6px 5px 0; color: #7b8980; font-size: 9px; }
-  .review-meta .status { padding: 5px 8px; border-radius: 20px; background: #fff4df; color: #946000; font-weight: 700; }
-  .review-meta p { margin: 5px 0 0; color: #65736a; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
-  .actions { display: grid; gap: 7px; }
-  .approve-button, .return-button { min-height: 34px; padding: 0 10px; border: 1px solid transparent; border-radius: 7px; font-size: 10px; font-weight: 700; cursor: pointer; }
-  .approve-button { background: #e8f5ed; border-color: #cae5d2; color: #14643a; }
-  .return-button { background: #fff2ef; border-color: #f0d1ca; color: #a33a2c; }
+  .member-groups { display: grid; gap: 12px; }
+  .member-group { overflow: hidden; border: 1px solid #e4ebe5; border-radius: 11px; background: #fff; }
+  .member-group.has-review { border-color: #ead8b3; }
+  .member-group-heading { display: grid; grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 1fr) auto; gap: 16px; align-items: center; padding: 16px; }
+  .member-identity { min-width: 0; display: flex; align-items: center; gap: 11px; }
+  .member-avatar { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; border-radius: 50%; background: #eaf3ed; color: #0a5c37; font-size: 11px; font-weight: 800; }
+  .member-copy { min-width: 0; }
+  .member-copy strong, .member-copy span, .member-copy small { display: block; overflow-wrap: anywhere; }
+  .member-copy strong { color: #263d30; font-size: 12px; }
+  .member-copy span { margin-top: 4px; color: #315d42; font-size: 10px; font-weight: 700; }
+  .member-copy small { margin-top: 3px; color: #819087; font-size: 9px; }
+  .member-overview { min-width: 0; }
+  .member-overview > strong { display: block; color: #244a32; font-size: 11px; }
+  .member-status-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .member-status-summary span { display: inline-flex; align-items: center; padding: 4px 7px; border-radius: 20px; font-size: 9px; font-weight: 700; }
+  .summary-review { background: #fff4df; color: #946000; }
+  .summary-return { background: #fff0ed; color: #a33a2c; }
+  .summary-pending { background: #edf3ff; color: #315c9a; }
+  .summary-complete { background: #e8f5ed; color: #14643a; }
+  .expand-button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 0 11px; border: 1px solid #dce8df; border-radius: 8px; background: #f8fbf8; color: #28563b; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .expand-button span { font-size: 15px; line-height: 1; }
+  .expand-button:hover { border-color: #a9cdb7; background: #f0f7f2; }
+  .member-documents { padding: 0 16px 12px; border-top: 1px solid #edf1ed; background: #fbfdfb; }
+  .document-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(170px, .8fr) minmax(170px, .85fr); gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid #edf1ed; }
+  .document-row:last-child { border-bottom: 0; }
+  .document-copy { min-width: 0; }
+  .document-copy strong, .document-copy span, .document-copy small { display: block; overflow-wrap: anywhere; }
+  .document-copy strong { color: #263d30; font-size: 11px; }
+  .document-copy span { margin-top: 4px; color: #6f7e74; font-size: 9px; }
+  .document-copy small { margin-top: 5px; color: #8a968e; font-size: 9px; }
+  .document-review { min-width: 0; }
+  .document-status { display: inline-flex; align-items: center; padding: 5px 8px; border-radius: 20px; font-size: 9px; font-weight: 700; }
+  .status-verified { background: #e8f5ed; color: #14643a; }
+  .status-review { background: #fff4df; color: #946000; }
+  .status-return { background: #fff0ed; color: #a33a2c; }
+  .status-pending { background: #edf3ff; color: #315c9a; }
+  .document-review small { display: block; margin-top: 5px; color: #819087; font-size: 9px; }
+  .document-review p { margin: 5px 0 0; color: #65736a; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+  .document-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+  .document-actions .view-button, .document-actions .approve-button, .document-actions .return-button { min-height: 32px; padding: 0 9px; font-size: 9px; }
+  .completed-label { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 9px; border-radius: 7px; background: #f2f5f2; color: #718078; font-size: 9px; white-space: nowrap; }
   .empty { padding: 35px 15px; text-align: center; }
   .empty.compact { padding: 28px 15px; }
   .empty-icon { color: #0a8050; font-size: 24px; }
@@ -290,10 +445,17 @@
   .state-screen { min-height: 100vh; display: grid; align-content: center; justify-items: center; gap: 12px; color: #53665a; font: 13px Inter, Arial, sans-serif; }
   .loader { width: 28px; height: 28px; border: 3px solid #dce8df; border-top-color: #0a8050; border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 980px) { .review-card { grid-template-columns: 1fr 1fr; } .actions { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 1100px) {
+    .member-group-heading { grid-template-columns: minmax(190px, 1fr) minmax(180px, 1fr); }
+    .expand-button { grid-column: 1 / -1; justify-self: start; }
+    .document-row { grid-template-columns: minmax(0, 1fr) minmax(150px, .8fr); }
+    .document-actions { grid-column: 1 / -1; justify-content: flex-start; }
+    .filters { grid-template-columns: minmax(0, 1fr) minmax(160px, .7fr); }
+    .lga-filter { grid-column: 1 / -1; }
+  }
   @media (max-width: 650px) {
     .page-intro { align-items: flex-start; flex-direction: column; }
-    .filters { grid-template-columns: 1fr; }
+    .filters { grid-template-columns: 1fr; }\n    .lga-filter { grid-column: auto; }
     .page-intro h2 { font-size: 21px; }
     .stats { grid-template-columns: 1fr 1fr; gap: 9px; }
     .stats article { padding: 13px; }
