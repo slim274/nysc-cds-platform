@@ -72,3 +72,16 @@ export const cdsMeetingReviewDecisionEnum = pgEnum('cds_meeting_review_decision'
   'approved',
   'returned'
 ]);
+
+export const cdsAnnouncementStatusEnum = pgEnum('cds_announcement_status', [
+  'pending_review',
+  'published',
+  'returned',
+  'archived'
+]);
+
+export const cdsAnnouncementPriorityEnum = pgEnum('cds_announcement_priority', [
+  'normal',
+  'important',
+  'urgent'
+]);
