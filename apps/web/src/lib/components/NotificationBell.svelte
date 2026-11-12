@@ -153,7 +153,9 @@
     }
 
     function placeNotificationBell() {
-      const cloHeader = window.location.pathname.startsWith('/clo')
+      const isMobileClo = window.location.pathname.startsWith('/clo') &&
+        window.matchMedia('(max-width: 760px)').matches;
+      const cloHeader = isMobileClo
         ? document.querySelector<HTMLElement>('.clo-topbar')
         : null;
 
@@ -170,10 +172,12 @@
     // content changes so the bell moves into/out of the CLO header as needed.
     const observer = new MutationObserver(placeNotificationBell);
     observer.observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener('resize', placeNotificationBell);
 
     return {
       destroy() {
         observer.disconnect();
+        window.removeEventListener('resize', placeNotificationBell);
         node.remove();
       }
     };
