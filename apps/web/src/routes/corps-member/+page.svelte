@@ -611,10 +611,10 @@
   .brand-copy strong, .brand-copy small { display: block; }
   .brand-copy strong { color: #0a5c37; font-size: 13px; }
   .brand-copy small { margin-top: 3px; color: #819087; font-size: 9px; font-weight: 400; }
-  .topbar-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .topbar-tools { display: flex; align-items: center; gap: 8px; margin-left: 18px; }
   .role-label { padding: 7px 9px; border: 1px solid #dce9df; border-radius: 18px; background: #f4f8f5; color: #496652; font-size: 9px; font-weight: 700; white-space: nowrap; }
   .member-code { font-variant-numeric: tabular-nums; }
-  .member-nav { display: flex; align-items: center; gap: 17px; margin-left: 20px; }
+  .member-nav { display: flex; align-items: center; gap: 17px; margin-left: auto; }
   .member-nav > a { color: #65776b; font-size: 10px; font-weight: 700; text-decoration: none; white-space: nowrap; }
   .member-nav > a:hover, .member-nav > a.active { color: #0a6841; }
   .member-nav .president-nav-link { display: inline-flex; align-items: center; gap: 7px; color: #0a6841; }
@@ -661,8 +661,8 @@
     .topbar { flex-wrap: wrap; gap: 10px; }
     .topbar-tools { margin-left: auto; }
     .menu-toggle { display: inline-grid; place-items: center; }
-    .member-nav { display: none; width: 100%; margin: 6px 0 0; padding: 12px; border: 1px solid #e3ebe5; border-radius: 10px; background: #fff; }
-    .member-nav.open { display: flex; flex-wrap: wrap; align-items: center; gap: 13px 18px; }
+    .topbar-tools { margin-left: auto; }\n    .member-nav { display: none; width: 100%; margin: 6px 0 0; padding: 12px; border: 1px solid #e3ebe5; border-radius: 10px; background: #fff; }
+    .member-nav { margin-left: 0; }\n    .member-nav.open { display: flex; flex-wrap: wrap; align-items: center; gap: 13px 18px; }
     .member-nav .signout { margin-left: auto; }
     .president-appointment { grid-template-columns: auto minmax(0, 1fr); }
     .appointment-action { grid-column: 2; justify-self: start; }
