@@ -32,6 +32,14 @@
 		background: #fff;
 		padding-right: 84px !important;
 	}
+	/* The shared LG identity + notification bell occupy one reserved lane. */
+	:global(html.lgi-route .topbar) {
+		padding-right: 132px !important;
+	}
+	/* Use the shared identity badge in place of module-specific avatars. */
+	:global(html.lgi-route .topbar .avatar) {
+		display: none !important;
+	}
 	@media (max-width: 760px) {
 		/* Reserve one consistent control lane for the shared LG badge + bell. */
 		:global(html.lgi-route .topbar) {
