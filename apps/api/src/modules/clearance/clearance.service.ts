@@ -82,7 +82,8 @@ export async function listMonthlyClearances(
   lgaIds: string[],
   month: string,
   filters: { search?: string; status?: MonthlyClearanceStatus } = {},
-  scopedGroupIds?: string[]
+  scopedGroupIds?: string[],
+  ensureMonthlyRecords = true
 ) {
   assertLgaScope(lgaIds);
   assertNotFutureMonth(month);
@@ -153,25 +154,27 @@ export async function listMonthlyClearances(
     };
   }
 
-  const createdClearances = await db.insert(corpsMemberMonthlyClearances)
-    .values(members.map((member) => ({
-      corpsMemberId: member.id,
-      lgaId: member.lgaId,
-      clearanceMonth: month,
-      status: 'pending' as const
-    })))
-    .onConflictDoNothing()
-    .returning({ id: corpsMemberMonthlyClearances.id });
+  if (ensureMonthlyRecords) {
+    const createdClearances = await db.insert(corpsMemberMonthlyClearances)
+      .values(members.map((member) => ({
+        corpsMemberId: member.id,
+        lgaId: member.lgaId,
+        clearanceMonth: month,
+        status: 'pending' as const
+      })))
+      .onConflictDoNothing()
+      .returning({ id: corpsMemberMonthlyClearances.id });
 
-  if (createdClearances.length > 0) {
-    await db.insert(corpsMemberMonthlyClearanceAuditLogs).values(
-      createdClearances.map((clearance) => ({
-        clearanceId: clearance.id,
-        previousStatus: null,
-        newStatus: 'pending',
-        note: 'Monthly clearance record created.'
-      }))
-    );
+    if (createdClearances.length > 0) {
+      await db.insert(corpsMemberMonthlyClearanceAuditLogs).values(
+        createdClearances.map((clearance) => ({
+          clearanceId: clearance.id,
+          previousStatus: null,
+          newStatus: 'pending',
+          note: 'Monthly clearance record created.'
+        }))
+      );
+    }
   }
 
   const clearanceRows = await db.select({
@@ -474,5 +477,5 @@ export async function listCoordinatorMonthlyClearances(
     };
   }
 
-  return listMonthlyClearances(lgaIds, month, filters, groupIds);
+  return listMonthlyClearances(lgaIds, month, filters, groupIds, false);
 }
