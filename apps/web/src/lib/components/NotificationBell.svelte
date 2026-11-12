@@ -138,7 +138,16 @@
       document.body.appendChild(node);
     }
 
+    // The browser's default [popover] rule sets all four insets to 0.
+    // Clear those UA coordinates before the responsive CSS positions the bell.
+    node.style.setProperty('inset', 'auto', 'important');
+    node.style.setProperty('top', 'max(12px, env(safe-area-inset-top))', 'important');
+    node.style.setProperty('right', 'max(20px, env(safe-area-inset-right))', 'important');
+    node.style.setProperty('bottom', 'auto', 'important');
+    node.style.setProperty('left', 'auto', 'important');
     node.style.setProperty('position', 'fixed', 'important');
+    node.style.setProperty('width', 'fit-content', 'important');
+    node.style.setProperty('height', 'fit-content', 'important');
     node.style.setProperty('margin', '0', 'important');
     node.style.setProperty('padding', '0', 'important');
     node.style.setProperty('border', '0', 'important');
@@ -261,24 +270,24 @@
 {/if}
 
 <style>
-  .notification-bell {
-    position: fixed;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    overflow: visible;
-    background: transparent;
-    color: inherit;
-    z-index: 2147483647;
-    top: max(12px, env(safe-area-inset-top));
-    right: max(20px, env(safe-area-inset-right));
-    pointer-events: none;
-  }
+  .notification-bell,
   .notification-bell:popover-open {
-    position: fixed;
-    top: max(12px, env(safe-area-inset-top));
-    right: max(20px, env(safe-area-inset-right));
-    margin: 0;
+    position: fixed !important;
+    inset: auto !important;
+    top: max(12px, env(safe-area-inset-top)) !important;
+    right: max(20px, env(safe-area-inset-right)) !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: fit-content !important;
+    height: fit-content !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    color: inherit;
+    z-index: 2147483647 !important;
+    pointer-events: none !important;
   }
   .bell-button, .notification-panel { pointer-events: auto; }
   .bell-button {
@@ -326,9 +335,10 @@
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
   @media (max-width: 480px) {
-    .notification-bell {
-      top: max(10px, env(safe-area-inset-top));
-      right: max(12px, env(safe-area-inset-right));
+    .notification-bell,
+    .notification-bell:popover-open {
+      top: max(10px, env(safe-area-inset-top)) !important;
+      right: max(12px, env(safe-area-inset-right)) !important;
     }
     .bell-button { width: 42px; height: 42px; }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
