@@ -47,7 +47,22 @@
     return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}`;
   }
 
-  onMount(() => { void initialise(); });
+  onMount(() => {
+    void initialise();
+    const interval = window.setInterval(() => {
+      if (user && !saving && !refreshing && document.visibilityState === 'visible') {
+        void loadData();
+      }
+    }, 5000);
+    const handleFocus = () => {
+      if (user && !saving && !refreshing) void loadData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  });
 
   async function initialise() {
     loading = true;
@@ -123,7 +138,10 @@
 
   async function saveDecision(event: SubmitEvent) {
     event.preventDefault();
-    if (!decisionTarget) return;
+    if (!decisionTarget?.clearanceId) {
+      error = 'This monthly clearance record is not available yet. Refresh the register and try again.';
+      return;
+    }
     if (decisionStatus === 'not_cleared' && decisionNote.trim().length < 10) {
       error = 'Please provide a reason of at least 10 characters.';
       return;
@@ -339,7 +357,7 @@
                               {#if item.auditHistory.length === 0}<p>No changes have been recorded yet.</p>
                               {:else}
                                 {#each item.auditHistory as audit}
-                                  <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.actorEmail ?? 'System'} · {audit.note || 'No note'}</p>
+                                  <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.actorRole === 'CDS_COORDINATOR' ? 'CDS Coordinator' : audit.actorRole === 'LGI_ADMIN' ? 'LGI Administrator' : 'System'} ({audit.actorEmail ?? 'system'}) · {audit.note || 'No note'}</p>
                                 {/each}
                               {/if}
                             </div>
@@ -372,7 +390,7 @@
                   {#if expandedId === item.clearanceId}
                     <div class="mobile-history">
                       {#each item.auditHistory as audit}
-                        <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.actorEmail ?? 'System'}<br />{audit.note || 'No note'}</p>
+                        <p><b>{statusLabel(audit.newStatus)}</b> · {formatDate(audit.createdAt)} · {audit.actorRole === 'CDS_COORDINATOR' ? 'CDS Coordinator' : audit.actorRole === 'LGI_ADMIN' ? 'LGI Administrator' : 'System'} ({audit.actorEmail ?? 'system'})<br />{audit.note || 'No note'}</p>
                       {/each}
                       {#if item.auditHistory.length === 0}<p>No changes have been recorded yet.</p>{/if}
                     </div>
