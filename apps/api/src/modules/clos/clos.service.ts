@@ -102,6 +102,16 @@ export async function listCloOfficers(lgaIds: string[]) {
     ))
     .orderBy(asc(users.email), asc(lgas.name));
 
+  const activeRoleAssignments = await db
+    .select({ userId: userRoleAssignments.userId })
+    .from(userRoleAssignments)
+    .where(and(
+      eq(userRoleAssignments.roleId, roleId),
+      eq(userRoleAssignments.isActive, true),
+      isNull(userRoleAssignments.cdsGroupId)
+    ));
+  const globallyEnabled = new Set(activeRoleAssignments.map((assignment) => assignment.userId));
+
   const officers = new Map<string, {
     userId: string;
     email: string | null;
@@ -134,7 +144,7 @@ export async function listCloOfficers(lgaIds: string[]) {
 
   return [...officers.values()].map((officer) => ({
     ...officer,
-    isEnabled: officer.assignments.some((assignment) => assignment.isActive)
+    isEnabled: globallyEnabled.has(officer.userId)
   }));
 }
 

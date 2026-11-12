@@ -108,7 +108,7 @@ lgiCloRoutes.post('/clos', async (c) => {
   if (!validation.success) {
     return c.json({
       success: false,
-      message: 'Enter a valid email and select at least one LGA.',
+      message: 'Enter a valid email and select at least one LGI management area.',
       errors: validation.error.issues
     }, 400);
   }

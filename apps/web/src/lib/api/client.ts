@@ -628,6 +628,8 @@ export interface LgiDocumentSubmission {
   requirementName: string;
   verificationMode: DocumentRequirementVerificationMode;
   memberId: string;
+  lgaName: string;
+  stateName: string;
   stateCode: string;
   firstName: string;
   middleName: string | null;
