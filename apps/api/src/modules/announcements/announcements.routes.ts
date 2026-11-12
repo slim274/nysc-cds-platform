@@ -8,6 +8,7 @@ import {
   listAnnouncementTargetGroups,
   listCdsAnnouncements,
   markCdsAnnouncementRead,
+  resubmitCdsAnnouncement,
   reviewCdsAnnouncement
 } from './announcements.service';
 
@@ -155,6 +156,32 @@ presidentAnnouncementRoutes.get('/', async (c) => {
   } catch (error) { return handleError(c, error); }
 });
 presidentAnnouncementRoutes.post('/', createHandler('CDS_PRESIDENT'));
+
+presidentAnnouncementRoutes.patch('/:announcementId/resubmit', async (c) => {
+  const id = idSchema.safeParse(c.req.param('announcementId'));
+  const body = await c.req.json().catch(() => null);
+  const validation = z.object({
+    title: z.string().trim().min(3).max(180),
+    body: z.string().trim().min(5).max(10000),
+    priority: z.enum(['normal', 'important', 'urgent'])
+  }).safeParse(body);
+  if (!id.success || !validation.success) {
+    return c.json({
+      success: false,
+      message: 'Provide a valid announcement title, message and priority.',
+      errors: validation.success ? undefined : validation.error.issues
+    }, 400);
+  }
+  try {
+    const data = await resubmitCdsAnnouncement(c.get('authUser').id, id.data, validation.data);
+    return c.json({
+      success: true,
+      message: 'Your corrected announcement has been resubmitted to the Coordinator.',
+      data
+    });
+  } catch (error) { return handleError(c, error); }
+});
+
 registerReadRoute(presidentAnnouncementRoutes, 'CDS_PRESIDENT');
 
 export const lgiAnnouncementRoutes = new Hono<AuthEnv>();
