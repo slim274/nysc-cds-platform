@@ -352,7 +352,7 @@
                       {#if expandedId === item.clearanceId}
                         <tr class="history-row"><td colspan="6">
                           <div class="history-content">
-                            <div><strong>Current LGI note</strong><p>{item.decisionNote || 'No decision note recorded.'}</p></div>
+                            <div><strong>Current decision note</strong><p>{item.decisionNote || 'No decision note recorded.'}</p></div>
                             <div><strong>Decision history</strong>
                               {#if item.auditHistory.length === 0}<p>No changes have been recorded yet.</p>
                               {:else}
