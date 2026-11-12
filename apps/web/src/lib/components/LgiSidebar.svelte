@@ -26,7 +26,7 @@
     { label: 'CDS Coordinators', href: '/lgi/coordinators', icon: '♧' },
     { label: 'Attendance', href: '/lgi/attendance', icon: '✓' },
     { label: 'Announcements', href: '/lgi/announcements', icon: '▤' },
-    { label: 'Monthly Clearance', href: null, icon: '▣' },
+    { label: 'Monthly Clearance', href: '/lgi/monthly-clearance', icon: '▣' },
     { label: 'Reports', href: '/lgi/reports', icon: '▥' }
   ];
 </script>
