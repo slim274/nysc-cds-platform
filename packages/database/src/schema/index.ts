@@ -15,3 +15,4 @@ export * from './cds-group-leadership';
 export * from './cds-meetings';
 export * from './cds-announcements';
 export * from './user-notifications';
+export * from './monthly-clearances';
