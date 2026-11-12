@@ -337,6 +337,26 @@ export async function markCdsAnnouncementRead(
   return { announcementId, read: true };
 }
 
+export async function markAllCdsAnnouncementsRead(
+  userId: string,
+  roleCode: AnnouncementRole,
+  lgaIds: string[] = []
+) {
+  // Reuse the same role and group-scope filtering as the announcement feed.
+  const visibleAnnouncements = await listCdsAnnouncements(userId, roleCode, lgaIds);
+  const unreadIds = visibleAnnouncements
+    .filter((item) => item.status === 'published' && !item.isRead)
+    .map((item) => item.id);
+
+  if (unreadIds.length > 0) {
+    await db.insert(cdsAnnouncementReads)
+      .values(unreadIds.map((announcementId) => ({ announcementId, userId })))
+      .onConflictDoNothing();
+  }
+
+  return { readCount: unreadIds.length };
+}
+
 
 export async function resubmitCdsAnnouncement(
   userId: string,
