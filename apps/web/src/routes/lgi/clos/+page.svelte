@@ -108,7 +108,7 @@
     try {
       if (editingOfficer) {
         await updateCloOfficer(editingOfficer.userId, { lgaIds: selectedLgaIds });
-        noticeMessage = 'CLO LGA access updated.';
+        noticeMessage = 'CLO management scope updated.';
       } else {
         const created = await createCloOfficer({ email: email.trim(), lgaIds: selectedLgaIds });
         if (created.activationToken) {
@@ -116,7 +116,7 @@
           activationEmail = created.email ?? email.trim();
           noticeMessage = 'CLO account created. Copy the development activation token below and share it securely.';
         } else {
-          noticeMessage = 'CLO account and LGA assignments saved.';
+          noticeMessage = 'CLO account and LGI management scope saved.';
         }
       }
       formOpen = false;
@@ -140,7 +140,7 @@
       await updateCloOfficer(officer.userId, { isEnabled: !officer.isEnabled });
       noticeMessage = officer.isEnabled
         ? 'CLO access paused. The account and assignment history have been preserved.'
-        : 'CLO access restored for the assigned LGA(s).';
+        : 'CLO platform-wide document access restored.';
       await loadPage();
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unable to update CLO access.';
@@ -183,7 +183,7 @@
         {#if errorMessage}<div class="message error" role="alert">{errorMessage}</div>{/if}
         {#if noticeMessage}<div class="message success" role="status">{noticeMessage}</div>{/if}
         <section class="intro">
-          <div><span class="eyebrow">DOCUMENT OPERATIONS</span><h2>Manage Corps Liaison Officers</h2><p>Create CLO accounts, assign the LGAs they are responsible for, update their access and pause or restore their assignments. CLOs can process submitted documents but cannot create or change document requirements.</p></div>
+          <div><span class="eyebrow">DOCUMENT OPERATIONS</span><h2>Manage Corps Liaison Officers</h2><p>Create CLO accounts and choose which LGI area(s) can manage each account. Every active CLO can process document submissions from all Corps Members across every LGA, but cannot create or change document requirements.</p></div>
           <button class="primary-button" type="button" onclick={openCreateForm}>＋ Add CLO</button>
         </section>
         <section class="stats">
@@ -195,27 +195,27 @@
           <section class="token-panel"><div><h3>Development activation token</h3><p>For {activationEmail}. Share this token securely with the CLO so they can activate their account. It expires after 24 hours.</p></div><code>{activationToken}</code><button type="button" class="secondary-button" onclick={copyActivationToken}>Copy token</button></section>
         {/if}
         <section class="panel">
-          <div class="panel-heading"><div><h3>CLO account directory</h3><p>Only assignments within your own LGI scope are displayed and can be controlled.</p></div></div>
+          <div class="panel-heading"><div><h3>CLO account directory</h3><p>Only CLO accounts linked to your LGI scope are displayed and managed here. CLO document access is platform-wide.</p></div></div>
           <div class="filters">
             <label>Search by email<input bind:value={search} placeholder="Enter email address…" /></label>
             <label>Access status<select bind:value={statusFilter}><option value="all">All accounts</option><option value="enabled">Access enabled</option><option value="paused">Access paused</option><option value="pending_activation">Pending activation</option></select></label>
           </div>
           {#if visibleOfficers.length === 0}
-            <div class="empty"><div class="empty-icon">♙</div><h3>No CLO accounts found</h3><p>{officers.length === 0 ? 'Create a CLO account and assign the LGA(s) where the officer will handle document submissions.' : 'Try a different search or filter.'}</p></div>
+            <div class="empty"><div class="empty-icon">♙</div><h3>No CLO accounts found</h3><p>{officers.length === 0 ? 'Create a CLO account and select the LGI area(s) that will manage the account. The CLO will handle document submissions from all LGAs.' : 'Try a different search or filter.'}</p></div>
           {:else}
             <div class="officer-list">
               {#each visibleOfficers as officer (officer.userId)}
                 <article class="officer-card">
                   <div class="officer-heading"><div class="avatar person">CLO</div><div class="identity"><strong>{officer.email ?? 'No email address'}</strong><span class:paused={!officer.isEnabled} class="status">{officer.isEnabled ? 'Access enabled' : 'Access paused'}</span><small>Account: {officer.accountStatus.replaceAll('_', ' ')}</small></div>
-                    <div class="actions"><button class="secondary-button" type="button" onclick={() => openEditForm(officer)}>Edit LGA access</button><button class:restore={!officer.isEnabled} class="toggle-button" type="button" onclick={() => void toggleAccess(officer)}>{officer.isEnabled ? 'Pause access' : 'Restore access'}</button></div>
+                    <div class="actions"><button class="secondary-button" type="button" onclick={() => openEditForm(officer)}>Edit LGI management scope</button><button class:restore={!officer.isEnabled} class="toggle-button" type="button" onclick={() => void toggleAccess(officer)}>{officer.isEnabled ? 'Pause access' : 'Restore access'}</button></div>
                   </div>
-                  <div class="assignments"><span class="label">Assigned LGA(s)</span><div class="chips">{#each officer.assignments as assignment (assignment.assignmentId)}<span class:inactive={!assignment.isActive} class="chip">{assignment.lgaName}, {assignment.stateName}{assignment.isActive ? '' : ' · paused'}</span>{/each}</div></div>
+                  <div class="assignments"><span class="label">LGI management scope(s)</span><div class="chips">{#each officer.assignments as assignment (assignment.assignmentId)}<span class:inactive={!assignment.isActive} class="chip">{assignment.lgaName}, {assignment.stateName}{assignment.isActive ? '' : ' · paused'}</span>{/each}</div></div>
                 </article>
               {/each}
             </div>
           {/if}
         </section>
-        <section class="permission-note"><strong>Permission boundary:</strong> CLOs can view published document requirements, view submitted files and make manual verification decisions within their assigned LGA(s). They cannot add, edit, publish, disable or delete requirements, manage Coordinators, or access LGI administration.</section>
+        <section class="permission-note"><strong>Permission boundary:</strong> CLOs can view published document requirements, inspect submitted files and make manual verification decisions for Corps Members across all LGAs. They cannot add, edit, publish, disable or delete requirements, manage Coordinators, or access LGI administration.</section>
       </main>
       <footer>NYSC CDS Management Platform · LGI Administration</footer>
     </section>
@@ -226,11 +226,11 @@
   <div class="modal-layer">
     <button class="scrim" type="button" aria-label="Close CLO form" onclick={() => (formOpen = false)}></button>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="clo-title">
-      <header class="modal-header"><div><span class="eyebrow">CLO ACCESS CONTROL</span><h2 id="clo-title">{editingOfficer ? 'Edit CLO assignments' : 'Create CLO account'}</h2><p>{editingOfficer ? 'Change the LGA(s) this officer can handle.' : 'Invite a new CLO and assign the LGA(s) where they will process documents.'}</p></div><button type="button" class="close" aria-label="Close" onclick={() => (formOpen = false)}>×</button></header>
+      <header class="modal-header"><div><span class="eyebrow">CLO ACCESS CONTROL</span><h2 id="clo-title">{editingOfficer ? 'Edit CLO assignments' : 'Create CLO account'}</h2><p>{editingOfficer ? 'Change which LGI area(s) can manage this CLO account. Document handling remains platform-wide.' : 'Invite a new CLO and select the LGI area(s) that will manage the account. The CLO receives platform-wide document access.'}</p></div><button type="button" class="close" aria-label="Close" onclick={() => (formOpen = false)}>×</button></header>
       {#if formError}<div class="message error">{formError}</div>{/if}
       <form class="form" onsubmit={saveOfficer}>
         {#if !editingOfficer}<label>Email address<input type="email" bind:value={email} placeholder="clo@example.com" required maxlength="320" /></label>{:else}<div class="email-view"><span>Account email</span><strong>{editingOfficer.email}</strong></div>{/if}
-        <fieldset><legend>Assign LGA(s)</legend><p>The CLO will only see document requirements and submissions from the selected LGA(s).</p>
+        <fieldset><legend>LGI management scope</legend><p>Selected LGA(s) determine which LGI administrators can manage this CLO account. The CLO can handle documents for Corps Members across every LGA.</p>
           <div class="lga-options">
             {#each lgaOptions as lga (lga.id)}
               <label class="lga-option"><input type="checkbox" checked={selectedLgaIds.includes(lga.id)} onchange={(event) => toggleLga(lga.id, event.currentTarget.checked)} /><span><strong>{lga.name}</strong><small>{lga.stateName}</small></span></label>

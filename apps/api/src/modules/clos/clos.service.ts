@@ -292,21 +292,25 @@ export async function updateCloOfficer(
       .limit(1);
     if (!user) throw new CloServiceError('CLO officer not found.', 404, 'CLO_NOT_FOUND');
 
-    const scopedAssignments = await tx
+    const allAssignments = await tx
       .select({
         id: userRoleAssignments.id,
-        lgaId: userRoleAssignments.lgaId
+        lgaId: userRoleAssignments.lgaId,
+        isActive: userRoleAssignments.isActive
       })
       .from(userRoleAssignments)
       .where(and(
         eq(userRoleAssignments.userId, cloUserId),
         eq(userRoleAssignments.roleId, roleId),
-        inArray(userRoleAssignments.lgaId, assignedLgaIds),
         isNull(userRoleAssignments.cdsGroupId)
       ));
+    const scopedAssignments = allAssignments.filter((assignment) =>
+      assignment.lgaId !== null && assignedLgaIds.includes(assignment.lgaId)
+    );
     if (scopedAssignments.length === 0) {
-      throw new CloServiceError('This CLO has no assignment in your LGA(s).', 404, 'CLO_NOT_FOUND');
+      throw new CloServiceError('This CLO is not managed by your LGI scope.', 404, 'CLO_NOT_FOUND');
     }
+    const globalAccessEnabled = allAssignments.some((assignment) => assignment.isActive);
 
     if (targetLgaIds !== undefined) {
       const validLgas = await tx.select({ id: lgas.id }).from(lgas).where(inArray(lgas.id, targetLgaIds));
@@ -335,7 +339,7 @@ export async function updateCloOfficer(
           .limit(1);
         if (existing) {
           await tx.update(userRoleAssignments)
-            .set({ isActive: input.isEnabled ?? true })
+            .set({ isActive: globalAccessEnabled })
             .where(eq(userRoleAssignments.id, existing.id));
         } else {
           await tx.insert(userRoleAssignments).values({
@@ -343,17 +347,20 @@ export async function updateCloOfficer(
             roleId,
             lgaId,
             cdsGroupId: null,
-            isActive: input.isEnabled ?? true
+            isActive: globalAccessEnabled
           });
         }
       }
-    } else if (input.isEnabled !== undefined) {
+    }
+
+    if (input.isEnabled !== undefined) {
+      // CLO document access is platform-wide. Pause or restore every active
+      // management assignment together so one remaining LGA cannot preserve login.
       await tx.update(userRoleAssignments)
         .set({ isActive: input.isEnabled })
         .where(and(
           eq(userRoleAssignments.userId, cloUserId),
           eq(userRoleAssignments.roleId, roleId),
-          inArray(userRoleAssignments.lgaId, assignedLgaIds),
           isNull(userRoleAssignments.cdsGroupId)
         ));
     }
@@ -363,7 +370,6 @@ export async function updateCloOfficer(
       .where(and(
         eq(userRoleAssignments.userId, cloUserId),
         eq(userRoleAssignments.roleId, roleId),
-        inArray(userRoleAssignments.lgaId, assignedLgaIds),
         isNull(userRoleAssignments.cdsGroupId)
       ));
     return {

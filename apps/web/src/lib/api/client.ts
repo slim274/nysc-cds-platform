@@ -146,6 +146,8 @@ export async function logout(): Promise<void> {
 export interface CdsGroupDecline {
   membershipId: string;
   memberId: string;
+  lgaName: string;
+  stateName: string;
   stateCode: string;
   firstName: string;
   middleName: string | null;

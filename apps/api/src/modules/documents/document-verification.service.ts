@@ -924,6 +924,8 @@ export async function listDocumentSubmissions(
       requirementName: corpsMemberDocumentRequirements.name,
       verificationMode: corpsMemberDocumentRequirements.verificationMode,
       memberId: corpsMembers.id,
+      lgaName: lgas.name,
+      stateName: lgas.stateName,
       stateCode: corpsMembers.stateCode,
       firstName: corpsMembers.firstName,
       middleName: corpsMembers.middleName,
@@ -938,9 +940,9 @@ export async function listDocumentSubmissions(
     .from(corpsMemberDocumentSubmissions)
     .innerJoin(corpsMemberDocumentRequirements, eq(corpsMemberDocumentSubmissions.requirementId, corpsMemberDocumentRequirements.id))
     .innerJoin(corpsMembers, eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMembers.id))
+    .innerJoin(lgas, eq(corpsMembers.lgaId, lgas.id))
     .where(and(...filters))
-    .orderBy(desc(corpsMemberDocumentSubmissions.submittedAt))
-    .limit(250);
+    .orderBy(desc(corpsMemberDocumentSubmissions.submittedAt));
 }
 
 export async function getDocumentSubmissionFileForLgi(

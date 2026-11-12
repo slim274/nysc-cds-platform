@@ -1,5 +1,6 @@
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
+import { db, lgas } from '@nysc/database';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import {
@@ -50,6 +51,11 @@ function getLgaIds(c: Context<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CLO'): string[]
   return [...new Set(c.get('authRoles')
     .filter((role) => role.code === roleCode && role.lgaId !== null)
     .map((role) => role.lgaId as string))];
+}
+
+async function getAllLgaIds(): Promise<string[]> {
+  const rows = await db.select({ id: lgas.id }).from(lgas);
+  return rows.map((row) => row.id);
 }
 
 function handleCloError(c: Context<AuthEnv>, error: unknown) {
@@ -154,7 +160,7 @@ lgiCloRoutes.patch('/clos/:cloId', async (c) => {
 // CLO can only read active requirements and can never create, update or delete them.
 cloDocumentRoutes.get('/documents/requirements', async (c) => {
   try {
-    const requirements = await listDocumentRequirements(getLgaIds(c, 'CLO'));
+    const requirements = await listDocumentRequirements(await getAllLgaIds());
     return c.json({
       success: true,
       data: requirements.filter((requirement) => requirement.isActive)
@@ -167,7 +173,7 @@ cloDocumentRoutes.get('/documents/requirements', async (c) => {
 // The CLO inbox is limited to submissions that require human review.
 cloDocumentRoutes.get('/documents/submissions', async (c) => {
   try {
-    const data = await listDocumentSubmissions(getLgaIds(c, 'CLO'), 'manual_review');
+    const data = await listDocumentSubmissions(await getAllLgaIds(), 'manual_review');
     return c.json({ success: true, data });
   } catch (error) {
     return handleCloError(c, error);
@@ -178,7 +184,7 @@ cloDocumentRoutes.get('/documents/submissions/:submissionId/file', async (c) => 
   const id = uuidSchema.safeParse(c.req.param('submissionId'));
   if (!id.success) return c.json({ success: false, message: 'Invalid document submission ID.' }, 400);
   try {
-    const file = await getDocumentSubmissionFileForLgi(id.data, getLgaIds(c, 'CLO'));
+    const file = await getDocumentSubmissionFileForLgi(id.data, await getAllLgaIds());
     setPrivateFileHeaders(c, file.contentType, file.fileName);
     return c.body(file.bytes.buffer.slice(
       file.bytes.byteOffset,
@@ -205,7 +211,7 @@ cloDocumentRoutes.post('/documents/submissions/:submissionId/decision', async (c
       id.data,
       validation.data.decision,
       validation.data.reason,
-      getLgaIds(c, 'CLO'),
+      await getAllLgaIds(),
       c.get('authUser').id,
       'CLO'
     );

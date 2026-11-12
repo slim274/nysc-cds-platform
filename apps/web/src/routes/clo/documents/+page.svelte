@@ -43,7 +43,7 @@
     errorMessage = '';
     try {
       const auth = await getCurrentUser();
-      if (!auth.roles.some((role) => role.code === 'CLO' && role.lgaId !== null)) {
+      if (!auth.roles.some((role) => role.code === 'CLO')) {
         await goto('/login');
         return;
       }
@@ -134,7 +134,7 @@
 
 <svelte:head>
   <title>Document Handling | CLO Workspace</title>
-  <meta name="description" content="Review Corps Member document submissions for your assigned LGA(s)." />
+  <meta name="description" content="Review Corps Member document submissions across all LGAs." />
 </svelte:head>
 
 {#if loading}
@@ -144,7 +144,7 @@
 {:else}
   <CloLayout activePath="/clo/documents" userEmail={currentUser.email} onSignOut={signOut}>
     <section class="page-intro">
-      <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Document handling</h2><p>Review submitted documents, verify valid records, or return incorrect documents for resubmission. Your LGI controls the document checklist and requirements.</p></div>
+      <div><span class="eyebrow">CORPS MEMBER DOCUMENTS</span><h2>Document handling</h2><p>Handle document submissions for every Corps Member across all LGAs. Review files, verify valid records or return incorrect documents for resubmission. LGIs retain control of the document checklist and requirements.</p></div>
       <button class="refresh-button" type="button" onclick={() => void loadPage()} disabled={loading}>↻ Refresh</button>
     </section>
 
@@ -153,14 +153,14 @@
 
     <section class="stats">
       <article><span>Active document requirements</span><strong>{requirements.length}</strong><small>Published by your LGI</small></article>
-      <article><span>Awaiting document review</span><strong>{submissions.length}</strong><small>Submissions requiring a human decision</small></article>
-      <article><span>Assigned access</span><strong>LGI-scoped</strong><small>Only your assigned LGA(s)</small></article>
+      <article><span>Awaiting document review</span><strong>{submissions.length}</strong><small>Across every LGA</small></article>
+      <article><span>Document coverage</span><strong>All LGAs</strong><small>Every Corps Member on the platform</small></article>
     </section>
 
     <section class="panel">
       <div class="panel-heading"><div><h3>Active document requirements</h3><p>These are the requirements currently published by your LGI. You cannot add, edit, enable or remove items.</p></div><span class="count">{requirements.length} published</span></div>
       {#if requirements.length === 0}
-        <div class="empty"><div class="empty-icon">▤</div><h4>No active requirements</h4><p>Your LGI has not published document requirements for your assigned LGA(s) yet.</p></div>
+        <div class="empty"><div class="empty-icon">▤</div><h4>No active requirements</h4><p>No active document requirements have been published for any LGA yet.</p></div>
       {:else}
         <div class="requirements">
           {#each requirements as requirement (requirement.id)}
@@ -188,7 +188,7 @@
             <article class="review-card">
               <div class="member">
                 <div class="member-avatar">{submission.firstName.slice(0,1)}{submission.lastName.slice(0,1)}</div>
-                <div><strong>{submission.lastName}, {submission.firstName} {submission.middleName ?? ''}</strong><span>{submission.stateCode} · {submission.requirementName}</span><small>{submission.fileName} · {new Date(submission.submittedAt).toLocaleString()}</small></div>
+                <div><strong>{submission.lastName}, {submission.firstName} {submission.middleName ?? ''}</strong><span>{submission.stateCode} · {submission.lgaName}, {submission.stateName} · {submission.requirementName}</span><small>{submission.fileName} · {new Date(submission.submittedAt).toLocaleString()}</small></div>
               </div>
               <div class="review-meta">
                 <span class="status">{statusLabel(submission.status)}</span>
@@ -205,7 +205,7 @@
         </div>
       {/if}
     </section>
-    <div class="permission-note"><strong>Your access is limited.</strong> You can view active requirements, inspect submitted files and review documents within your assigned LGA(s). Only the LGI can create, change or remove document requirements and manage CLO access.</div>
+    <div class="permission-note"><strong>Platform-wide document access.</strong> You can review submissions from Corps Members across all LGAs. Only LGI Administrators can create, change, publish or remove document requirements and manage CLO accounts.</div>
   </CloLayout>
 {/if}
 
