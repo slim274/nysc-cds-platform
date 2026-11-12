@@ -103,6 +103,7 @@
       'Excused',
       'Unmarked',
       'Attendance Rate (%)',
+      'Eligible Attendance Records',
       'Reviewed Registers',
       'Approved Registers',
       'Register Approval Rate (%)',
@@ -123,6 +124,7 @@
       group.excused,
       group.unmarked,
       group.attendanceRatePercent,
+      group.eligibleAttendanceRecords,
       group.reviewedRegisters,
       group.approvedRegisters,
       group.registerApprovalRatePercent,
@@ -189,7 +191,7 @@
           </div>
           <div class="report-controls no-print">
             <label for="period">Reporting period</label>
-            <select id="period" value={months} onchange={(event) => void changePeriod(event.currentTarget.value)}>
+            <select id="period" value={String(months)} onchange={(event) => void changePeriod(event.currentTarget.value)}>
               <option value="3">Last 3 months</option>
               <option value="6">Last 6 months</option>
               <option value="12">Last 12 months</option>
@@ -235,7 +237,7 @@
             <article class="kpi-card">
               <span class="kpi-label">Overall attendance</span>
               <strong>{formatPercent(data.summary.attendanceRatePercent)}</strong>
-              <small>Present and late ÷ marked eligible records</small>
+              <small>Based on {data.summary.eligibleAttendanceRecords.toLocaleString()} eligible attendance records</small>
             </article>
             <article class="kpi-card">
               <span class="kpi-label">Approved registers</span>
@@ -257,13 +259,18 @@
             {#if data.monthlyTrend.every((month) => month.attendanceRatePercent === null)}
               <div class="empty">There is no attendance data for this reporting period yet.</div>
             {:else}
-              <div class="trend-chart">
+              <div class="trend-chart months-{months}">
                 {#each data.monthlyTrend as month}
-                  <div class="trend-column" title={month.attendanceRatePercent === null ? 'No marked attendance' : `${month.label}: ${formatPercent(month.attendanceRatePercent)}`}>
+                  <div class="trend-column" title={month.eligibleRecords === 0 ? `${month.label}: no eligible attendance records` : `${month.label}: ${formatPercent(month.attendanceRatePercent)} from ${month.eligibleRecords} records`}>
                     <strong>{formatPercent(month.attendanceRatePercent)}</strong>
-                    <div class="bar-track"><div class="bar-fill" style:height={`${month.attendanceRatePercent ?? 0}%`}></div></div>
+                    {#if month.eligibleRecords > 0}
+                      <div class="bar-track"><div class="bar-fill" style:height={`${month.attendanceRatePercent ?? 0}%`}></div></div>
+                    {:else}
+                      <div class="bar-empty">No data</div>
+                    {/if}
                     <span>{month.label}</span>
                     <small>{month.meetings} meetings</small>
+                    <small>{month.eligibleRecords} records</small>
                   </div>
                 {/each}
               </div>
@@ -302,6 +309,7 @@
                         <td>{group.meetingsHeld}</td>
                         <td>
                           <strong class:low-rate={group.needsAttention}>{formatPercent(group.attendanceRatePercent)}</strong>
+                          <small>{group.eligibleAttendanceRecords} records</small>
                           <div class="mini-track"><span style:width={`${group.attendanceRatePercent ?? 0}%`}></span></div>
                         </td>
                         <td>{group.approvedRegisters} / {group.reviewedRegisters}<small>{formatPercent(group.registerApprovalRatePercent)}</small></td>
@@ -381,10 +389,13 @@
   .legend{display:flex;align-items:center;gap:6px;color:#819087;font-size:8px}
   .legend i{width:8px;height:8px;border-radius:2px;background:#16804c}
   .trend-chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:9px;align-items:end;min-height:190px;padding:9px 3px 0}
+  .trend-chart.months-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .trend-chart.months-6{grid-template-columns:repeat(6,minmax(0,1fr))}
   .trend-column{min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
   .trend-column strong{color:#355442;font-size:9px}
   .bar-track{width:min(100%,35px);height:116px;display:flex;align-items:flex-end;overflow:hidden;border-radius:5px 5px 2px 2px;background:#edf4ef}
   .bar-fill{width:100%;min-height:0;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#36a36d,#0b6840)}
+  .bar-empty{width:min(100%,52px);height:116px;display:grid;place-items:center;padding:4px;border:1px dashed #dce7de;border-radius:5px;color:#9aa69e;font-size:7px;text-align:center}
   .trend-column span{color:#607368;font-size:8px;text-align:center;white-space:nowrap}
   .trend-column small{color:#9aa49d;font-size:7px;white-space:nowrap}
   .chart-note{margin:13px 0 0;padding-top:10px;border-top:1px solid #eef2ee;color:#829087;font-size:8px;line-height:1.6}
@@ -422,7 +433,7 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   footer{padding:15px 22px;border-top:1px solid #e8ece8;color:#89948c;font-size:9px}
   @media(max-width:1100px){.report-heading{align-items:flex-start;flex-direction:column}.report-controls{justify-content:flex-start}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:760px){.menu{display:block}.topbar{padding:12px 14px}.email{display:none}.content{padding:21px 12px 30px}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.insight-grid{grid-template-columns:1fr}.trend-chart{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:15px}.report-meta{align-items:flex-start;flex-direction:column}}
+  @media(max-width:760px){.menu{display:block}.topbar{padding:12px 14px}.email{display:none}.content{padding:21px 12px 30px}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.insight-grid{grid-template-columns:1fr}.trend-chart{row-gap:15px}.trend-chart.months-12{grid-template-columns:repeat(6,minmax(0,1fr))}.report-meta{align-items:flex-start;flex-direction:column}}
   @media(max-width:420px){.report-controls{width:100%;display:grid;grid-template-columns:1fr 1fr}.report-controls label{grid-column:1/-1}.report-controls select{grid-column:1/-1;width:100%}.report-heading h2{font-size:21px}.kpi-card{padding:12px}.kpi-card strong{font-size:22px}.trend-column span{font-size:7px}}
   @media print{
     :global(body){background:#fff!important}
