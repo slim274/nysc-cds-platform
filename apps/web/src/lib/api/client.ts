@@ -1720,3 +1720,62 @@ export async function resubmitAnnouncement(
     body: JSON.stringify(input)
   });
 }
+
+
+export interface LgiAnalyticsGroup {
+  id: string;
+  code: string;
+  name: string;
+  lgaName: string;
+  stateName: string;
+  activeMembers: number;
+  meetingsHeld: number;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  unmarked: number;
+  eligibleAttendanceRecords: number;
+  attendanceRatePercent: number | null;
+  eligibleAttendanceRecords: number;
+  reviewedRegisters: number;
+  approvedRegisters: number;
+  registerApprovalRatePercent: number | null;
+  coordinatorEmail: string | null;
+  presidentName: string | null;
+  needsAttention: boolean;
+}
+
+export interface LgiAnalyticsData {
+  generatedAt: string;
+  periodMonths: 3 | 6 | 12;
+  summary: {
+    activeGroups: number;
+    activeMembers: number;
+    meetingsHeld: number;
+    approvedRegisters: number;
+    reviewedRegisters: number;
+    attendanceRatePercent: number | null;
+    eligibleAttendanceRecords: number;
+    groupsBelowThreshold: number;
+  };
+  monthlyTrend: Array<{
+    month: string;
+    label: string;
+    meetings: number;
+    attendanceRatePercent: number | null;
+    eligibleRecords: number;
+    present: number;
+    late: number;
+    absent: number;
+    excused: number;
+  }>;
+  groups: LgiAnalyticsGroup[];
+}
+
+export async function getLgiAnalytics(months: 3 | 6 | 12 = 6): Promise<LgiAnalyticsData> {
+  const response = await request<{ success: boolean; data: LgiAnalyticsData }>(
+    `/lgi/reports/analytics?months=${months}`
+  );
+  return response.data;
+}

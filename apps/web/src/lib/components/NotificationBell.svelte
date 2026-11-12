@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import {
     listNotifications,
     markAllNotificationsRead,
@@ -126,11 +127,29 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Keep the fixed bell outside dashboard containers. Some role layouts use
-  // transformed/scrolling wrappers that can otherwise make fixed positioning
-  // behave like absolute positioning on desktop and mobile.
-  function portalToBody(node: HTMLElement) {
-    document.body.appendChild(node);
+  // Mount into a dedicated viewport overlay host directly under <html>.
+  // Keeping this host outside <body> means legacy body overflow rules, sticky
+  // headers and nested module scrollers cannot affect the notification bell.
+  function portalToOverlay(node: HTMLElement) {
+    const host = document.getElementById('global-overlay-root');
+
+    if (host) {
+      document.documentElement.appendChild(host);
+      host.style.setProperty('position', 'fixed', 'important');
+      host.style.setProperty('inset', '0', 'important');
+      host.style.setProperty('width', '100vw', 'important');
+      host.style.setProperty('height', '100vh', 'important');
+      host.style.setProperty('height', '100dvh', 'important');
+      host.style.setProperty('overflow', 'visible', 'important');
+      host.style.setProperty('pointer-events', 'none', 'important');
+      host.style.setProperty('z-index', '2147483647', 'important');
+      host.style.setProperty('isolation', 'isolate', 'important');
+      host.appendChild(node);
+    } else {
+      // Defensive fallback for deployments that have not yet received app.html.
+      document.documentElement.appendChild(node);
+    }
+
     return {
       destroy() {
         node.remove();
@@ -174,7 +193,10 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" use:portalToBody>
+  <div class="notification-bell" use:portalToOverlay>
+    {#if page.url.pathname.startsWith('/lgi')}
+      <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
+    {/if}
     <button
       class:active={open}
       class="bell-button"
@@ -245,11 +267,41 @@
 
 <style>
   .notification-bell {
-    position: fixed;
-    z-index: 1200;
-    top: max(12px, env(safe-area-inset-top));
-    right: max(20px, env(safe-area-inset-right));
-    pointer-events: none;
+    position: absolute !important;
+    top: 12px !important;
+    right: 20px !important;
+    bottom: auto !important;
+    left: auto !important;
+    inset: 12px 20px auto auto !important;
+    width: fit-content !important;
+    height: fit-content !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    color: inherit;
+    z-index: 1 !important;
+    pointer-events: none !important;
+  }
+  .notification-bell {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+  }
+  .lgi-mobile-identity {
+    display: none;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    place-items: center;
+    border: 1px solid #dce9df;
+    border-radius: 50%;
+    background: #e6f1e9;
+    color: #0a5c37;
+    font-size: 11px;
+    font-weight: 800;
+    box-shadow: 0 3px 10px #163b2815;
   }
   .bell-button, .notification-panel { pointer-events: auto; }
   .bell-button {
@@ -296,12 +348,14 @@
   .view-all { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #edf1ed; color: #0a6841; font-size: 10px; font-weight: 700; text-decoration: none; }
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
+  @media (max-width: 760px) {
+    .lgi-mobile-identity { display: grid; }
+    .bell-button { width: 42px; height: 42px; }
+  }
   @media (max-width: 480px) {
     .notification-bell {
-      top: max(10px, env(safe-area-inset-top));
-      right: max(12px, env(safe-area-inset-right));
+      inset: 10px 12px auto auto !important;
     }
-    .bell-button { width: 42px; height: 42px; }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
   }
   @media (prefers-reduced-motion: reduce) { .bell-button { transition: none; } }

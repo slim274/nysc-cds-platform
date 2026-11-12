@@ -283,7 +283,7 @@
   <div class="admin-shell">
     <LgiSidebar activePath="/lgi/batches-streams" open={mobileNavOpen} signingOut={signingOut} onClose={closeMobileNavigation} onSignOut={handleLogout} />
     <section class="main-area">
-      <header class="topbar">
+      <header class="topbar batches-streams-topbar">
         <div class="topbar-heading">
           <button class="menu-button" type="button" aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileNavOpen} aria-controls="lgi-sidebar" onclick={() => (mobileNavOpen = !mobileNavOpen)}>
             <span></span><span></span><span></span>
@@ -393,10 +393,32 @@
 
 <style>
   :global(*) { box-sizing: border-box; }
-  :global(body) { margin: 0; overflow-x: hidden; background: #f4f7f4; color: #1b2b20; font-family: Inter, Arial, sans-serif; }
+  :global(body) { margin: 0; overflow-x: clip; background: #f4f7f4; color: #1b2b20; font-family: Inter, Arial, sans-serif; }
   .admin-shell { display: flex; min-height: 100vh; }
-  .main-area { min-width: 0; flex: 1; display: flex; flex-direction: column; }
-  .topbar { position: sticky; top: 0; z-index: 15; min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 32px; border-bottom: 1px solid #e7ece8; background: #fff; }
+  .main-area {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 82px;
+  }
+  /* This page's header is fixed to the viewport because its legacy flex shell
+     does not keep sticky positioning consistent across browser scroll modes. */
+  .topbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 255px !important;
+    right: 0 !important;
+    z-index: 1501 !important;
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 32px;
+    border-bottom: 1px solid #e7ece8;
+    background: #fff;
+  }
   .topbar-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .breadcrumb { color: #849188; font-size: 10px; }
   .topbar h1 { margin: 5px 0 0; font-size: 20px; }
@@ -480,7 +502,95 @@
   .loader { width: 26px; height: 26px; border: 3px solid #dce9df; border-top-color: #0a6841; border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   footer { padding: 16px 32px; border-top: 1px solid #e8ece8; color: #89948c; font-size: 10px; }
-  @media(max-width:1150px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.year-header,.batch-header{align-items:flex-start;flex-direction:column}.record-actions{width:100%}}
-  @media(max-width:760px){.menu-button{display:grid}.topbar{min-height:74px;padding:12px 16px}.account-copy{display:none}.page-content{padding:22px 16px 30px}.intro{flex-direction:column;padding:20px}.intro>.primary-button{width:100%}.stream-list{grid-template-columns:1fr}}
-  @media(max-width:480px){.stats-grid{gap:8px}.stat-card{padding:13px}.form-row{grid-template-columns:1fr}.stream-card{align-items:flex-start;flex-direction:column}.record-actions{justify-content:flex-start}}
+  @media(max-width:1150px) and (min-width:761px){
+    .topbar { left: 225px !important; }
+    .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .year-header,.batch-header{align-items:flex-start;flex-direction:column}
+    .record-actions{width:100%}
+  }
+  @media(max-width:760px){
+    .main-area { padding-top: 74px; }
+    .topbar {
+      left: 0 !important;
+      right: 0 !important;
+      min-height: 74px;
+      padding: 12px 16px;
+    }
+    .menu-button{display:grid}
+    .account-copy{display:none}
+    .page-content{padding:22px 16px 30px}
+    .intro{flex-direction:column;padding:20px}
+    .intro>.primary-button{width:100%}
+    .stream-list{grid-template-columns:1fr}
+  }
+  @media(max-width:480px){
+    .stats-grid{gap:8px}
+    .stat-card{padding:13px}
+    .form-row{grid-template-columns:1fr}
+    .stream-card{align-items:flex-start;flex-direction:column}
+    .record-actions{justify-content:flex-start}
+  }
+
+  /* Outrank the shared .topbar rule so this route's header remains visible. */
+  :global(header.topbar.batches-streams-topbar) {
+    position: fixed !important;
+    top: 0 !important;
+    left: 255px !important;
+    right: 0 !important;
+    bottom: auto !important;
+    z-index: 2000 !important;
+    transform: none !important;
+    flex-shrink: 0;
+    background: #fff !important;
+  }
+
+  @media(max-width:1150px) and (min-width:761px) {
+    :global(header.topbar.batches-streams-topbar) {
+      left: 225px !important;
+    }
+  }
+
+  @media(max-width:760px) {
+    :global(header.topbar.batches-streams-topbar) {
+      left: 0 !important;
+      right: 0 !important;
+      min-height: 74px !important;
+      padding: 12px 16px !important;
+    }
+    .main-area { padding-top: 74px; }
+    .page-content { min-width: 0; padding: 20px 12px 28px; }
+    .intro { min-width: 0; width: 100%; }
+    .cohorts-panel { min-width: 0; padding: 12px; }
+    .filters {
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 9px;
+      padding: 10px;
+    }
+    .filters label { min-width: 0; width: 100%; }
+    .filters input, .filters select { width: 100%; min-width: 0; }
+    .year-list, .year-card, .year-header, .batch-list, .batch-card, .batch-header {
+      min-width: 0;
+      max-width: 100%;
+    }
+    .year-header, .batch-header {
+      width: 100%;
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .year-title { width: 100%; min-width: 0; align-items: flex-start; }
+    .year-title h3, .year-title p { overflow-wrap: anywhere; }
+    .record-actions { width: 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 7px; }
+    .record-actions .small-button { max-width: 100%; }
+    .batch-header > div:first-child { width: 100%; min-width: 0; }
+    .stream-list { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+    .stream-card { min-width: 0; width: 100%; }
+  }
+
+  @media(max-width:480px) {
+    .page-content { padding-inline: 10px; }
+    .cohorts-panel { padding: 10px; }
+    .year-header, .batch-header { padding: 11px; }
+    .record-actions .small-button { flex: 0 1 auto; }
+  }
 </style>

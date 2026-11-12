@@ -27,7 +27,7 @@
     { label: 'Attendance', href: '/lgi/attendance', icon: '✓' },
     { label: 'Announcements', href: '/lgi/announcements', icon: '▤' },
     { label: 'Monthly Clearance', href: null, icon: '▣' },
-    { label: 'Reports', href: null, icon: '▥' }
+    { label: 'Reports', href: '/lgi/reports', icon: '▥' }
   ];
 </script>
 

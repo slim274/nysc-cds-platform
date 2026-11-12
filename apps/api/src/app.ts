@@ -53,6 +53,7 @@ import {
 } from './modules/documents/documents.routes';
 
 import { notificationRoutes } from './modules/notifications/notifications.routes';
+import { lgiAnalyticsRoutes } from './modules/reports/analytics.routes';
 
 import type {
   AuthEnv
@@ -106,6 +107,7 @@ app.route('/notifications', notificationRoutes);
 
 // LGI administration routes
 app.route('/lgi', lgiRoutes);
+app.route('/lgi/reports', lgiAnalyticsRoutes);
 
 // Shared course catalogue management for authorised LGI administrators.
 app.route('/lgi', lgiCourseCatalogueRoutes);
