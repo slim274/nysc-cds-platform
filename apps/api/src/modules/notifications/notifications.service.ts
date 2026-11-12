@@ -545,3 +545,25 @@ export async function notifyMeetingCancelled(meetingId: string, actorUserId: str
     console.error('Unable to create meeting cancellation notifications:', error);
   }
 }
+
+
+export async function notifyMonthlyClearanceDecision(input: {
+  userId: string;
+  clearanceId: string;
+  month: string;
+  status: 'cleared' | 'not_cleared';
+  note?: string | null;
+}) {
+  const statusLabel = input.status === 'cleared' ? 'cleared' : 'not cleared';
+  const noteText = input.status === 'not_cleared' && input.note
+    ? ` LGI note: ${input.note.slice(0, 350)}`
+    : '';
+  await notifyUser(input.userId, 'CORPS_MEMBER', {
+    type: 'monthly_clearance_decision',
+    title: 'Monthly clearance updated',
+    message: `Your ${input.month} monthly clearance has been marked ${statusLabel}.${noteText}`,
+    hrefSuffix: '/attendance',
+    entityType: 'monthly_clearance',
+    entityId: input.clearanceId
+  });
+}
