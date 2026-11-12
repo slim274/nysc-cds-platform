@@ -127,31 +127,53 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Mount into a dedicated viewport overlay host directly under <html>.
-  // Keeping this host outside <body> means legacy body overflow rules, sticky
-  // headers and nested module scrollers cannot affect the notification bell.
+  // Keep the CLO notification control inside its own header so it aligns
+  // with the CLO badge. Other workspaces continue using the viewport overlay,
+  // which protects the bell from legacy page overflow and stacking contexts.
   function portalToOverlay(node: HTMLElement) {
     const host = document.getElementById('global-overlay-root');
 
-    if (host) {
-      document.documentElement.appendChild(host);
-      host.style.setProperty('position', 'fixed', 'important');
-      host.style.setProperty('inset', '0', 'important');
-      host.style.setProperty('width', '100vw', 'important');
-      host.style.setProperty('height', '100vh', 'important');
-      host.style.setProperty('height', '100dvh', 'important');
-      host.style.setProperty('overflow', 'visible', 'important');
-      host.style.setProperty('pointer-events', 'none', 'important');
-      host.style.setProperty('z-index', '2147483647', 'important');
-      host.style.setProperty('isolation', 'isolate', 'important');
-      host.appendChild(node);
-    } else {
-      // Defensive fallback for deployments that have not yet received app.html.
-      document.documentElement.appendChild(node);
+    function moveToGlobalOverlay() {
+      if (host) {
+        document.documentElement.appendChild(host);
+        host.style.setProperty('position', 'fixed', 'important');
+        host.style.setProperty('inset', '0', 'important');
+        host.style.setProperty('width', '100vw', 'important');
+        host.style.setProperty('height', '100vh', 'important');
+        host.style.setProperty('height', '100dvh', 'important');
+        host.style.setProperty('overflow', 'visible', 'important');
+        host.style.setProperty('pointer-events', 'none', 'important');
+        host.style.setProperty('z-index', '2147483647', 'important');
+        host.style.setProperty('isolation', 'isolate', 'important');
+        if (node.parentElement !== host) host.appendChild(node);
+      } else if (node.parentElement !== document.documentElement) {
+        // Defensive fallback for deployments that have not yet received app.html.
+        document.documentElement.appendChild(node);
+      }
     }
+
+    function placeNotificationBell() {
+      const cloHeader = window.location.pathname.startsWith('/clo')
+        ? document.querySelector<HTMLElement>('.clo-topbar')
+        : null;
+
+      if (cloHeader) {
+        if (node.parentElement !== cloHeader) cloHeader.appendChild(node);
+      } else {
+        moveToGlobalOverlay();
+      }
+    }
+
+    placeNotificationBell();
+
+    // The app layout persists during client-side navigation. Observe route
+    // content changes so the bell moves into/out of the CLO header as needed.
+    const observer = new MutationObserver(placeNotificationBell);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
 
     return {
       destroy() {
+        observer.disconnect();
         node.remove();
       }
     };
@@ -193,7 +215,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" use:portalToOverlay>
+  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} use:portalToOverlay>
     {#if page.url.pathname.startsWith('/lgi')}
       <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
     {/if}
@@ -357,6 +379,14 @@
     .bell-button svg {
       width: 18px;
       height: 18px;
+    }
+    .notification-bell.clo-header {
+      top: 50% !important;
+      right: 10px !important;
+      bottom: auto !important;
+      left: auto !important;
+      inset: 50% 10px auto auto !important;
+      transform: translateY(-50%);
     }
   }
   @media (max-width: 480px) {
