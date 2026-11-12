@@ -8,11 +8,13 @@
     getCorpsMemberDocuments,
     uploadCorpsMemberDocument,
     declineAssignedCdsGroup,
+    listMyApprovedAttendance,
     logout,
     type CurrentUserResponse,
     type CorpsMemberPortalData,
     type CorpsMemberDocumentDashboard,
-    type CorpsMemberDocumentRequirement
+    type CorpsMemberDocumentRequirement,
+    type CorpsMemberApprovedAttendance
   } from '#lib/api/client.ts';
 
   type DeclineReason =
@@ -25,6 +27,7 @@
   let session = $state<CurrentUserResponse | null>(null);
   let portal = $state<CorpsMemberPortalData | null>(null);
   let documentDashboard = $state<CorpsMemberDocumentDashboard | null>(null);
+  let approvedAttendance = $state<CorpsMemberApprovedAttendance[]>([]);
   let uploadingRequirementId = $state('');
   let loading = $state(true);
   let saving = $state(false);
@@ -62,12 +65,14 @@
   }
 
   async function loadMemberData() {
-    const [portalData, documentsData] = await Promise.all([
+    const [portalData, documentsData, attendanceData] = await Promise.all([
       getCorpsMemberPortal(),
-      getCorpsMemberDocuments()
+      getCorpsMemberDocuments(),
+      listMyApprovedAttendance()
     ]);
     portal = portalData;
     documentDashboard = documentsData;
+    approvedAttendance = attendanceData;
   }
 
   async function uploadDocument(requirement: CorpsMemberDocumentRequirement, event: Event) {
@@ -340,9 +345,22 @@
       </section>
     {/if}
 
+    <section class="attendance-history">
+      <div class="attendance-heading"><div><span class="eyebrow">PARTICIPATION RECORD</span><h2>My CDS attendance</h2><p>Only registers approved by your CDS Coordinator appear here.</p></div><span class="attendance-count">{approvedAttendance.length} records</span></div>
+      {#if approvedAttendance.length === 0}
+        <div class="attendance-empty">Your approved attendance records will appear here after your CDS President submits the register and your Coordinator reviews it.</div>
+      {:else}
+        <div class="attendance-list">
+          {#each approvedAttendance as record}
+            <article class="attendance-record">
+              <div><strong>{record.meetingTitle}</strong><small>{record.groupCode} · {record.groupName}</small><small>{new Date(record.startsAt).toLocaleString()}{record.venue ? ' · ' + record.venue : ''}</small></div>
+              <span class:present={record.attendanceStatus === 'present'} class:absent={record.attendanceStatus === 'absent'} class:late={record.attendanceStatus === 'late'} class:excused={record.attendanceStatus === 'excused'} class="attendance-status">{record.attendanceStatus.replaceAll('_', ' ').toUpperCase()}</span>
+            </article>
+          {/each}
+        </div>
+      {/if}
+    </section>
     <section class="coming-grid">
-      <article><span class="coming-icon">▤</span><div><strong>Document requests</strong><p>View required credentials and track verification.</p><small>Coming next</small></div></article>
-      <article><span class="coming-icon">✓</span><div><strong>CDS attendance</strong><p>View your attendance and participation records.</p><small>Coming next</small></div></article>
       <article><span class="coming-icon">◉</span><div><strong>Announcements</strong><p>Receive updates from your LGI and Coordinator.</p><small>Coming next</small></div></article>
     </section>
   {/if}
@@ -531,4 +549,5 @@
   }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
   @media (max-width: 560px) { .whatsapp-card { align-items: stretch; flex-direction: column; } .whatsapp-join { width: 100%; } }
+.attendance-history{padding:20px;margin-top:18px;border:1px solid #e5ebe6;border-radius:11px;background:#fff}.attendance-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.attendance-heading h2{margin:7px 0 5px;font-size:16px}.attendance-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.attendance-count{padding:6px 9px;border-radius:16px;background:#e8f5ec;color:#0a6841;font-size:9px;font-weight:800;white-space:nowrap}.attendance-list{display:grid;gap:7px}.attendance-record{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:8px;background:#f7f9f7}.attendance-record strong,.attendance-record small{display:block}.attendance-record strong{color:#344b3b;font-size:10px}.attendance-record small{margin-top:4px;color:#819087;font-size:9px}.attendance-status{padding:6px 9px;border-radius:18px;background:#f0f3f1;color:#52675a;font-size:8px;font-weight:800;white-space:nowrap}.attendance-status.present{background:#e8f5ec;color:#087443}.attendance-status.absent{background:#fff0ef;color:#a32920}.attendance-status.late{background:#fff4df;color:#9c6500}.attendance-status.excused{background:#eaf2ff;color:#315d9a}.attendance-empty{padding:22px 14px;border-radius:8px;background:#f7f9f7;color:#819087;font-size:10px;line-height:1.7}@media(max-width:560px){.attendance-history{padding:15px}.attendance-record{align-items:flex-start;flex-direction:column}.attendance-heading{flex-direction:column}}
 </style>

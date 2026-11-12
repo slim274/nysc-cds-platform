@@ -1436,3 +1436,176 @@ export async function uploadCorpsMemberPhoto(memberId: string, photo: File): Pro
   }
 }
 
+
+
+export type CdsAttendanceStatus = 'not_marked' | 'present' | 'absent' | 'late' | 'excused';
+export type CdsMeetingStatus = 'scheduled' | 'attendance_open' | 'submitted' | 'reviewed' | 'cancelled';
+
+export interface CdsMeetingAttendanceRecord {
+  id: string;
+  memberId: string;
+  stateCode: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  status: CdsAttendanceStatus;
+  notes: string | null;
+  markedAt: string | null;
+  markedByUserId: string | null;
+}
+
+export interface CdsMeetingSummary {
+  id: string;
+  groupId: string;
+  groupCode: string;
+  groupName: string;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+  title: string;
+  description: string | null;
+  venue: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: CdsMeetingStatus;
+  createdByUserId: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewedByUserId: string | null;
+  reviewDecision: 'approved' | 'returned' | null;
+  reviewNotes: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  attendanceSummary: {
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    unmarked: number;
+    total: number;
+  };
+}
+
+export interface CdsMeetingDetails extends CdsMeetingSummary {
+  attendance: CdsMeetingAttendanceRecord[];
+  audit?: Array<{
+    id: string;
+    eventType: string;
+    details: Record<string, unknown>;
+    actorUserId: string | null;
+    createdAt: string;
+  }>;
+}
+
+export async function listCoordinatorAttendanceMeetings(): Promise<CdsMeetingSummary[]> {
+  const response = await request<{ success: boolean; data: CdsMeetingSummary[] }>('/coordinator/attendance/meetings');
+  return response.data;
+}
+
+export async function createCdsMeeting(input: {
+  groupId: string;
+  title: string;
+  description?: string;
+  venue?: string;
+  startsAt: string;
+  endsAt: string;
+}): Promise<CdsMeetingDetails> {
+  const response = await request<{ success: boolean; data: CdsMeetingDetails }>('/coordinator/attendance/meetings', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function getCoordinatorAttendanceMeeting(meetingId: string): Promise<CdsMeetingDetails> {
+  const response = await request<{ success: boolean; data: CdsMeetingDetails }>(
+    `/coordinator/attendance/meetings/${encodeURIComponent(meetingId)}`
+  );
+  return response.data;
+}
+
+export async function reviewCdsMeetingAttendance(
+  meetingId: string,
+  decision: 'approved' | 'returned',
+  notes?: string
+): Promise<void> {
+  await request(`/coordinator/attendance/meetings/${encodeURIComponent(meetingId)}/review`, {
+    method: 'POST',
+    body: JSON.stringify({ decision, notes })
+  });
+}
+
+export async function cancelCdsMeeting(meetingId: string): Promise<void> {
+  await request(`/coordinator/attendance/meetings/${encodeURIComponent(meetingId)}/cancel`, {
+    method: 'POST'
+  });
+}
+
+export async function listPresidentAttendanceMeetings(): Promise<CdsMeetingSummary[]> {
+  const response = await request<{ success: boolean; data: CdsMeetingSummary[] }>('/cds-president/attendance/meetings');
+  return response.data;
+}
+
+export async function getPresidentAttendanceMeeting(meetingId: string): Promise<CdsMeetingDetails> {
+  const response = await request<{ success: boolean; data: CdsMeetingDetails }>(
+    `/cds-president/attendance/meetings/${encodeURIComponent(meetingId)}`
+  );
+  return response.data;
+}
+
+export async function openCdsMeetingAttendance(meetingId: string): Promise<void> {
+  await request(`/cds-president/attendance/meetings/${encodeURIComponent(meetingId)}/open`, {
+    method: 'POST'
+  });
+}
+
+export async function markCdsMeetingAttendance(
+  meetingId: string,
+  memberId: string,
+  status: Exclude<CdsAttendanceStatus, 'not_marked'>,
+  notes?: string
+): Promise<void> {
+  await request(
+    `/cds-president/attendance/meetings/${encodeURIComponent(meetingId)}/members/${encodeURIComponent(memberId)}`,
+    { method: 'PATCH', body: JSON.stringify({ status, notes }) }
+  );
+}
+
+export async function submitCdsMeetingAttendance(meetingId: string): Promise<void> {
+  await request(`/cds-president/attendance/meetings/${encodeURIComponent(meetingId)}/submit`, {
+    method: 'POST'
+  });
+}
+
+export async function listLgiAttendanceMeetings(): Promise<CdsMeetingSummary[]> {
+  const response = await request<{ success: boolean; data: CdsMeetingSummary[] }>('/lgi/attendance/meetings');
+  return response.data;
+}
+
+export async function getLgiAttendanceMeeting(meetingId: string): Promise<CdsMeetingDetails> {
+  const response = await request<{ success: boolean; data: CdsMeetingDetails }>(
+    `/lgi/attendance/meetings/${encodeURIComponent(meetingId)}`
+  );
+  return response.data;
+}
+
+
+export interface CorpsMemberApprovedAttendance {
+  attendanceId: string;
+  meetingId: string;
+  groupCode: string;
+  groupName: string;
+  meetingTitle: string;
+  startsAt: string;
+  endsAt: string;
+  venue: string | null;
+  attendanceStatus: Exclude<CdsAttendanceStatus, 'not_marked'>;
+  notes: string | null;
+  reviewedAt: string | null;
+}
+
+export async function listMyApprovedAttendance(): Promise<CorpsMemberApprovedAttendance[]> {
+  const response = await request<{ success: boolean; data: CorpsMemberApprovedAttendance[] }>('/corps-member/attendance');
+  return response.data;
+}
