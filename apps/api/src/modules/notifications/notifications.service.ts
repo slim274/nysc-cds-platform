@@ -3,6 +3,7 @@ import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import {
   db,
   userNotifications,
+  cdsAnnouncementReads,
   cdsAnnouncements,
   cdsAnnouncementGroups,
   cdsGroups,
@@ -219,23 +220,83 @@ export async function listUserNotifications(userId: string, requestedLimit = 25)
 }
 
 export async function markUserNotificationRead(userId: string, notificationId: string) {
-  await db.update(userNotifications)
-    .set({ readAt: new Date() })
-    .where(and(
-      eq(userNotifications.id, notificationId),
-      eq(userNotifications.recipientUserId, userId),
-      isNull(userNotifications.readAt)
-    ));
+  await db.transaction(async (tx) => {
+    const [notification] = await tx.select({
+      entityType: userNotifications.entityType,
+      entityId: userNotifications.entityId
+    })
+      .from(userNotifications)
+      .where(and(
+        eq(userNotifications.id, notificationId),
+        eq(userNotifications.recipientUserId, userId)
+      ))
+      .limit(1);
+
+    if (notification?.entityType === 'announcement' && notification.entityId) {
+      const [publishedAnnouncement] = await tx.select({ id: cdsAnnouncements.id })
+        .from(cdsAnnouncements)
+        .where(and(
+          eq(cdsAnnouncements.id, notification.entityId),
+          eq(cdsAnnouncements.status, 'published')
+        ))
+        .limit(1);
+
+      if (publishedAnnouncement) {
+        await tx.insert(cdsAnnouncementReads)
+          .values({ announcementId: publishedAnnouncement.id, userId })
+          .onConflictDoNothing();
+      }
+    }
+
+    await tx.update(userNotifications)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(userNotifications.id, notificationId),
+        eq(userNotifications.recipientUserId, userId),
+        isNull(userNotifications.readAt)
+      ));
+  });
   return { notificationId, read: true };
 }
 
 export async function markAllUserNotificationsRead(userId: string) {
-  await db.update(userNotifications)
-    .set({ readAt: new Date() })
-    .where(and(
-      eq(userNotifications.recipientUserId, userId),
-      isNull(userNotifications.readAt)
-    ));
+  await db.transaction(async (tx) => {
+    // Also reconcile older announcement notifications that may already have
+    // been marked read before announcement and notification state were linked.
+    const linkedRows = await tx.select({ entityId: userNotifications.entityId })
+      .from(userNotifications)
+      .where(and(
+        eq(userNotifications.recipientUserId, userId),
+        eq(userNotifications.entityType, 'announcement'),
+        isNotNull(userNotifications.entityId)
+      ));
+
+    const linkedIds = [...new Set(linkedRows
+      .map((row) => row.entityId)
+      .filter((id): id is string => Boolean(id)))];
+
+    if (linkedIds.length > 0) {
+      const publishedRows = await tx.select({ id: cdsAnnouncements.id })
+        .from(cdsAnnouncements)
+        .where(and(
+          inArray(cdsAnnouncements.id, linkedIds),
+          eq(cdsAnnouncements.status, 'published')
+        ));
+
+      if (publishedRows.length > 0) {
+        await tx.insert(cdsAnnouncementReads)
+          .values(publishedRows.map((row) => ({ announcementId: row.id, userId })))
+          .onConflictDoNothing();
+      }
+    }
+
+    await tx.update(userNotifications)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(userNotifications.recipientUserId, userId),
+        isNull(userNotifications.readAt)
+      ));
+  });
   return { readAll: true };
 }
 
