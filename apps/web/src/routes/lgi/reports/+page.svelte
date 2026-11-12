@@ -179,7 +179,13 @@
       <header class="topbar no-print">
         <button class="menu" type="button" aria-label="Toggle navigation" aria-expanded={mobileOpen} onclick={() => (mobileOpen = !mobileOpen)}>☰</button>
         <div><small>Administration / Reports</small><h1>LGI Analytics &amp; Reporting</h1></div>
-        <span class="email">{user.email}</span>
+        <div class="account">
+          <div class="avatar">LG</div>
+          <div class="account-copy">
+            <strong>LGI Administrator</strong>
+            <span>{user.email}</span>
+          </div>
+        </div>
       </header>
 
       <main class="content">
@@ -361,7 +367,7 @@
   .main{min-width:0;flex:1;display:flex;flex-direction:column}
   .topbar{min-height:76px;display:flex;align-items:center;gap:14px;padding:13px 25px;border-bottom:1px solid #e5ebe6;background:#fff}
   .topbar small{color:#819087;font-size:9px}.topbar h1{margin:5px 0 0;font-size:18px}
-  .email{margin-left:auto;color:#819087;font-size:9px}
+  .account{display:flex;align-items:center;gap:10px;margin-left:auto}.avatar{width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border-radius:50%;background:#e7f2ea;color:#0a5c37;font-size:10px;font-weight:800}.account-copy strong,.account-copy span{display:block}.account-copy strong{color:#294534;font-size:10px}.account-copy span{max-width:220px;margin-top:4px;overflow:hidden;color:#819087;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
   .menu{display:none;padding:8px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#24583a}
   .content{width:100%;max-width:1600px;flex:1;margin:0 auto;padding:27px clamp(14px,2.2vw,34px) 38px}
   .report-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:18px}
@@ -433,7 +439,7 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   footer{padding:15px 22px;border-top:1px solid #e8ece8;color:#89948c;font-size:9px}
   @media(max-width:1100px){.report-heading{align-items:flex-start;flex-direction:column}.report-controls{justify-content:flex-start}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:760px){.menu{display:block}.topbar{padding:12px 14px}.email{display:none}.content{padding:21px 12px 30px}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.insight-grid{grid-template-columns:1fr}.trend-chart{row-gap:15px}.trend-chart.months-12{grid-template-columns:repeat(6,minmax(0,1fr))}.report-meta{align-items:flex-start;flex-direction:column}}
+  @media(max-width:760px){.menu{display:block}.topbar{padding:12px 14px}.account-copy{display:none}.content{padding:21px 12px 30px}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.insight-grid{grid-template-columns:1fr}.trend-chart{row-gap:15px}.trend-chart.months-12{grid-template-columns:repeat(6,minmax(0,1fr))}.report-meta{align-items:flex-start;flex-direction:column}}
   @media(max-width:420px){.report-controls{width:100%;display:grid;grid-template-columns:1fr 1fr}.report-controls label{grid-column:1/-1}.report-controls select{grid-column:1/-1;width:100%}.report-heading h2{font-size:21px}.kpi-card{padding:12px}.kpi-card strong{font-size:22px}.trend-column span{font-size:7px}}
   @media print{
     :global(body){background:#fff!important}
