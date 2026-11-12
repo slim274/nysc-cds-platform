@@ -28,7 +28,8 @@
   let correctionPriority = $state<'normal' | 'important' | 'urgent'>('normal');
   let mobileMenuOpen = $state(false);
 
-  const isPublisher = $derived(role !== 'CORPS_MEMBER');
+  const publishRole = $derived(role === 'CORPS_MEMBER' ? null : role);
+  const isPublisher = $derived(publishRole !== null);
   const isCoordinator = $derived(role === 'CDS_COORDINATOR');
   const isPresident = $derived(role === 'CDS_PRESIDENT');
   const unreadCount = $derived(announcements.filter((item) => item.status === 'published' && !item.isRead).length);
@@ -49,7 +50,7 @@
       user = session.user;
       const results = await Promise.all([
         listAnnouncements(role),
-        isPublisher ? listAnnouncementGroups(role) : Promise.resolve([])
+        publishRole ? listAnnouncementGroups(publishRole) : Promise.resolve([])
       ]);
       announcements = results[0];
       groups = results[1];
@@ -77,12 +78,13 @@
 
   async function publish(event: SubmitEvent) {
     event.preventDefault();
+    if (!publishRole) return;
     if (!title.trim() || title.trim().length < 3) { error = 'Enter an announcement title of at least 3 characters.'; return; }
     if (!body.trim() || body.trim().length < 5) { error = 'Enter an announcement message of at least 5 characters.'; return; }
     if (!selectedGroupIds.length) { error = 'Select at least one CDS group.'; return; }
     saving = true; error = ''; notice = '';
     try {
-      const result = await createAnnouncement(role, {
+      const result = await createAnnouncement(publishRole, {
         title: title.trim(), body: body.trim(), priority, groupIds: selectedGroupIds,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined
       });
