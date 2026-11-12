@@ -19,6 +19,7 @@
     { label: 'Dashboard', href: '/coordinator', icon: '▦' },
     { label: 'CDS Presidents', href: '/coordinator/presidents', icon: '♙' },
     { label: 'Attendance', href: '/coordinator/attendance', icon: '✓' },
+    { label: 'Monthly Clearance', href: '/coordinator/monthly-clearance', icon: '▣' },
     { label: 'Announcements', href: '/coordinator/announcements', icon: '▤' },
     { label: 'Course Mapping', href: '/coordinator/course-mapping', icon: '⌘' },
     { label: 'Documents', href: '/coordinator/documents', icon: '▣' },
