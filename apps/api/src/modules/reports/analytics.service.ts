@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 import {
   db,
@@ -51,6 +51,24 @@ function getLagosMonthKey(value: Date) {
   return `${year}-${month}`;
 }
 
+function getLagosYearMonth(value: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(value);
+  return {
+    year: Number(parts.find((part) => part.type === 'year')?.value),
+    month: Number(parts.find((part) => part.type === 'month')?.value)
+  };
+}
+
+function shiftLagosMonthKey(value: Date, offset: number) {
+  const current = getLagosYearMonth(value);
+  const shifted = new Date(Date.UTC(current.year, current.month - 1 + offset, 1, 12));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 function formatMonthLabel(monthKey: string) {
   const [year, month] = monthKey.split('-').map(Number);
   return new Intl.DateTimeFormat('en-NG', {
@@ -88,7 +106,13 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
   }
 
   const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const currentLagosMonth = getLagosYearMonth(now);
+  // Lagos is UTC+1. Use the local calendar month boundary for the SQL date range.
+  const startDate = new Date(Date.UTC(
+    currentLagosMonth.year,
+    currentLagosMonth.month - months,
+    1
+  ) - 60 * 60 * 1000);
   const [groupRows] = await Promise.all([
     db.select({
       id: cdsGroups.id,
@@ -122,8 +146,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
         groupsBelowThreshold: 0
       },
       monthlyTrend: Array.from({ length: months }, (_, index) => {
-        const date = new Date(now.getFullYear(), now.getMonth() - (months - 1 - index), 1);
-        const key = getLagosMonthKey(date);
+        const key = shiftLagosMonthKey(now, -(months - 1 - index));
         return {
           month: key,
           label: formatMonthLabel(key),
@@ -153,7 +176,6 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
       id: cdsGroupMeetings.id,
       groupId: cdsGroupMeetings.cdsGroupId,
       startsAt: cdsGroupMeetings.startsAt,
-      status: cdsGroupMeetings.status,
       reviewDecision: cdsGroupMeetings.reviewDecision
     })
       .from(cdsGroupMeetings)
@@ -161,7 +183,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
         inArray(cdsGroupMeetings.cdsGroupId, groupIds),
         gte(cdsGroupMeetings.startsAt, startDate),
         lte(cdsGroupMeetings.startsAt, now),
-        ne(cdsGroupMeetings.status, 'cancelled')
+        inArray(cdsGroupMeetings.status, ['attendance_open', 'submitted', 'reviewed'])
       ))
       .orderBy(asc(cdsGroupMeetings.startsAt)),
     db.select({
@@ -231,8 +253,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
 
   const monthlyMetrics = new Map<string, AttendanceCounts & { meetings: number; eligibleRecords: number }>();
   for (let index = 0; index < months; index += 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - (months - 1 - index), 1);
-    const monthKey = getLagosMonthKey(date);
+    const monthKey = shiftLagosMonthKey(now, -(months - 1 - index));
     monthlyMetrics.set(monthKey, {
       ...emptyAttendanceCounts(),
       meetings: 0,
