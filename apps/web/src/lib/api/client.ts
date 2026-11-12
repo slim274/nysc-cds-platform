@@ -1691,3 +1691,14 @@ export async function reviewAnnouncement(
 export async function markAnnouncementRead(role: AnnouncementRole, announcementId: string): Promise<void> {
   await request(announcementApiPath[role] + '/' + encodeURIComponent(announcementId) + '/read', { method: 'POST' });
 }
+
+
+export async function resubmitAnnouncement(
+  announcementId: string,
+  input: { title: string; body: string; priority: AnnouncementPriority }
+): Promise<void> {
+  await request(announcementApiPath.CDS_PRESIDENT + '/' + encodeURIComponent(announcementId) + '/resubmit', {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+}
