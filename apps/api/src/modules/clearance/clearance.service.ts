@@ -471,9 +471,9 @@ export async function decideMonthlyClearance(input: {
 
 
 /**
- * Coordinator read-only view. It reuses the same monthly evidence and audit
- * calculations as the LGI register but limits members to the caller's
- * currently active CDS Coordinator group assignments.
+ * Coordinator monthly view. It reuses the same monthly evidence, shared
+ * clearance state and audit history as the LGI register, scoped to the
+ * caller's currently active CDS Coordinator group assignments.
  */
 export async function getCoordinatorMonthlyClearanceScope(userId: string) {
   const assignedGroups = await db.select({
