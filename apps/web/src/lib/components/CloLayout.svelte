@@ -106,9 +106,10 @@
     .backdrop { display: block; position: fixed; inset: 0; z-index: 40; width: 100%; border: 0; background: #0a19107a; }
     .close-menu { display: grid; width: 34px; height: 34px; place-items: center; margin-left: auto; border: 1px solid #ffffff47; border-radius: 8px; background: #ffffff14; color: #fff; font-size: 24px; }
     .topbar.clo-topbar {
-      min-height: 74px;
-      gap: 7px;
-      padding: 10px 72px 10px 12px !important;
+      min-height: 64px;
+      gap: 8px;
+      padding: 9px 54px 9px 12px !important;
+      justify-content: space-between;
     }
     .topbar.clo-topbar .heading {
       min-width: 0;
@@ -120,18 +121,12 @@
       flex: 1 1 auto;
     }
     .topbar.clo-topbar .breadcrumb {
-      display: block;
-      max-width: 100%;
-      overflow: hidden;
-      font-size: 9px;
-      line-height: 1.2;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      display: none;
     }
     .topbar.clo-topbar h1 {
-      margin: 4px 0 0;
+      margin: 0;
       overflow: hidden;
-      font-size: clamp(15px, 4.2vw, 17px);
+      font-size: clamp(15px, 4.1vw, 17px);
       line-height: 1.2;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -164,7 +159,7 @@
     }
     .page-content { padding: 22px 15px 28px; }
     @media (max-width: 480px) {
-      .topbar.clo-topbar { padding-right: 64px !important; }
+      .topbar.clo-topbar { padding-right: 54px !important; }
     }
     @media (max-width: 390px) {
       .topbar.clo-topbar { gap: 6px; padding-left: 10px; }
