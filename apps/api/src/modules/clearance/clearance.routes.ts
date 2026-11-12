@@ -94,6 +94,7 @@ lgiMonthlyClearanceRoutes.patch('/:clearanceId', async (c) => {
     const result = await decideMonthlyClearance({
       clearanceId: id.data,
       actorUserId: c.get('authUser').id,
+      actorRole: 'LGI_ADMIN',
       lgaIds: getAssignedLgaIds(c),
       status: validation.data.status,
       note: validation.data.note
