@@ -289,6 +289,7 @@ export async function listMonthlyClearances(
         note: corpsMemberMonthlyClearanceAuditLogs.note,
         actorUserId: corpsMemberMonthlyClearanceAuditLogs.actorUserId,
         actorEmail: users.email,
+        actorRole: corpsMemberMonthlyClearanceAuditLogs.actorRole,
         createdAt: corpsMemberMonthlyClearanceAuditLogs.createdAt
       })
         .from(corpsMemberMonthlyClearanceAuditLogs)
@@ -369,10 +370,15 @@ export async function decideMonthlyClearance(input: {
   clearanceId: string;
   actorUserId: string;
   lgaIds: string[];
+  actorRole: 'LGI_ADMIN' | 'CDS_COORDINATOR';
+  coordinatorGroupIds?: string[];
   status: MonthlyClearanceStatus;
   note?: string;
 }) {
   assertLgaScope(input.lgaIds);
+  if (input.actorRole === 'CDS_COORDINATOR' && (!input.coordinatorGroupIds || input.coordinatorGroupIds.length === 0)) {
+    throw new MonthlyClearanceError('You do not have an active CDS group assignment for monthly clearance.', 403, 'COORDINATOR_CLEARANCE_SCOPE_REQUIRED');
+  }
   if (input.status === 'not_cleared' && (input.note?.trim().length ?? 0) < 10) {
     throw new MonthlyClearanceError('Provide a reason of at least 10 characters when marking a member as not cleared.', 400, 'CLEARANCE_REASON_REQUIRED');
   }
@@ -397,6 +403,22 @@ export async function decideMonthlyClearance(input: {
     }
     assertNotFutureMonth(existing.clearanceMonth);
 
+    if (input.actorRole === 'CDS_COORDINATOR') {
+      const [membership] = await tx.select({ id: cdsGroupMemberships.id })
+        .from(cdsGroupMemberships)
+        .innerJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+        .where(and(
+          eq(cdsGroupMemberships.corpsMemberId, existing.corpsMemberId),
+          eq(cdsGroupMemberships.status, 'active'),
+          eq(cdsGroups.isActive, true),
+          inArray(cdsGroups.id, input.coordinatorGroupIds!)
+        ))
+        .limit(1);
+      if (!membership) {
+        throw new MonthlyClearanceError('You can only decide clearance for members in your currently assigned active CDS groups.', 403, 'COORDINATOR_CLEARANCE_MEMBER_FORBIDDEN');
+      }
+    }
+
     const isPending = input.status === 'pending';
     const now = new Date();
     const [updated] = await tx.update(corpsMemberMonthlyClearances)
@@ -420,6 +442,7 @@ export async function decideMonthlyClearance(input: {
     await tx.insert(corpsMemberMonthlyClearanceAuditLogs).values({
       clearanceId: existing.id,
       actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
       previousStatus: existing.status,
       newStatus: input.status,
       note: isPending ? input.note?.trim() || 'Clearance decision reopened.' : updated.decisionNote
@@ -445,11 +468,7 @@ export async function decideMonthlyClearance(input: {
  * calculations as the LGI register but limits members to the caller's
  * currently active CDS Coordinator group assignments.
  */
-export async function listCoordinatorMonthlyClearances(
-  userId: string,
-  month: string,
-  filters: { search?: string; status?: MonthlyClearanceStatus } = {}
-) {
+export async function getCoordinatorMonthlyClearanceScope(userId: string) {
   const assignedGroups = await db.select({
     groupId: cdsGroups.id,
     lgaId: cdsGroups.lgaId
@@ -464,8 +483,18 @@ export async function listCoordinatorMonthlyClearances(
       eq(cdsGroups.isActive, true)
     ));
 
-  const groupIds = [...new Set(assignedGroups.map((row) => row.groupId))];
-  const lgaIds = [...new Set(assignedGroups.map((row) => row.lgaId))];
+  return {
+    groupIds: [...new Set(assignedGroups.map((row) => row.groupId))],
+    lgaIds: [...new Set(assignedGroups.map((row) => row.lgaId))]
+  };
+}
+
+export async function listCoordinatorMonthlyClearances(
+  userId: string,
+  month: string,
+  filters: { search?: string; status?: MonthlyClearanceStatus } = {}
+) {
+  const { groupIds, lgaIds } = await getCoordinatorMonthlyClearanceScope(userId);
 
   if (groupIds.length === 0 || lgaIds.length === 0) {
     assertNotFutureMonth(month);
@@ -477,5 +506,7 @@ export async function listCoordinatorMonthlyClearances(
     };
   }
 
-  return listMonthlyClearances(lgaIds, month, filters, groupIds, false);
+  // Creating the shared monthly row is permitted here because it is scoped to
+  // the Coordinator's active groups. Both roles then see the same record.
+  return listMonthlyClearances(lgaIds, month, filters, groupIds, true);
 }
