@@ -1609,3 +1609,85 @@ export async function listMyApprovedAttendance(): Promise<CorpsMemberApprovedAtt
   const response = await request<{ success: boolean; data: CorpsMemberApprovedAttendance[] }>('/corps-member/attendance');
   return response.data;
 }
+
+
+export type AnnouncementRole = 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDENT' | 'CORPS_MEMBER';
+export type AnnouncementPriority = 'normal' | 'important' | 'urgent';
+
+export interface AnnouncementTargetGroup {
+  id: string;
+  code: string;
+  name: string;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+}
+
+export interface AnnouncementRecord {
+  id: string;
+  title: string;
+  body: string;
+  priority: AnnouncementPriority;
+  status: 'pending_review' | 'published' | 'returned' | 'archived';
+  createdByUserId: string;
+  createdByRole: string;
+  submittedAt: string | null;
+  publishedAt: string | null;
+  reviewedAt: string | null;
+  reviewedByUserId: string | null;
+  reviewNotes: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  targetGroups: Array<{ id: string; code: string; name: string; lgaName: string }>;
+  isRead: boolean;
+}
+
+const announcementApiPath: Record<AnnouncementRole, string> = {
+  LGI_ADMIN: '/lgi/announcements',
+  CDS_COORDINATOR: '/coordinator/announcements',
+  CDS_PRESIDENT: '/cds-president/announcements',
+  CORPS_MEMBER: '/corps-member/announcements'
+};
+
+export async function listAnnouncements(role: AnnouncementRole): Promise<AnnouncementRecord[]> {
+  const response = await request<{ success: boolean; data: AnnouncementRecord[] }>(announcementApiPath[role]);
+  return response.data;
+}
+
+export async function listAnnouncementGroups(role: Exclude<AnnouncementRole, 'CORPS_MEMBER'>): Promise<AnnouncementTargetGroup[]> {
+  const response = await request<{ success: boolean; data: AnnouncementTargetGroup[] }>(announcementApiPath[role] + '/groups');
+  return response.data;
+}
+
+export async function createAnnouncement(
+  role: Exclude<AnnouncementRole, 'CORPS_MEMBER'>,
+  input: {
+    title: string;
+    body: string;
+    priority: AnnouncementPriority;
+    groupIds: string[];
+    expiresAt?: string;
+  }
+): Promise<{ id: string; status: AnnouncementRecord['status'] }> {
+  const response = await request<{ success: boolean; data: { id: string; status: AnnouncementRecord['status'] } }>(
+    announcementApiPath[role],
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return response.data;
+}
+
+export async function reviewAnnouncement(
+  announcementId: string,
+  decision: 'approved' | 'returned',
+  notes?: string
+): Promise<void> {
+  await request(announcementApiPath.CDS_COORDINATOR + '/' + encodeURIComponent(announcementId) + '/review', {
+    method: 'POST',
+    body: JSON.stringify({ decision, notes })
+  });
+}
+
+export async function markAnnouncementRead(role: AnnouncementRole, announcementId: string): Promise<void> {
+  await request(announcementApiPath[role] + '/' + encodeURIComponent(announcementId) + '/read', { method: 'POST' });
+}
