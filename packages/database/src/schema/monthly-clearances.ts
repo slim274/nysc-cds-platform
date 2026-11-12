@@ -75,6 +75,7 @@ export const corpsMemberMonthlyClearanceAuditLogs = pgTable(
       .references(() => corpsMemberMonthlyClearances.id, { onDelete: 'cascade' }),
     actorUserId: uuid('actor_user_id')
       .references(() => users.id, { onDelete: 'set null' }),
+    actorRole: varchar('actor_role', { length: 30 }).notNull().default('SYSTEM'),
     previousStatus: varchar('previous_status', { length: 20 }),
     newStatus: varchar('new_status', { length: 20 }).notNull(),
     note: text('note'),
@@ -84,6 +85,10 @@ export const corpsMemberMonthlyClearanceAuditLogs = pgTable(
     index('corps_member_monthly_clearance_audit_clearance_created_idx')
       .on(table.clearanceId, table.createdAt),
     index('corps_member_monthly_clearance_audit_actor_idx').on(table.actorUserId),
+    check(
+      'corps_member_monthly_clearance_audit_actor_role_check',
+      sql`${table.actorRole} IN ('SYSTEM', 'LGI_ADMIN', 'CDS_COORDINATOR')`
+    ),
     check(
       'corps_member_monthly_clearance_audit_new_status_check',
       sql`${table.newStatus} IN ('pending', 'cleared', 'not_cleared')`
