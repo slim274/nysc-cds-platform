@@ -135,7 +135,11 @@
 
     function moveToGlobalOverlay() {
       if (host) {
-        document.documentElement.appendChild(host);
+        // Avoid moving an already-mounted host: doing so emits another
+        // childList mutation and can cause the observer to loop forever.
+        if (host.parentElement !== document.documentElement) {
+          document.documentElement.appendChild(host);
+        }
         host.style.setProperty('position', 'fixed', 'important');
         host.style.setProperty('inset', '0', 'important');
         host.style.setProperty('width', '100vw', 'important');
