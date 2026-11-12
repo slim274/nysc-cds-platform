@@ -48,7 +48,7 @@
   </aside>
 
   <section class="main-content">
-    <header class="topbar">
+    <header class="topbar clo-topbar">
       <div class="heading">
         <button class="menu-button" type="button" aria-label="Open navigation" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
           <span></span><span></span><span></span>
@@ -105,12 +105,74 @@
     .sidebar.open { transform: translateX(0); visibility: visible; pointer-events: auto; }
     .backdrop { display: block; position: fixed; inset: 0; z-index: 40; width: 100%; border: 0; background: #0a19107a; }
     .close-menu { display: grid; width: 34px; height: 34px; place-items: center; margin-left: auto; border: 1px solid #ffffff47; border-radius: 8px; background: #ffffff14; color: #fff; font-size: 24px; }
-    .topbar { min-height: 76px; padding: 12px 15px; }
-    .menu-button { display: grid; width: 38px; height: 38px; place-content: center; gap: 4px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; }
-    .menu-button span { width: 16px; height: 2px; background: #24543a; }
-    .topbar h1 { font-size: 18px; }
-    .account > div:last-child { display: none; }
+    .topbar.clo-topbar {
+      min-height: 74px;
+      gap: 7px;
+      padding: 10px 72px 10px 12px !important;
+    }
+    .topbar.clo-topbar .heading {
+      min-width: 0;
+      flex: 1 1 auto;
+      gap: 8px;
+    }
+    .topbar.clo-topbar .heading > div {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .topbar.clo-topbar .breadcrumb {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      font-size: 9px;
+      line-height: 1.2;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .topbar.clo-topbar h1 {
+      margin: 4px 0 0;
+      overflow: hidden;
+      font-size: clamp(15px, 4.2vw, 17px);
+      line-height: 1.2;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .topbar.clo-topbar .menu-button {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      place-content: center;
+      gap: 4px;
+      border: 1px solid #dce5de;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .topbar.clo-topbar .menu-button span {
+      width: 16px;
+      height: 2px;
+      background: #24543a;
+    }
+    .topbar.clo-topbar .account {
+      flex: 0 0 auto;
+      gap: 0;
+    }
+    .topbar.clo-topbar .account > div:last-child { display: none; }
+    .topbar.clo-topbar .avatar {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+    }
     .page-content { padding: 22px 15px 28px; }
+    @media (max-width: 480px) {
+      .topbar.clo-topbar { padding-right: 64px !important; }
+    }
+    @media (max-width: 390px) {
+      .topbar.clo-topbar { gap: 6px; padding-left: 10px; }
+      .topbar.clo-topbar .heading { gap: 7px; }
+      .topbar.clo-topbar .menu-button { width: 34px; height: 34px; flex-basis: 34px; }
+      .topbar.clo-topbar .avatar { width: 32px; height: 32px; flex-basis: 32px; }
+      .topbar.clo-topbar h1 { font-size: 15px; }
+    }
     footer { padding: 15px; line-height: 1.5; }
   }
   @media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
