@@ -28,6 +28,7 @@
       if (status === 401 || status === 403) {
         enabled = false;
       } else {
+        enabled = true;
         errorMessage = error instanceof Error ? error.message : 'Unable to load notifications.';
       }
     } finally {
