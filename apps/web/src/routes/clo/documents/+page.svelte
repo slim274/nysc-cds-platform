@@ -298,7 +298,7 @@
                   </div>
                 </div>
                 <div class="member-overview">
-                  <strong>{group.verifiedCount} of {group.documents.length} verified</strong>
+                  <strong>{group.verifiedCount}/{group.documents.length} submitted documents verified</strong>
                   <div class="member-status-summary">
                     {#if group.awaitingReviewCount > 0}<span class="summary-review">{group.awaitingReviewCount} awaiting review</span>{/if}
                     {#if group.resubmissionCount > 0}<span class="summary-return">{group.resubmissionCount} resubmission</span>{/if}
