@@ -6,9 +6,11 @@
     ApiError,
     getCurrentUser,
     listCoordinatorMonthlyClearances,
+    updateCoordinatorMonthlyClearance,
     logout,
     type AuthUser,
     type LgiMonthlyClearanceData,
+    type LgiMonthlyClearanceItem,
     type MonthlyClearanceStatus
   } from '#lib/api/client.ts';
 
@@ -18,12 +20,21 @@
   let data = $state<LgiMonthlyClearanceData | null>(null);
   let loading = $state(true);
   let refreshing = $state(false);
+  let saving = $state(false);
   let error = $state('');
+  let notice = $state('');
+  let decisionTarget = $state<LgiMonthlyClearanceItem | null>(null);
+  let decisionStatus = $state<MonthlyClearanceStatus>('cleared');
+  let decisionNote = $state('');
   let month = $state(currentLagosMonth());
   let searchInput = $state('');
   let search = $state('');
   let statusFilter = $state<StatusFilter>('all');
   let expandedId = $state('');
+
+  const isNotClearedReasonMissing = $derived(
+    decisionStatus === 'not_cleared' && decisionNote.trim().length < 10
+  );
 
   function currentLagosMonth() {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -34,7 +45,22 @@
     return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}`;
   }
 
-  onMount(() => { void initialise(); });
+  onMount(() => {
+    void initialise();
+    const interval = window.setInterval(() => {
+      if (user && !saving && !refreshing && document.visibilityState === 'visible') {
+        void loadData();
+      }
+    }, 5000);
+    const handleFocus = () => {
+      if (user && !saving && !refreshing) void loadData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  });
 
   async function initialise() {
     loading = true;
@@ -96,6 +122,55 @@
     await loadData();
   }
 
+  function openDecision(item: LgiMonthlyClearanceItem, status: MonthlyClearanceStatus) {
+    if (!item.clearanceId) {
+      error = 'This monthly record is not available yet. Refresh the register and try again.';
+      return;
+    }
+    decisionTarget = item;
+    decisionStatus = status;
+    decisionNote = status === 'not_cleared' ? item.decisionNote ?? '' : '';
+    error = '';
+  }
+
+  function closeDecision() {
+    if (saving) return;
+    decisionTarget = null;
+    decisionNote = '';
+  }
+
+  async function saveDecision(event: SubmitEvent) {
+    event.preventDefault();
+    if (!decisionTarget?.clearanceId) return;
+    if (decisionStatus === 'not_cleared' && decisionNote.trim().length < 10) {
+      error = 'Please provide a reason of at least 10 characters.';
+      return;
+    }
+
+    saving = true;
+    error = '';
+    notice = '';
+    try {
+      await updateCoordinatorMonthlyClearance(
+        decisionTarget.clearanceId,
+        decisionStatus,
+        decisionNote.trim() || undefined
+      );
+      notice = decisionStatus === 'cleared'
+        ? `${decisionTarget.member.name} marked as cleared for ${month}.`
+        : decisionStatus === 'not_cleared'
+          ? `${decisionTarget.member.name} marked as not cleared for ${month}.`
+          : `${decisionTarget.member.name}'s clearance returned to pending.`;
+      decisionTarget = null;
+      decisionNote = '';
+      await loadData();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to save the clearance decision.';
+    } finally {
+      saving = false;
+    }
+  }
+
   function statusLabel(status: MonthlyClearanceStatus) {
     if (status === 'not_cleared') return 'Not cleared';
     return status === 'cleared' ? 'Cleared' : 'Pending';
@@ -137,11 +212,12 @@
       </section>
 
       <section class="notice">
-        <strong>Read-only Coordinator access</strong>
-        <span>You can monitor clearance status and follow up with your Corps Members. Only the LGI Administrator can mark a member as Cleared, Not Cleared or reopen a decision.</span>
+        <strong>Shared clearance decisions</strong>
+        <span>You can decide clearance for Corps Members in your assigned groups. The same status is immediately shared with the LGI Administrator. All decisions are recorded with the acting role in the audit history.</span>
       </section>
 
       {#if error}<div class="message error" role="alert">{error}<button type="button" onclick={() => void loadData()}>Retry</button></div>{/if}
+      {#if notice}<div class="message success" role="status">{notice}</div>{/if}
       {#if refreshing}<div class="refresh-note" role="status">Updating clearance records…</div>{/if}
 
       <section class="filters panel">
@@ -180,7 +256,7 @@
             <div class="panel-heading"><div><span class="eyebrow">CLEARANCE REGISTER</span><h3>{monthLabel(month)}</h3><p>Clearance decisions are recorded by the LGI Administrator.</p></div><span class="count">{data.items.length} records</span></div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Corps Member</th><th>CDS Group</th><th>Documents</th><th>Approved attendance</th><th>LGI decision</th><th>Decision history</th></tr></thead>
+                <thead><tr><th>Corps Member</th><th>CDS Group</th><th>Documents</th><th>Approved attendance</th><th>Clearance status</th><th>Actions</th><th>Decision history</th></tr></thead>
                 <tbody>
                   {#each data.items as item (item.member.id)}
                     <tr>
@@ -196,14 +272,19 @@
                       </td>
                       <td><strong>{item.indicators.approvedAttendanceMeetings} approved registers</strong><small>{item.indicators.attendanceMarked} marks · {item.indicators.present} present · {item.indicators.late} late</small><small>{item.indicators.absent} absent · {item.indicators.excused} excused</small></td>
                       <td><span class="status-pill" class:pending={item.status === 'pending'} class:cleared={item.status === 'cleared'} class:rejected={item.status === 'not_cleared'}>{statusLabel(item.status)}</span><small>{item.decidedAt ? formatDate(item.decidedAt) : 'Not yet decided'}</small>{#if item.decisionNote}<small class="decision-note">{item.decisionNote}</small>{/if}</td>
+                      <td class="decision-actions">
+                        <button type="button" class="action-clear" onclick={() => openDecision(item, 'cleared')} disabled={item.status === 'cleared'}>Clear</button>
+                        <button type="button" class="action-return" onclick={() => openDecision(item, 'not_cleared')} disabled={item.status === 'not_cleared'}>Not cleared</button>
+                        {#if item.status !== 'pending'}<button type="button" class="action-reopen" onclick={() => openDecision(item, 'pending')}>Reopen</button>{/if}
+                      </td>
                       <td><button type="button" class="history-button" onclick={() => (expandedId = expandedId === item.member.id ? '' : item.member.id)}>{expandedId === item.member.id ? 'Hide history' : `History (${item.auditHistory.length})`}</button></td>
                     </tr>
                     {#if expandedId === item.member.id}
-                      <tr class="history-row"><td colspan="6">
+                      <tr class="history-row"><td colspan="7">
                         {#if item.auditHistory.length === 0}<p>No decision history recorded yet. The LGI must open this month's register first.</p>
                         {:else}
                           {#each item.auditHistory as audit (audit.id)}
-                            <p><strong>{statusLabel(audit.newStatus)}</strong> · {formatDate(audit.createdAt)} · {audit.actorEmail ?? 'System'} · {audit.note ?? 'No note'}</p>
+                            <p><strong>{statusLabel(audit.newStatus)}</strong> · {formatDate(audit.createdAt)} · {audit.actorRole === 'CDS_COORDINATOR' ? 'CDS Coordinator' : audit.actorRole === 'LGI_ADMIN' ? 'LGI Administrator' : 'System'} ({audit.actorEmail ?? 'system'}) · {audit.note ?? 'No note'}</p>
                           {/each}
                         {/if}
                       </td></tr>
@@ -225,13 +306,18 @@
                   <div><span>Approved attendance</span><strong>{item.indicators.approvedAttendanceMeetings} registers · {item.indicators.present} present · {item.indicators.late} late · {item.indicators.absent} absent</strong></div>
                   {#if item.decisionNote}<div><span>LGI note</span><strong>{item.decisionNote}</strong></div>{/if}
                 </div>
+                <div class="mobile-actions">
+                  <button type="button" class="action-clear" onclick={() => openDecision(item, 'cleared')} disabled={item.status === 'cleared'}>Clear</button>
+                  <button type="button" class="action-return" onclick={() => openDecision(item, 'not_cleared')} disabled={item.status === 'not_cleared'}>Not cleared</button>
+                  {#if item.status !== 'pending'}<button type="button" class="action-reopen" onclick={() => openDecision(item, 'pending')}>Reopen</button>{/if}
+                </div>
                 <button type="button" class="history-button" onclick={() => (expandedId = expandedId === item.member.id ? '' : item.member.id)}>{expandedId === item.member.id ? 'Hide history' : `View history (${item.auditHistory.length})`}</button>
                 {#if expandedId === item.member.id}
                   <div class="mobile-history">
                     {#if item.auditHistory.length === 0}<p>No decision history recorded yet. The LGI must open this month's register first.</p>
                     {:else}
                       {#each item.auditHistory as audit (audit.id)}
-                        <p><strong>{statusLabel(audit.newStatus)}</strong> · {formatDate(audit.createdAt)} · {audit.actorEmail ?? 'System'}<br />{audit.note ?? 'No note'}</p>
+                        <p><strong>{statusLabel(audit.newStatus)}</strong> · {formatDate(audit.createdAt)} · {audit.actorRole === 'CDS_COORDINATOR' ? 'CDS Coordinator' : audit.actorRole === 'LGI_ADMIN' ? 'LGI Administrator' : 'System'} ({audit.actorEmail ?? 'system'})<br />{audit.note ?? 'No note'}</p>
                       {/each}
                     {/if}
                   </div>
@@ -245,6 +331,29 @@
   </CoordinatorLayout>
 {:else}
   <main class="state"><p>{error || 'Coordinator workspace unavailable.'}</p><a href="/login">Return to login</a></main>
+{/if}
+
+{#if decisionTarget}
+  <div class="modal-layer" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) closeDecision(); }}>
+    <section class="decision-modal" role="dialog" aria-modal="true" aria-labelledby="coordinator-decision-title">
+      <header><div><span class="eyebrow">MONTHLY CLEARANCE DECISION</span><h2 id="coordinator-decision-title">{decisionStatus === 'cleared' ? 'Mark as cleared' : decisionStatus === 'not_cleared' ? 'Mark as not cleared' : 'Return to pending'}</h2><p>{decisionTarget.member.name} · {monthLabel(month)}</p></div><button type="button" class="close-button" aria-label="Close" onclick={closeDecision}>×</button></header>
+      <form onsubmit={saveDecision}>
+        {#if decisionStatus === 'not_cleared'}
+          <label>Reason for not clearing <span class="required">*</span>
+            <textarea bind:value={decisionNote} rows="4" minlength="10" maxlength="2000" placeholder="Explain the outstanding issue or required follow-up (minimum 10 characters)." required></textarea>
+            <small>{decisionNote.trim().length}/2000 characters · Minimum 10 characters</small>
+          </label>
+        {:else if decisionStatus === 'cleared'}
+          <label>Decision note (optional)<textarea bind:value={decisionNote} rows="3" maxlength="2000" placeholder="Add any relevant clearance note…"></textarea></label>
+        {:else}
+          <p class="reopen-copy">This will return the {monthLabel(month)} record to Pending. The previous decision remains in the audit history.</p>
+          <label>Reopening note (optional)<textarea bind:value={decisionNote} rows="3" maxlength="2000" placeholder="Why is this clearance being reopened?"></textarea></label>
+        {/if}
+        {#if error}<p class="modal-error" role="alert">{error}</p>{/if}
+        <div class="modal-actions"><button type="button" class="secondary" onclick={closeDecision} disabled={saving}>Cancel</button><button type="submit" class="primary" disabled={saving || isNotClearedReasonMissing}>{saving ? 'Saving…' : 'Save decision'}</button></div>
+      </form>
+    </section>
+  </div>
 {/if}
 
 <style>
@@ -287,6 +396,27 @@
   .status-pill.rejected{background:#fff0ed;color:#ae4436}
   .decision-note{max-width:190px;white-space:normal}
   .history-button{padding:6px 8px;border:1px solid #dce7df;border-radius:6px;background:#fff;color:#0a6841;font-size:8px;font-weight:800}
+  .decision-actions{min-width:145px}
+  .decision-actions button,.mobile-actions button{display:inline-block;margin:0 3px 4px 0;padding:6px 8px;border:1px solid #dce7df;border-radius:6px;background:#fff;color:#355442;font-size:8px;font-weight:800;cursor:pointer}
+  .decision-actions .action-clear,.mobile-actions .action-clear{border-color:#0a6841;background:#0a6841;color:#fff}
+  .decision-actions .action-return,.mobile-actions .action-return{border-color:#ead2cd;background:#fff8f6;color:#a34b3d}
+  .decision-actions .action-reopen,.mobile-actions .action-reopen{background:#f5f7f5}
+  .decision-actions button:disabled,.mobile-actions button:disabled{opacity:.4;cursor:default}
+  .mobile-actions{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .modal-layer{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;overflow-y:auto;padding:18px;background:#071b1090}
+  .decision-modal{width:min(100%,520px);padding:20px;border:1px solid #e2eae4;border-radius:12px;background:#fff;box-shadow:0 22px 70px #071e1250}
+  .decision-modal header{display:flex;justify-content:space-between;gap:12px;margin-bottom:17px}
+  .decision-modal h2{margin:6px 0;color:#1d3f2b;font-size:19px}
+  .decision-modal header p{margin:0;color:#7b897f;font-size:9px}
+  .close-button{width:32px;height:32px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#435849;font-size:20px}
+  .decision-modal form{display:grid;gap:12px}
+  .decision-modal label{display:grid;gap:7px;color:#53665a;font-size:10px;font-weight:700}
+  .decision-modal textarea{width:100%;resize:vertical;padding:10px;border:1px solid #dce5de;border-radius:7px;color:#26392d;font:inherit;font-size:10px;line-height:1.5}
+  .decision-modal label small{color:#89968e;font-size:8px;font-weight:400}
+  .required{color:#b44738}
+  .reopen-copy{margin:0;padding:11px;border-radius:7px;background:#f2f7f3;color:#607468;font-size:9px;line-height:1.6}
+  .modal-error{margin:0;color:#a32920;font-size:9px}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid #edf1ed}
   .history-row td{padding:10px 14px;background:#fbfdfb;line-height:1.6}
   .history-row p{margin:5px 0;color:#627468;font-size:9px}
   .table-note{margin:12px 0 0;color:#849188;font-size:8px;line-height:1.5}
