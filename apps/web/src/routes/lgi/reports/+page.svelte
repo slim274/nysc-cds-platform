@@ -261,7 +261,7 @@
                 {#each data.monthlyTrend as month}
                   <div class="trend-column" title={month.attendanceRatePercent === null ? 'No marked attendance' : `${month.label}: ${formatPercent(month.attendanceRatePercent)}`}>
                     <strong>{formatPercent(month.attendanceRatePercent)}</strong>
-                    <div class="bar-track"><div class="bar-fill" style:height="{month.attendanceRatePercent ?? 0}%"></div></div>
+                    <div class="bar-track"><div class="bar-fill" style:height={`${month.attendanceRatePercent ?? 0}%`}></div></div>
                     <span>{month.label}</span>
                     <small>{month.meetings} meetings</small>
                   </div>
@@ -302,7 +302,7 @@
                         <td>{group.meetingsHeld}</td>
                         <td>
                           <strong class:low-rate={group.needsAttention}>{formatPercent(group.attendanceRatePercent)}</strong>
-                          <div class="mini-track"><span style:width="{group.attendanceRatePercent ?? 0}%"></span></div>
+                          <div class="mini-track"><span style:width={`${group.attendanceRatePercent ?? 0}%`}></span></div>
                         </td>
                         <td>{group.approvedRegisters} / {group.reviewedRegisters}<small>{formatPercent(group.registerApprovalRatePercent)}</small></td>
                         <td>{group.coordinatorEmail ?? 'Not assigned'}</td>
