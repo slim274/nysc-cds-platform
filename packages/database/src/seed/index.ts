@@ -427,6 +427,12 @@ async function main() {
   );
 
   await getRole(
+    'CLO',
+    'Corps Liaison Officer',
+    'Manages document submissions and verification within assigned LGA(s); cannot configure document requirements'
+  );
+
+  await getRole(
     'CORPS_MEMBER',
     'Corps Member',
     'Registered NYSC corps member'

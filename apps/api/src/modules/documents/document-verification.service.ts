@@ -878,7 +878,8 @@ export async function submitCorpsMemberDocument(
         updatedAt: now
       }).returning({
         id: corpsMemberDocumentSubmissions.id,
-        status: corpsMemberDocumentSubmissions.status
+        status: corpsMemberDocumentSubmissions.status,
+        verificationResult: corpsMemberDocumentSubmissions.verificationResult
       });
       if (!created) throw new Error('DOCUMENT_SUBMISSION_CREATE_FAILED');
 
@@ -998,7 +999,8 @@ export async function decideDocumentManualReview(
   decision: 'verified' | 'needs_resubmission',
   reason: string,
   lgaIds: string[],
-  actorUserId: string
+  actorUserId: string,
+  actorRole: 'LGI_ADMIN' | 'CLO' = 'LGI_ADMIN'
 ) {
   assertLgaScope(lgaIds);
   return db.transaction(async (tx) => {
@@ -1025,8 +1027,16 @@ export async function decideDocumentManualReview(
     await tx.update(corpsMemberDocumentSubmissions)
       .set({
         status: decision,
-        verificationProvider: 'lgi_exception_review',
+        verificationProvider: actorRole === 'CLO' ? 'clo_document_review' : 'lgi_exception_review',
         verificationReason: reason.trim(),
+        verificationResult: {
+          ...(submission.verificationResult ?? {}),
+          review: {
+            reviewedByUserId: actorUserId,
+            reviewedByRole: actorRole,
+            reviewedAt: now.toISOString()
+          }
+        },
         verifiedAt: decision === 'verified' ? now : null,
         updatedAt: now
       })
@@ -1039,6 +1049,6 @@ export async function decideDocumentManualReview(
         .set({ profileStatus: 'submitted', updatedAt: now })
         .where(eq(corpsMembers.id, submission.corpsMemberId));
     }
-    return { status: decision, reviewedByUserId: actorUserId };
+    return { status: decision, reviewedByUserId: actorUserId, reviewedByRole: actorRole };
   });
 }

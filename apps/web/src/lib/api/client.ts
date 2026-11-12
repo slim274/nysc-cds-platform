@@ -1891,3 +1891,119 @@ export async function updateCoordinatorMonthlyClearance(
   });
 }
 
+
+
+export interface CloOfficerAssignment {
+  assignmentId: string;
+  lgaId: string;
+  lgaName: string;
+  stateName: string;
+  isActive: boolean;
+}
+
+export interface CloOfficerRecord {
+  userId: string;
+  email: string | null;
+  accountStatus: 'pending_activation' | 'active' | 'suspended' | 'disabled' | string;
+  isEnabled: boolean;
+  assignments: CloOfficerAssignment[];
+}
+
+export async function listCloOfficers(): Promise<CloOfficerRecord[]> {
+  const response = await request<{ success: boolean; data: CloOfficerRecord[] }>('/lgi/clos');
+  return response.data;
+}
+
+export async function createCloOfficer(input: {
+  email: string;
+  lgaIds: string[];
+}): Promise<{
+  userId: string;
+  email: string | null;
+  accountStatus: string;
+  created: boolean;
+  activationToken: string | null;
+}> {
+  const response = await request<{
+    success: boolean;
+    data: {
+      userId: string;
+      email: string | null;
+      accountStatus: string;
+      created: boolean;
+      activationToken: string | null;
+    };
+  }>('/lgi/clos', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function updateCloOfficer(
+  cloUserId: string,
+  input: { lgaIds?: string[]; isEnabled?: boolean }
+): Promise<{
+  userId: string;
+  email: string | null;
+  accountStatus: string;
+  isEnabled: boolean;
+}> {
+  const response = await request<{
+    success: boolean;
+    data: {
+      userId: string;
+      email: string | null;
+      accountStatus: string;
+      isEnabled: boolean;
+    };
+  }>(`/lgi/clos/${encodeURIComponent(cloUserId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input)
+  });
+  return response.data;
+}
+
+export async function listCloDocumentRequirements(): Promise<LgiDocumentRequirement[]> {
+  const response = await request<{ success: boolean; data: LgiDocumentRequirement[] }>(
+    '/clo/documents/requirements'
+  );
+  return response.data;
+}
+
+export async function listCloDocumentSubmissions(): Promise<LgiDocumentSubmission[]> {
+  const response = await request<{ success: boolean; data: LgiDocumentSubmission[] }>(
+    '/clo/documents/submissions'
+  );
+  return response.data;
+}
+
+export async function downloadCloDocumentSubmission(submissionId: string): Promise<Blob> {
+  const response = await fetch(
+    `/api/clo/documents/submissions/${encodeURIComponent(submissionId)}/file`,
+    {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/pdf,image/jpeg,image/png' }
+    }
+  );
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+      ? data.message
+      : 'Unable to open the submitted document.';
+    throw new ApiError(message, response.status);
+  }
+  return response.blob();
+}
+
+export async function decideCloDocumentSubmission(
+  submissionId: string,
+  decision: 'verified' | 'needs_resubmission',
+  reason: string
+): Promise<void> {
+  await request(`/clo/documents/submissions/${encodeURIComponent(submissionId)}/decision`, {
+    method: 'POST',
+    body: JSON.stringify({ decision, reason })
+  });
+}
