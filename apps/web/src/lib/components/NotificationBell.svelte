@@ -126,11 +126,14 @@
     if (event.key === 'Escape') open = false;
   }
 
-  // Keep the fixed bell outside dashboard containers. Some role layouts use
-  // transformed/scrolling wrappers that can otherwise make fixed positioning
-  // behave like absolute positioning on desktop and mobile.
-  function portalToBody(node: HTMLElement) {
-    document.body.appendChild(node);
+  // Mount the bell outside both route layouts and the body element.
+  // Some legacy LGI pages apply different overflow and sticky-header rules
+  // to body; the document root keeps the bell tied to the viewport instead.
+  function portalToViewport(node: HTMLElement) {
+    document.documentElement.appendChild(node);
+    node.style.setProperty('position', 'fixed', 'important');
+    node.style.setProperty('z-index', '2147483647', 'important');
+    node.style.setProperty('pointer-events', 'none', 'important');
     return {
       destroy() {
         node.remove();
@@ -174,7 +177,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" use:portalToBody>
+  <div class="notification-bell" use:portalToViewport>
     <button
       class:active={open}
       class="bell-button"
