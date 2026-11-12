@@ -135,13 +135,26 @@
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') void refresh();
     };
+    const handleNotificationsChanged = () => {
+      // A read action may come from the full notifications page rather than
+      // this bell. Invalidate any older poll before synchronizing the badge.
+      refreshGeneration += 1;
+      refreshPending = true;
+      if (mutationCount === 0 && !refreshing) {
+        refreshPending = false;
+        void refresh();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleVisibility);
+    window.addEventListener('nysc:notifications-changed', handleNotificationsChanged);
 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('nysc:notifications-changed', handleNotificationsChanged);
     };
   });
 </script>
