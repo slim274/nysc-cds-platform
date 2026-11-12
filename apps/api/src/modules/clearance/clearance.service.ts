@@ -5,7 +5,6 @@ import {
   eq,
   gte,
   inArray,
-  isNull,
   lt,
   sql
 } from 'drizzle-orm';
@@ -274,7 +273,7 @@ export async function listMonthlyClearances(
     auditByClearance.set(row.clearanceId, rows);
   }
 
-  const items = members.map((member) => {
+  const allItems = members.map((member) => {
     const clearance = clearanceByMember.get(member.id);
     const required = requirementsByLga.get(member.lgaId) ?? [];
     const verified = required.filter((requirement) =>
@@ -319,15 +318,17 @@ export async function listMonthlyClearances(
       },
       auditHistory: clearance ? auditByClearance.get(clearance.id) ?? [] : []
     };
-  }).filter((item) => !filters.status || item.status === filters.status);
+  });
 
-  const summary = items.reduce((total, item) => {
+  const summary = allItems.reduce((total, item) => {
     total.totalMembers += 1;
     if (item.status === 'cleared') total.cleared += 1;
     else if (item.status === 'not_cleared') total.notCleared += 1;
     else total.pending += 1;
     return total;
   }, { totalMembers: 0, pending: 0, cleared: 0, notCleared: 0 });
+
+  const items = allItems.filter((item) => !filters.status || item.status === filters.status);
 
   return { month, summary, items };
 }
