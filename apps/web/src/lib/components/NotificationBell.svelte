@@ -126,6 +126,18 @@
     if (event.key === 'Escape') open = false;
   }
 
+  // Keep the fixed bell outside dashboard containers. Some role layouts use
+  // transformed/scrolling wrappers that can otherwise make fixed positioning
+  // behave like absolute positioning on desktop and mobile.
+  function portalToBody(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      }
+    };
+  }
+
   onMount(() => {
     void refresh();
     const timer = window.setInterval(() => {
@@ -162,7 +174,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell">
+  <div class="notification-bell" use:portalToBody>
     <button
       class:active={open}
       class="bell-button"
@@ -232,7 +244,14 @@
 {/if}
 
 <style>
-  .notification-bell { position: fixed; z-index: 120; top: 15px; right: 20px; }
+  .notification-bell {
+    position: fixed;
+    z-index: 1200;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+    pointer-events: none;
+  }
+  .bell-button, .notification-panel { pointer-events: auto; }
   .bell-button {
     position: relative; width: 44px; height: 44px; display: grid; place-items: center;
     border: 1px solid #dce7df; border-radius: 50%; background: #fff; color: #0a5c37;
@@ -278,8 +297,12 @@
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
   @media (max-width: 480px) {
-    .notification-bell { top: 12px; right: 12px; }
+    .notification-bell {
+      top: max(10px, env(safe-area-inset-top));
+      right: max(12px, env(safe-area-inset-right));
+    }
     .bell-button { width: 42px; height: 42px; }
+    .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
   }
   @media (prefers-reduced-motion: reduce) { .bell-button { transition: none; } }
 </style>
