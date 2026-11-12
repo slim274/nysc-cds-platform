@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import {
     listNotifications,
     markAllNotificationsRead,
@@ -193,6 +194,9 @@
 
 {#if enabled}
   <div class="notification-bell" use:portalToOverlay>
+    {#if page.url.pathname.startsWith('/lgi')}
+      <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
+    {/if}
     <button
       class:active={open}
       class="bell-button"
@@ -280,6 +284,25 @@
     z-index: 1 !important;
     pointer-events: none !important;
   }
+  .notification-bell {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+  }
+  .lgi-mobile-identity {
+    display: none;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    place-items: center;
+    border: 1px solid #dce9df;
+    border-radius: 50%;
+    background: #e6f1e9;
+    color: #0a5c37;
+    font-size: 11px;
+    font-weight: 800;
+    box-shadow: 0 3px 10px #163b2815;
+  }
   .bell-button, .notification-panel { pointer-events: auto; }
   .bell-button {
     position: relative; width: 44px; height: 44px; display: grid; place-items: center;
@@ -325,11 +348,14 @@
   .view-all { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #edf1ed; color: #0a6841; font-size: 10px; font-weight: 700; text-decoration: none; }
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
+  @media (max-width: 760px) {
+    .lgi-mobile-identity { display: grid; }
+    .bell-button { width: 42px; height: 42px; }
+  }
   @media (max-width: 480px) {
     .notification-bell {
       inset: 10px 12px auto auto !important;
     }
-    .bell-button { width: 42px; height: 42px; }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
   }
   @media (prefers-reduced-motion: reduce) { .bell-button { transition: none; } }
