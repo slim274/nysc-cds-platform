@@ -7,12 +7,18 @@ import {
   createCdsAnnouncement,
   listAnnouncementTargetGroups,
   listCdsAnnouncements,
+  markAllCdsAnnouncementsRead,
   markCdsAnnouncementRead,
   resubmitCdsAnnouncement,
   reviewCdsAnnouncement
 } from './announcements.service';
 
 import { requireAuth, requireRole, type AuthEnv } from '../auth/middleware/auth.middleware';
+import {
+  notifyAnnouncementCreated,
+  notifyAnnouncementReviewed,
+  notifyAnnouncementResubmitted
+} from '../notifications/notifications.service';
 
 const idSchema = z.string().uuid();
 const announcementSchema = z.object({
@@ -48,6 +54,21 @@ function handleError(c: Context<AuthEnv>, error: unknown) {
   }
   console.error('CDS announcement request failed:', error);
   return c.json({ success: false, message: 'Unable to complete the announcement request.' }, 500);
+}
+
+function registerReadAllRoute(router: Hono<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDENT' | 'CORPS_MEMBER') {
+  router.post('/read-all', async (c) => {
+    try {
+      const data = await markAllCdsAnnouncementsRead(
+        c.get('authUser').id,
+        roleCode,
+        roleCode === 'LGI_ADMIN' ? getAssignedLgaIds(c) : []
+      );
+      return c.json({ success: true, data });
+    } catch (error) {
+      return handleError(c, error);
+    }
+  });
 }
 
 function registerReadRoute(router: Hono<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDENT' | 'CORPS_MEMBER') {
@@ -89,6 +110,7 @@ function createHandler(roleCode: 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDEN
         },
         roleCode === 'LGI_ADMIN' ? getAssignedLgaIds(c) : []
       );
+      await notifyAnnouncementCreated(data.id, c.get('authUser').id);
       return c.json({
         success: true,
         message: data.status === 'pending_review'
@@ -130,6 +152,7 @@ coordinatorAnnouncementRoutes.post('/:announcementId/review', async (c) => {
   }
   try {
     const data = await reviewCdsAnnouncement(c.get('authUser').id, id.data, validation.data.decision, validation.data.notes);
+    await notifyAnnouncementReviewed(id.data, validation.data.decision, validation.data.notes);
     return c.json({
       success: true,
       message: validation.data.decision === 'approved'
@@ -139,6 +162,7 @@ coordinatorAnnouncementRoutes.post('/:announcementId/review', async (c) => {
     });
   } catch (error) { return handleError(c, error); }
 });
+registerReadAllRoute(coordinatorAnnouncementRoutes, 'CDS_COORDINATOR');
 registerReadRoute(coordinatorAnnouncementRoutes, 'CDS_COORDINATOR');
 
 export const presidentAnnouncementRoutes = new Hono<AuthEnv>();
@@ -174,6 +198,7 @@ presidentAnnouncementRoutes.patch('/:announcementId/resubmit', async (c) => {
   }
   try {
     const data = await resubmitCdsAnnouncement(c.get('authUser').id, id.data, validation.data);
+    await notifyAnnouncementResubmitted(id.data);
     return c.json({
       success: true,
       message: 'Your corrected announcement has been resubmitted to the Coordinator.',
@@ -182,6 +207,7 @@ presidentAnnouncementRoutes.patch('/:announcementId/resubmit', async (c) => {
   } catch (error) { return handleError(c, error); }
 });
 
+registerReadAllRoute(presidentAnnouncementRoutes, 'CDS_PRESIDENT');
 registerReadRoute(presidentAnnouncementRoutes, 'CDS_PRESIDENT');
 
 export const lgiAnnouncementRoutes = new Hono<AuthEnv>();
@@ -199,6 +225,7 @@ lgiAnnouncementRoutes.get('/', async (c) => {
   } catch (error) { return handleError(c, error); }
 });
 lgiAnnouncementRoutes.post('/', createHandler('LGI_ADMIN'));
+registerReadAllRoute(lgiAnnouncementRoutes, 'LGI_ADMIN');
 registerReadRoute(lgiAnnouncementRoutes, 'LGI_ADMIN');
 
 export const corpsMemberAnnouncementRoutes = new Hono<AuthEnv>();
@@ -209,4 +236,5 @@ corpsMemberAnnouncementRoutes.get('/', async (c) => {
     return c.json({ success: true, data });
   } catch (error) { return handleError(c, error); }
 });
+registerReadAllRoute(corpsMemberAnnouncementRoutes, 'CORPS_MEMBER');
 registerReadRoute(corpsMemberAnnouncementRoutes, 'CORPS_MEMBER');

@@ -1688,8 +1688,26 @@ export async function reviewAnnouncement(
   });
 }
 
+function dispatchAnnouncementReadStateChanged() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('nysc:announcements-changed'));
+  window.dispatchEvent(new Event('nysc:notifications-changed'));
+}
+
 export async function markAnnouncementRead(role: AnnouncementRole, announcementId: string): Promise<void> {
   await request(announcementApiPath[role] + '/' + encodeURIComponent(announcementId) + '/read', { method: 'POST' });
+  dispatchAnnouncementReadStateChanged();
+}
+
+export async function markAllAnnouncementsRead(
+  role: AnnouncementRole
+): Promise<{ readCount: number }> {
+  const response = await request<{ success: boolean; data: { readCount: number } }>(
+    announcementApiPath[role] + '/read-all',
+    { method: 'POST' }
+  );
+  dispatchAnnouncementReadStateChanged();
+  return response.data;
 }
 
 
