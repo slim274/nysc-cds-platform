@@ -52,6 +52,8 @@ import {
   corpsMemberDocumentRoutes
 } from './modules/documents/documents.routes';
 
+import { notificationRoutes } from './modules/notifications/notifications.routes';
+
 import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
@@ -98,6 +100,9 @@ app.get('/health/db', async (c) => {
 
 // Authentication routes
 app.route('/auth', authRoutes);
+
+// Shared in-app notification centre for all authenticated roles.
+app.route('/notifications', notificationRoutes);
 
 // LGI administration routes
 app.route('/lgi', lgiRoutes);

@@ -24,6 +24,12 @@ import {
   requireRole,
   type AuthEnv
 } from '../auth/middleware/auth.middleware';
+import {
+  notifyMeetingScheduled,
+  notifyMeetingAttendanceSubmitted,
+  notifyMeetingAttendanceReviewed,
+  notifyMeetingCancelled
+} from '../notifications/notifications.service';
 
 const idSchema = z.string().uuid();
 const meetingSchema = z.object({
@@ -102,6 +108,7 @@ coordinatorAttendanceRoutes.post('/meetings', async (c) => {
       startsAt: new Date(validation.data.startsAt),
       endsAt: new Date(validation.data.endsAt)
     });
+    await notifyMeetingScheduled(data.id, c.get('authUser').id);
     return c.json({ success: true, message: 'CDS meeting scheduled.', data }, 201);
   } catch (error) {
     return handleAttendanceError(c, error);
@@ -137,6 +144,7 @@ coordinatorAttendanceRoutes.post('/meetings/:meetingId/review', async (c) => {
       validation.data.decision,
       validation.data.notes
     );
+    await notifyMeetingAttendanceReviewed(id.data, validation.data.decision, validation.data.notes);
     return c.json({
       success: true,
       message: validation.data.decision === 'approved'
@@ -154,6 +162,7 @@ coordinatorAttendanceRoutes.post('/meetings/:meetingId/cancel', async (c) => {
   if (!id.success) return c.json({ success: false, message: 'Invalid meeting ID.' }, 400);
   try {
     const data = await cancelCdsMeeting(c.get('authUser').id, id.data);
+    await notifyMeetingCancelled(id.data, c.get('authUser').id);
     return c.json({ success: true, message: 'CDS meeting cancelled.', data });
   } catch (error) {
     return handleAttendanceError(c, error);
@@ -225,6 +234,7 @@ presidentAttendanceRoutes.post('/meetings/:meetingId/submit', async (c) => {
   if (!id.success) return c.json({ success: false, message: 'Invalid meeting ID.' }, 400);
   try {
     const data = await submitMeetingAttendance(c.get('authUser').id, id.data);
+    await notifyMeetingAttendanceSubmitted(id.data);
     return c.json({ success: true, message: 'Attendance submitted to your Coordinator.', data });
   } catch (error) {
     return handleAttendanceError(c, error);

@@ -13,6 +13,11 @@ import {
 } from './announcements.service';
 
 import { requireAuth, requireRole, type AuthEnv } from '../auth/middleware/auth.middleware';
+import {
+  notifyAnnouncementCreated,
+  notifyAnnouncementReviewed,
+  notifyAnnouncementResubmitted
+} from '../notifications/notifications.service';
 
 const idSchema = z.string().uuid();
 const announcementSchema = z.object({
@@ -61,6 +66,7 @@ function registerReadRoute(router: Hono<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CDS_C
         id.data,
         roleCode === 'LGI_ADMIN' ? getAssignedLgaIds(c) : []
       );
+      await notifyAnnouncementCreated(data.id, c.get('authUser').id);
       return c.json({ success: true, data });
     } catch (error) {
       return handleError(c, error);
@@ -130,6 +136,7 @@ coordinatorAnnouncementRoutes.post('/:announcementId/review', async (c) => {
   }
   try {
     const data = await reviewCdsAnnouncement(c.get('authUser').id, id.data, validation.data.decision, validation.data.notes);
+    await notifyAnnouncementReviewed(id.data, validation.data.decision, validation.data.notes);
     return c.json({
       success: true,
       message: validation.data.decision === 'approved'
@@ -174,6 +181,7 @@ presidentAnnouncementRoutes.patch('/:announcementId/resubmit', async (c) => {
   }
   try {
     const data = await resubmitCdsAnnouncement(c.get('authUser').id, id.data, validation.data);
+    await notifyAnnouncementResubmitted(id.data);
     return c.json({
       success: true,
       message: 'Your corrected announcement has been resubmitted to the Coordinator.',
