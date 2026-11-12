@@ -4,9 +4,7 @@ import {
   desc,
   eq,
   gte,
-  ilike,
   inArray,
-  isNotNull,
   isNull,
   lt,
   sql
@@ -125,7 +123,10 @@ export async function listMonthlyClearances(
       eq(cdsGroupMemberships.corpsMemberId, corpsMembers.id),
       eq(cdsGroupMemberships.status, 'active')
     ))
-    .leftJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+    .leftJoin(cdsGroups, and(
+      eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id),
+      eq(cdsGroups.isActive, true)
+    ))
     .where(and(...memberConditions))
     .orderBy(asc(lgas.name), asc(corpsMembers.lastName), asc(corpsMembers.firstName))
     .limit(1000);
