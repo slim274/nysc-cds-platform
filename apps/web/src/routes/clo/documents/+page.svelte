@@ -20,20 +20,25 @@
   let savingId = $state('');
   let fileLoadingId = $state('');
   let search = $state('');
+  let statusFilter = $state('all');
   let errorMessage = $state('');
   let noticeMessage = $state('');
   let signOutPending = $state(false);
 
   const visibleSubmissions = $derived(submissions.filter((submission) => {
     const term = search.trim().toLocaleLowerCase();
-    if (!term) return true;
-    return [
+    const matchesStatus = statusFilter === 'all' || submission.status === statusFilter;
+    if (!term) return matchesStatus;
+    const matchesSearch = [
       submission.firstName,
       submission.middleName ?? '',
       submission.lastName,
       submission.stateCode,
-      submission.requirementName
+      submission.requirementName,
+      submission.lgaName,
+      submission.stateName
     ].join(' ').toLocaleLowerCase().includes(term);
+    return matchesStatus && matchesSearch;
   }));
 
   onMount(() => { void loadPage(); });
@@ -153,7 +158,7 @@
 
     <section class="stats">
       <article><span>Active document requirements</span><strong>{requirements.length}</strong><small>Published by your LGI</small></article>
-      <article><span>Awaiting document review</span><strong>{submissions.length}</strong><small>Across every LGA</small></article>
+      <article><span>Submitted document records</span><strong>{submissions.length}</strong><small>All statuses · Across every LGA</small></article>
       <article><span>Document coverage</span><strong>All LGAs</strong><small>Every Corps Member on the platform</small></article>
     </section>
 
@@ -178,10 +183,21 @@
     </section>
 
     <section class="panel">
-      <div class="panel-heading"><div><h3>Document review queue</h3><p>Manual-only, AI-assisted and uncertain verification results appear here for review.</p></div><span class="queue-count">{submissions.length} awaiting</span></div>
-      <label class="search"><span>Search submissions</span><input bind:value={search} placeholder="Search by name, State Code or document…" /></label>
+      <div class="panel-heading"><div><h3>All Corps Member document submissions</h3><p>View document records from every LGA. Filter by status; only submissions awaiting manual review can be approved or returned.</p></div><span class="queue-count">{submissions.length} total records</span></div>
+      <div class="filters">
+        <label class="search"><span>Search submissions</span><input bind:value={search} placeholder="Search by name, State Code, LGA or document…" /></label>
+        <label class="status-filter"><span>Document status</span>
+          <select bind:value={statusFilter}>
+            <option value="all">All statuses</option>
+            <option value="manual_review">Awaiting review</option>
+            <option value="pending_verification">Pending verification</option>
+            <option value="verified">Verified</option>
+            <option value="needs_resubmission">Resubmission required</option>
+          </select>
+        </label>
+      </div>
       {#if visibleSubmissions.length === 0}
-        <div class="empty compact"><div class="empty-icon">✓</div><h4>{submissions.length === 0 ? 'No documents awaiting review' : 'No matching submissions'}</h4><p>{submissions.length === 0 ? 'New submissions requiring a manual decision will appear here.' : 'Try another search term.'}</p></div>
+        <div class="empty compact"><div class="empty-icon">✓</div><h4>{submissions.length === 0 ? 'No document submissions yet' : 'No matching submissions'}</h4><p>{submissions.length === 0 ? 'Submitted documents from Corps Members across all LGAs will appear here.' : 'Try another search term or status.'}</p></div>
       {:else}
         <div class="review-list">
           {#each visibleSubmissions as submission (submission.id)}
@@ -197,15 +213,19 @@
               </div>
               <div class="actions">
                 <button class="view-button" type="button" onclick={() => void openSubmissionFile(submission)} disabled={fileLoadingId === submission.id}>{fileLoadingId === submission.id ? 'Opening…' : 'View document'}</button>
-                <button class="approve-button" type="button" onclick={() => void reviewSubmission(submission, 'verified')} disabled={savingId === submission.id}>{savingId === submission.id ? 'Saving…' : 'Mark verified'}</button>
-                <button class="return-button" type="button" onclick={() => void reviewSubmission(submission, 'needs_resubmission')} disabled={savingId === submission.id}>Request resubmission</button>
+                {#if submission.status === 'manual_review'}
+                  <button class="approve-button" type="button" onclick={() => void reviewSubmission(submission, 'verified')} disabled={savingId === submission.id}>{savingId === submission.id ? 'Saving…' : 'Mark verified'}</button>
+                  <button class="return-button" type="button" onclick={() => void reviewSubmission(submission, 'needs_resubmission')} disabled={savingId === submission.id}>Request resubmission</button>
+                {:else}
+                  <span class="completed-label">No action pending</span>
+                {/if}
               </div>
             </article>
           {/each}
         </div>
       {/if}
     </section>
-    <div class="permission-note"><strong>Platform-wide document access.</strong> You can review submissions from Corps Members across all LGAs. Only LGI Administrators can create, change, publish or remove document requirements and manage CLO accounts.</div>
+    <div class="permission-note"><strong>Platform-wide document access.</strong> You can view document submissions from Corps Members across all LGAs. You can approve or request resubmission only for records awaiting manual review. Only LGI Administrators can create, change, publish or remove document requirements and manage CLO accounts.</div>
   </CloLayout>
 {/if}
 
@@ -236,8 +256,10 @@
   .requirement-copy p { margin: 8px 0; color: #65736a; font-size: 10px; line-height: 1.6; }
   .requirement-copy small { margin-top: 7px; color: #78877d; font-size: 9px; }
   .published { padding: 5px 8px; border-radius: 20px; background: #e7f4eb; color: #087443; font-size: 9px; font-weight: 700; white-space: nowrap; }
-  .search { display: grid; gap: 7px; max-width: 480px; margin-bottom: 15px; color: #344b3d; font-size: 10px; font-weight: 700; }
-  .search input { width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid #dce5de; border-radius: 8px; color: #253c2e; font-size: 11px; }
+  .filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 230px); gap: 12px; align-items: end; margin-bottom: 15px; }
+  .search, .status-filter { display: grid; gap: 7px; margin-bottom: 0; color: #344b3d; font-size: 10px; font-weight: 700; }
+  .filters input, .filters select { width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid #dce5de; border-radius: 8px; color: #253c2e; font-size: 11px; }
+  .completed-label { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 10px; border-radius: 7px; background: #f2f5f2; color: #718078; font-size: 10px; }
   .review-list { display: grid; gap: 11px; }
   .review-card { display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(210px, 1fr) minmax(170px, .75fr); gap: 15px; align-items: center; padding: 15px; border: 1px solid #e8eee9; border-radius: 10px; }
   .member { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
@@ -271,6 +293,7 @@
   @media (max-width: 980px) { .review-card { grid-template-columns: 1fr 1fr; } .actions { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 650px) {
     .page-intro { align-items: flex-start; flex-direction: column; }
+    .filters { grid-template-columns: 1fr; }
     .page-intro h2 { font-size: 21px; }
     .stats { grid-template-columns: 1fr 1fr; gap: 9px; }
     .stats article { padding: 13px; }

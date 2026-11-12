@@ -173,7 +173,7 @@ cloDocumentRoutes.get('/documents/requirements', async (c) => {
 // The CLO inbox is limited to submissions that require human review.
 cloDocumentRoutes.get('/documents/submissions', async (c) => {
   try {
-    const data = await listDocumentSubmissions(await getAllLgaIds(), 'manual_review');
+    const data = await listDocumentSubmissions(await getAllLgaIds());
     return c.json({ success: true, data });
   } catch (error) {
     return handleCloError(c, error);
