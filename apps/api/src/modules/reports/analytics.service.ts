@@ -365,6 +365,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
     label: formatMonthLabel(month),
     meetings: metrics.meetings,
     attendanceRatePercent: getAttendanceRate(metrics),
+    eligibleRecords: metrics.eligibleRecords,
     present: metrics.present,
     late: metrics.late,
     absent: metrics.absent,
