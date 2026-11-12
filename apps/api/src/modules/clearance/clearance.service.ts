@@ -20,7 +20,8 @@ import {
   corpsMemberDocumentRequirements,
   corpsMemberDocumentSubmissions,
   corpsMemberMonthlyClearances,
-  corpsMemberMonthlyClearanceAuditLogs
+  corpsMemberMonthlyClearanceAuditLogs,
+  users
 } from '@nysc/database';
 
 import type { MonthlyClearanceStatus } from '@nysc/database';
@@ -139,14 +140,26 @@ export async function listMonthlyClearances(
     };
   }
 
-  await db.insert(corpsMemberMonthlyClearances)
+  const createdClearances = await db.insert(corpsMemberMonthlyClearances)
     .values(members.map((member) => ({
       corpsMemberId: member.id,
       lgaId: member.lgaId,
       clearanceMonth: month,
       status: 'pending' as const
     })))
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: corpsMemberMonthlyClearances.id });
+
+  if (createdClearances.length > 0) {
+    await db.insert(corpsMemberMonthlyClearanceAuditLogs).values(
+      createdClearances.map((clearance) => ({
+        clearanceId: clearance.id,
+        previousStatus: null,
+        newStatus: 'pending',
+        note: 'Monthly clearance record created.'
+      }))
+    );
+  }
 
   const clearanceRows = await db.select({
     id: corpsMemberMonthlyClearances.id,
@@ -259,9 +272,11 @@ export async function listMonthlyClearances(
         newStatus: corpsMemberMonthlyClearanceAuditLogs.newStatus,
         note: corpsMemberMonthlyClearanceAuditLogs.note,
         actorUserId: corpsMemberMonthlyClearanceAuditLogs.actorUserId,
+        actorEmail: users.email,
         createdAt: corpsMemberMonthlyClearanceAuditLogs.createdAt
       })
         .from(corpsMemberMonthlyClearanceAuditLogs)
+        .leftJoin(users, eq(corpsMemberMonthlyClearanceAuditLogs.actorUserId, users.id))
         .where(inArray(corpsMemberMonthlyClearanceAuditLogs.clearanceId, clearanceIds))
         .orderBy(desc(corpsMemberMonthlyClearanceAuditLogs.createdAt))
     : [];
@@ -306,6 +321,7 @@ export async function listMonthlyClearances(
       },
       indicators: {
         requiredDocuments: required.length,
+        hasRequirementsConfigured: required.length > 0,
         verifiedDocuments: verified,
         documentsOutstanding: Math.max(0, required.length - verified),
         approvedAttendanceMeetings: groupMeetings,
