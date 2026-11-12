@@ -21,7 +21,9 @@ import {
   corpsMemberDocumentSubmissions,
   corpsMemberMonthlyClearances,
   corpsMemberMonthlyClearanceAuditLogs,
-  users
+  users,
+  roles,
+  userRoleAssignments
 } from '@nysc/database';
 
 import type { MonthlyClearanceStatus } from '@nysc/database';
@@ -79,10 +81,18 @@ function getFullName(member: { firstName: string; middleName: string | null; las
 export async function listMonthlyClearances(
   lgaIds: string[],
   month: string,
-  filters: { search?: string; status?: MonthlyClearanceStatus } = {}
+  filters: { search?: string; status?: MonthlyClearanceStatus } = {},
+  scopedGroupIds?: string[]
 ) {
   assertLgaScope(lgaIds);
   assertNotFutureMonth(month);
+  if (scopedGroupIds && scopedGroupIds.length === 0) {
+    return {
+      month,
+      summary: { totalMembers: 0, pending: 0, cleared: 0, notCleared: 0 },
+      items: []
+    };
+  }
   const { start, end } = getLagosMonthRange(month);
 
   const memberConditions = [
@@ -99,6 +109,9 @@ export async function listMonthlyClearances(
         OR ${corpsMembers.callUpNumber} ILIKE ${term}
         OR ${corpsMembers.email} ILIKE ${term})`
     );
+  }
+  if (scopedGroupIds) {
+    memberConditions.push(inArray(cdsGroups.id, scopedGroupIds));
   }
 
   const members = await db.select({
@@ -421,4 +434,45 @@ export async function decideMonthlyClearance(input: {
   });
 
   return result;
+}
+
+
+/**
+ * Coordinator read-only view. It reuses the same monthly evidence and audit
+ * calculations as the LGI register but limits members to the caller's
+ * currently active CDS Coordinator group assignments.
+ */
+export async function listCoordinatorMonthlyClearances(
+  userId: string,
+  month: string,
+  filters: { search?: string; status?: MonthlyClearanceStatus } = {}
+) {
+  const assignedGroups = await db.select({
+    groupId: cdsGroups.id,
+    lgaId: cdsGroups.lgaId
+  })
+    .from(userRoleAssignments)
+    .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
+    .innerJoin(cdsGroups, eq(userRoleAssignments.cdsGroupId, cdsGroups.id))
+    .where(and(
+      eq(userRoleAssignments.userId, userId),
+      eq(userRoleAssignments.isActive, true),
+      eq(roles.code, 'CDS_COORDINATOR'),
+      eq(cdsGroups.isActive, true)
+    ));
+
+  const groupIds = [...new Set(assignedGroups.map((row) => row.groupId))];
+  const lgaIds = [...new Set(assignedGroups.map((row) => row.lgaId))];
+
+  if (groupIds.length === 0 || lgaIds.length === 0) {
+    assertNotFutureMonth(month);
+    getLagosMonthRange(month);
+    return {
+      month,
+      summary: { totalMembers: 0, pending: 0, cleared: 0, notCleared: 0 },
+      items: []
+    };
+  }
+
+  return listMonthlyClearances(lgaIds, month, filters, groupIds);
 }
