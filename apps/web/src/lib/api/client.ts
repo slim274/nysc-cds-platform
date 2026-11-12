@@ -1738,7 +1738,6 @@ export interface LgiAnalyticsGroup {
   unmarked: number;
   eligibleAttendanceRecords: number;
   attendanceRatePercent: number | null;
-  eligibleAttendanceRecords: number;
   reviewedRegisters: number;
   approvedRegisters: number;
   registerApprovalRatePercent: number | null;
@@ -1824,6 +1823,8 @@ export interface LgiMonthlyClearanceItem {
     newStatus: MonthlyClearanceStatus;
     note: string | null;
     actorUserId: string | null;
+    actorEmail: string | null;
+    actorRole: 'SYSTEM' | 'LGI_ADMIN' | 'CDS_COORDINATOR';
     createdAt: string;
   }>;
 }
@@ -1877,5 +1878,16 @@ export async function listCoordinatorMonthlyClearances(filters: {
     `/coordinator/monthly-clearance?${query.toString()}`
   );
   return response.data;
+}
+
+export async function updateCoordinatorMonthlyClearance(
+  clearanceId: string,
+  status: MonthlyClearanceStatus,
+  note?: string
+): Promise<void> {
+  await request(`/coordinator/monthly-clearance/${encodeURIComponent(clearanceId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, note })
+  });
 }
 
