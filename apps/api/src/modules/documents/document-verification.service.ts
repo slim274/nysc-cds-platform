@@ -1008,7 +1008,8 @@ export async function decideDocumentManualReview(
       .select({
         id: corpsMemberDocumentSubmissions.id,
         corpsMemberId: corpsMemberDocumentSubmissions.corpsMemberId,
-        status: corpsMemberDocumentSubmissions.status
+        status: corpsMemberDocumentSubmissions.status,
+        verificationResult: corpsMemberDocumentSubmissions.verificationResult
       })
       .from(corpsMemberDocumentSubmissions)
       .innerJoin(corpsMembers, eq(corpsMemberDocumentSubmissions.corpsMemberId, corpsMembers.id))
