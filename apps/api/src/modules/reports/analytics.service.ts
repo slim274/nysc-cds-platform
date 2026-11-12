@@ -141,6 +141,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
         approvedRegisters: 0,
         reviewedRegisters: 0,
         attendanceRatePercent: null,
+        eligibleAttendanceRecords: 0,
         groupsBelowThreshold: 0
       },
       monthlyTrend: Array.from({ length: months }, (_, index) => {
@@ -150,6 +151,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
           label: formatMonthLabel(key),
           meetings: 0,
           attendanceRatePercent: null,
+          eligibleRecords: 0,
           present: 0,
           late: 0,
           absent: 0,
@@ -379,6 +381,7 @@ export async function getLgiAnalytics(lgaIds: string[], months: 3 | 6 | 12) {
       approvedRegisters: totals.approvedRegisters,
       reviewedRegisters: totals.reviewedRegisters,
       attendanceRatePercent,
+      eligibleAttendanceRecords: overallEligible,
       groupsBelowThreshold: groups.filter((group) => group.needsAttention).length
     },
     monthlyTrend,
