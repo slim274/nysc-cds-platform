@@ -195,7 +195,7 @@
 {#if enabled}
   <div class="notification-bell" use:portalToOverlay>
     {#if page.url.pathname.startsWith('/lgi')}
-      <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
+      <div class="lgi-identity-badge" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
     {/if}
     <button
       class:active={open}
@@ -289,8 +289,8 @@
     align-items: center;
     gap: 8px;
   }
-  .lgi-mobile-identity {
-    display: none;
+  .lgi-identity-badge {
+    display: grid;
     width: 36px;
     height: 36px;
     flex: 0 0 36px;
@@ -349,7 +349,6 @@
   .view-all:hover { background: #f6faf7; }
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
   @media (max-width: 760px) {
-    .lgi-mobile-identity { display: grid; }
     .bell-button { width: 42px; height: 42px; }
   }
   @media (max-width: 480px) {
