@@ -54,6 +54,8 @@ import {
 
 import { notificationRoutes } from './modules/notifications/notifications.routes';
 import { lgiAnalyticsRoutes } from './modules/reports/analytics.routes';
+import { lgiMonthlyClearanceRoutes } from './modules/clearance/clearance.routes';
+import { coordinatorMonthlyClearanceRoutes } from './modules/clearance/coordinator-clearance.routes';
 
 import type {
   AuthEnv
@@ -108,6 +110,8 @@ app.route('/notifications', notificationRoutes);
 // LGI administration routes
 app.route('/lgi', lgiRoutes);
 app.route('/lgi/reports', lgiAnalyticsRoutes);
+app.route('/lgi/monthly-clearance', lgiMonthlyClearanceRoutes);
+app.route('/coordinator/monthly-clearance', coordinatorMonthlyClearanceRoutes);
 
 // Shared course catalogue management for authorised LGI administrators.
 app.route('/lgi', lgiCourseCatalogueRoutes);

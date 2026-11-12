@@ -1494,6 +1494,7 @@ export interface CdsMeetingDetails extends CdsMeetingSummary {
     eventType: string;
     details: Record<string, unknown>;
     actorUserId: string | null;
+    actorEmail: string | null;
     createdAt: string;
   }>;
 }
@@ -1737,7 +1738,6 @@ export interface LgiAnalyticsGroup {
   unmarked: number;
   eligibleAttendanceRecords: number;
   attendanceRatePercent: number | null;
-  eligibleAttendanceRecords: number;
   reviewedRegisters: number;
   approvedRegisters: number;
   registerApprovalRatePercent: number | null;
@@ -1779,3 +1779,115 @@ export async function getLgiAnalytics(months: 3 | 6 | 12 = 6): Promise<LgiAnalyt
   );
   return response.data;
 }
+
+
+export type MonthlyClearanceStatus = 'pending' | 'cleared' | 'not_cleared';
+
+export interface LgiMonthlyClearanceItem {
+  clearanceId?: string;
+  month: string;
+  status: MonthlyClearanceStatus;
+  decisionNote: string | null;
+  decidedAt: string | null;
+  decidedByUserId: string | null;
+  member: {
+    id: string;
+    name: string;
+    stateCode: string;
+    callUpNumber: string | null;
+    email: string | null;
+    phone: string | null;
+    lgaId: string;
+    lgaName: string;
+    stateName: string;
+    groupId: string | null;
+    groupCode: string | null;
+    groupName: string | null;
+  };
+  indicators: {
+    requiredDocuments: number;
+    hasRequirementsConfigured: boolean;
+    verifiedDocuments: number;
+    documentsOutstanding: number;
+    approvedAttendanceMeetings: number;
+    attendanceMarked: number;
+    present: number;
+    late: number;
+    absent: number;
+    excused: number;
+    activeCdsGroup: boolean;
+  };
+  auditHistory: Array<{
+    id: string;
+    previousStatus: string | null;
+    newStatus: MonthlyClearanceStatus;
+    note: string | null;
+    actorUserId: string | null;
+    actorEmail: string | null;
+    actorRole: 'SYSTEM' | 'LGI_ADMIN' | 'CDS_COORDINATOR';
+    createdAt: string;
+  }>;
+}
+
+export interface LgiMonthlyClearanceData {
+  month: string;
+  summary: {
+    totalMembers: number;
+    pending: number;
+    cleared: number;
+    notCleared: number;
+  };
+  items: LgiMonthlyClearanceItem[];
+}
+
+export async function listLgiMonthlyClearances(filters: {
+  month: string;
+  search?: string;
+  status?: MonthlyClearanceStatus;
+}): Promise<LgiMonthlyClearanceData> {
+  const query = new URLSearchParams({ month: filters.month });
+  if (filters.search) query.set('search', filters.search);
+  if (filters.status) query.set('status', filters.status);
+  const response = await request<{ success: boolean; data: LgiMonthlyClearanceData }>(
+    `/lgi/monthly-clearance?${query.toString()}`
+  );
+  return response.data;
+}
+
+export async function updateLgiMonthlyClearance(
+  clearanceId: string,
+  status: MonthlyClearanceStatus,
+  note?: string
+): Promise<void> {
+  await request(`/lgi/monthly-clearance/${encodeURIComponent(clearanceId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, note })
+  });
+}
+ 
+/** Read-only monthly clearance list for the caller's currently assigned CDS groups. */
+export async function listCoordinatorMonthlyClearances(filters: {
+  month: string;
+  search?: string;
+  status?: MonthlyClearanceStatus;
+}): Promise<LgiMonthlyClearanceData> {
+  const query = new URLSearchParams({ month: filters.month });
+  if (filters.search) query.set('search', filters.search);
+  if (filters.status) query.set('status', filters.status);
+  const response = await request<{ success: boolean; data: LgiMonthlyClearanceData }>(
+    `/coordinator/monthly-clearance?${query.toString()}`
+  );
+  return response.data;
+}
+
+export async function updateCoordinatorMonthlyClearance(
+  clearanceId: string,
+  status: MonthlyClearanceStatus,
+  note?: string
+): Promise<void> {
+  await request(`/coordinator/monthly-clearance/${encodeURIComponent(clearanceId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, note })
+  });
+}
+

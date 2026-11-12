@@ -545,3 +545,31 @@ export async function notifyMeetingCancelled(meetingId: string, actorUserId: str
     console.error('Unable to create meeting cancellation notifications:', error);
   }
 }
+
+
+export async function notifyMonthlyClearanceDecision(input: {
+  userId: string;
+  clearanceId: string;
+  month: string;
+  status: 'cleared' | 'not_cleared';
+  note?: string | null;
+}) {
+  const statusLabel = input.status === 'cleared' ? 'cleared' : 'not cleared';
+  const noteText = input.status === 'not_cleared' && input.note
+    ? ` Decision note: ${input.note.slice(0, 350)}`
+    : '';
+  try {
+    await notifyUser(input.userId, 'CORPS_MEMBER', {
+      type: 'monthly_clearance_decision',
+      title: 'Monthly clearance updated',
+      message: `Your ${input.month} monthly clearance has been marked ${statusLabel}.${noteText}`,
+      hrefSuffix: '/attendance',
+      entityType: 'monthly_clearance',
+      entityId: input.clearanceId
+    });
+  } catch (error) {
+    // Notification delivery must not make a successfully committed clearance
+    // decision appear to have failed to the LGI or Coordinator.
+    console.error('Unable to notify Corps Member about monthly clearance:', error);
+  }
+}
