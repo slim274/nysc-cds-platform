@@ -2,8 +2,14 @@
 	import favicon from '#lib/assets/favicon.svg';
 	import type { LayoutProps } from './$types';
 	import NotificationBell from '#lib/components/NotificationBell.svelte';
+	import { page } from '$app/state';
 
 	let { children }: LayoutProps = $props();
+
+	// Scope shared mobile header rules to LGI routes only.
+	$effect(() => {
+		document.documentElement.classList.toggle('lgi-route', page.url.pathname.startsWith('/lgi'));
+	});
 </script>
 
 <svelte:head>
@@ -27,6 +33,30 @@
 		padding-right: 84px !important;
 	}
 	@media (max-width: 760px) {
-		:global(.topbar) { padding-right: 68px !important; }
+		/* Reserve one consistent control lane for the shared LG badge + bell. */
+		:global(html.lgi-route .topbar) {
+			box-sizing: border-box;
+			gap: 9px;
+			padding-right: 112px !important;
+		}
+		/* Local account/avatar blocks vary by module; the shared identity badge
+		   is the single mobile identity treatment across every LGI screen. */
+		:global(html.lgi-route .topbar .account),
+		:global(html.lgi-route .topbar .account-copy),
+		:global(html.lgi-route .topbar .account-details),
+		:global(html.lgi-route .topbar .email),
+		:global(html.lgi-route .topbar .avatar) {
+			display: none !important;
+		}
+		:global(html.lgi-route .topbar > div) {
+			min-width: 0;
+			flex: 1 1 auto;
+		}
+		:global(html.lgi-route .topbar h1) {
+			min-width: 0;
+			max-width: 100%;
+			overflow-wrap: anywhere;
+			font-size: clamp(15px, 4.2vw, 19px);
+		}
 	}
 </style>
