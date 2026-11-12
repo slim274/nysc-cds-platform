@@ -407,10 +407,17 @@ export async function decideMonthlyClearance(input: {
       const [membership] = await tx.select({ id: cdsGroupMemberships.id })
         .from(cdsGroupMemberships)
         .innerJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
+        .innerJoin(userRoleAssignments, and(
+          eq(userRoleAssignments.cdsGroupId, cdsGroups.id),
+          eq(userRoleAssignments.userId, input.actorUserId),
+          eq(userRoleAssignments.isActive, true)
+        ))
+        .innerJoin(roles, eq(userRoleAssignments.roleId, roles.id))
         .where(and(
           eq(cdsGroupMemberships.corpsMemberId, existing.corpsMemberId),
           eq(cdsGroupMemberships.status, 'active'),
           eq(cdsGroups.isActive, true),
+          eq(roles.code, 'CDS_COORDINATOR'),
           inArray(cdsGroups.id, input.coordinatorGroupIds!)
         ))
         .limit(1);
