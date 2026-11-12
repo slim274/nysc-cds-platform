@@ -16,18 +16,28 @@
   let updating = $state(false);
   let errorMessage = $state('');
   let refreshing = false;
+  let mutationCount = 0;
+  let refreshGeneration = 0;
+  let refreshPending = false;
   const REFRESH_INTERVAL_MS = 5000;
 
   async function refresh() {
-    if (refreshing) return;
+    // Don't let a polling response overwrite a newer read/unread action.
+    if (refreshing || mutationCount > 0) return;
     refreshing = true;
+    const generation = refreshGeneration;
+
     try {
       const result = await listNotifications(25);
+      if (generation !== refreshGeneration || mutationCount > 0) return;
+
       notifications = result.items;
       unreadCount = result.unreadCount;
       enabled = true;
       errorMessage = '';
     } catch (error) {
+      if (generation !== refreshGeneration || mutationCount > 0) return;
+
       const status = (error as Error & { status?: number })?.status;
       if (status === 401 || status === 403) {
         enabled = false;
@@ -38,11 +48,33 @@
     } finally {
       loading = false;
       refreshing = false;
+
+      // A refresh that started before a mutation is stale. Fetch again after
+      // the mutation has completed so the UI reflects the committed database state.
+      if (refreshPending && mutationCount === 0) {
+        refreshPending = false;
+        void refresh();
+      }
+    }
+  }
+
+  function beginNotificationMutation() {
+    mutationCount += 1;
+    refreshGeneration += 1;
+    refreshPending = true;
+  }
+
+  function finishNotificationMutation() {
+    mutationCount = Math.max(0, mutationCount - 1);
+    if (mutationCount === 0 && refreshPending && !refreshing) {
+      refreshPending = false;
+      void refresh();
     }
   }
 
   async function openNotification(item: UserNotification) {
     if (!item.readAt) {
+      beginNotificationMutation();
       try {
         await markNotificationRead(item.id);
         const readAt = new Date().toISOString();
@@ -52,6 +84,8 @@
         unreadCount = Math.max(0, unreadCount - 1);
       } catch (error) {
         errorMessage = error instanceof Error ? error.message : 'Unable to update this notification.';
+      } finally {
+        finishNotificationMutation();
       }
     }
 
@@ -62,6 +96,7 @@
   async function markEverythingRead() {
     if (unreadCount === 0 || updating) return;
     updating = true;
+    beginNotificationMutation();
     errorMessage = '';
     try {
       await markAllNotificationsRead();
@@ -72,6 +107,7 @@
       errorMessage = error instanceof Error ? error.message : 'Unable to update notifications.';
     } finally {
       updating = false;
+      finishNotificationMutation();
     }
   }
 
