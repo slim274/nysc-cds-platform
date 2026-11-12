@@ -346,7 +346,7 @@
                           <button type="button" class="action-clear" onclick={() => openDecision(item, 'cleared')} disabled={item.status === 'cleared'}>Clear</button>
                           <button type="button" class="action-return" onclick={() => openDecision(item, 'not_cleared')} disabled={item.status === 'not_cleared'}>Not cleared</button>
                           {#if item.status !== 'pending'}<button type="button" class="action-reopen" onclick={() => openDecision(item, 'pending')}>Reopen</button>{/if}
-                          <button type="button" class="history-toggle" onclick={() => (expandedId = expandedId === item.clearanceId ? '' : item.clearanceId)}>{expandedId === item.clearanceId ? 'Hide history' : `History (${item.auditHistory.length})`}</button>
+                          <button type="button" class="history-toggle" onclick={() => (expandedId = expandedId === item.clearanceId ? '' : (item.clearanceId ?? ''))}>{expandedId === item.clearanceId ? 'Hide history' : `History (${item.auditHistory.length})`}</button>
                         </td>
                       </tr>
                       {#if expandedId === item.clearanceId}
@@ -385,7 +385,7 @@
                     <button type="button" class="action-clear" onclick={() => openDecision(item, 'cleared')} disabled={item.status === 'cleared'}>Clear</button>
                     <button type="button" class="action-return" onclick={() => openDecision(item, 'not_cleared')} disabled={item.status === 'not_cleared'}>Not cleared</button>
                     {#if item.status !== 'pending'}<button type="button" class="action-reopen" onclick={() => openDecision(item, 'pending')}>Reopen</button>{/if}
-                    <button type="button" class="history-toggle" onclick={() => (expandedId = expandedId === item.clearanceId ? '' : item.clearanceId)}>History ({item.auditHistory.length})</button>
+                    <button type="button" class="history-toggle" onclick={() => (expandedId = expandedId === item.clearanceId ? '' : (item.clearanceId ?? ''))}>History ({item.auditHistory.length})</button>
                   </div>
                   {#if expandedId === item.clearanceId}
                     <div class="mobile-history">
