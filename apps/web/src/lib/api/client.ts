@@ -1494,6 +1494,7 @@ export interface CdsMeetingDetails extends CdsMeetingSummary {
     eventType: string;
     details: Record<string, unknown>;
     actorUserId: string | null;
+    actorEmail: string | null;
     createdAt: string;
   }>;
 }
@@ -1806,6 +1807,7 @@ export interface LgiMonthlyClearanceItem {
   };
   indicators: {
     requiredDocuments: number;
+    hasRequirementsConfigured: boolean;
     verifiedDocuments: number;
     documentsOutstanding: number;
     approvedAttendanceMeetings: number;
