@@ -6,6 +6,7 @@ import {
   cdsAnnouncementGroups,
   cdsAnnouncementReads,
   cdsAnnouncements,
+  userNotifications,
   cdsGroupLeadershipAssignments,
   cdsGroupMemberships,
   cdsGroups,
@@ -333,7 +334,17 @@ export async function markCdsAnnouncementRead(
     throw new AnnouncementServiceError('Published announcement not found in your CDS group.', 404, 'ANNOUNCEMENT_NOT_FOUND');
   }
 
-  await db.insert(cdsAnnouncementReads).values({ announcementId, userId }).onConflictDoNothing();
+  await db.transaction(async (tx) => {
+    await tx.insert(cdsAnnouncementReads).values({ announcementId, userId }).onConflictDoNothing();
+    await tx.update(userNotifications)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(userNotifications.recipientUserId, userId),
+        eq(userNotifications.entityType, 'announcement'),
+        eq(userNotifications.entityId, announcementId),
+        isNull(userNotifications.readAt)
+      ));
+  });
   return { announcementId, read: true };
 }
 
@@ -349,9 +360,19 @@ export async function markAllCdsAnnouncementsRead(
     .map((item) => item.id);
 
   if (unreadIds.length > 0) {
-    await db.insert(cdsAnnouncementReads)
-      .values(unreadIds.map((announcementId) => ({ announcementId, userId })))
-      .onConflictDoNothing();
+    await db.transaction(async (tx) => {
+      await tx.insert(cdsAnnouncementReads)
+        .values(unreadIds.map((announcementId) => ({ announcementId, userId })))
+        .onConflictDoNothing();
+      await tx.update(userNotifications)
+        .set({ readAt: new Date() })
+        .where(and(
+          eq(userNotifications.recipientUserId, userId),
+          eq(userNotifications.entityType, 'announcement'),
+          inArray(userNotifications.entityId, unreadIds),
+          isNull(userNotifications.readAt)
+        ));
+    });
   }
 
   return { readCount: unreadIds.length };
