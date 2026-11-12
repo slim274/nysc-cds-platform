@@ -45,10 +45,18 @@ export async function listNotifications(limit = 25): Promise<NotificationsRespon
   return response.data;
 }
 
+function dispatchNotificationsChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nysc:notifications-changed'));
+  }
+}
+
 export async function markNotificationRead(notificationId: string): Promise<void> {
   await request(`/notifications/${encodeURIComponent(notificationId)}/read`, { method: 'POST' });
+  dispatchNotificationsChanged();
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
   await request('/notifications/read-all', { method: 'POST' });
+  dispatchNotificationsChanged();
 }
