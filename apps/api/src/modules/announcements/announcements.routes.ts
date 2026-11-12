@@ -66,7 +66,6 @@ function registerReadRoute(router: Hono<AuthEnv>, roleCode: 'LGI_ADMIN' | 'CDS_C
         id.data,
         roleCode === 'LGI_ADMIN' ? getAssignedLgaIds(c) : []
       );
-      await notifyAnnouncementCreated(data.id, c.get('authUser').id);
       return c.json({ success: true, data });
     } catch (error) {
       return handleError(c, error);
@@ -95,6 +94,7 @@ function createHandler(roleCode: 'LGI_ADMIN' | 'CDS_COORDINATOR' | 'CDS_PRESIDEN
         },
         roleCode === 'LGI_ADMIN' ? getAssignedLgaIds(c) : []
       );
+      await notifyAnnouncementCreated(data.id, c.get('authUser').id);
       return c.json({
         success: true,
         message: data.status === 'pending_review'
