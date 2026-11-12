@@ -253,7 +253,7 @@
           <section class="panel empty">No Corps Members from your assigned active CDS groups match this month and the selected filters.</section>
         {:else}
           <section class="panel records-panel">
-            <div class="panel-heading"><div><span class="eyebrow">CLEARANCE REGISTER</span><h3>{monthLabel(month)}</h3><p>Clearance decisions are recorded by the LGI Administrator.</p></div><span class="count">{data.items.length} records</span></div>
+            <div class="panel-heading"><div><span class="eyebrow">CLEARANCE REGISTER</span><h3>{monthLabel(month)}</h3><p>Clearance decisions are shared between the LGI Administrator and assigned CDS Coordinators.</p></div><span class="count">{data.items.length} records</span></div>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Corps Member</th><th>CDS Group</th><th>Documents</th><th>Approved attendance</th><th>Clearance status</th><th>Actions</th><th>Decision history</th></tr></thead>
@@ -304,7 +304,7 @@
                   <div><span>CDS group</span><strong>{item.member.groupName}</strong></div>
                   <div><span>Documents</span><strong>{item.indicators.hasRequirementsConfigured ? `${item.indicators.verifiedDocuments}/${item.indicators.requiredDocuments} verified · ${item.indicators.documentsOutstanding} outstanding` : 'No mandatory requirements configured'}</strong></div>
                   <div><span>Approved attendance</span><strong>{item.indicators.approvedAttendanceMeetings} registers · {item.indicators.present} present · {item.indicators.late} late · {item.indicators.absent} absent</strong></div>
-                  {#if item.decisionNote}<div><span>LGI note</span><strong>{item.decisionNote}</strong></div>{/if}
+                  {#if item.decisionNote}<div><span>Decision note</span><strong>{item.decisionNote}</strong></div>{/if}
                 </div>
                 <div class="mobile-actions">
                   <button type="button" class="action-clear" onclick={() => openDecision(item, 'cleared')} disabled={item.status === 'cleared'}>Clear</button>
