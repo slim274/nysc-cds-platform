@@ -15,8 +15,12 @@
   let loading = $state(true);
   let updating = $state(false);
   let errorMessage = $state('');
+  let refreshing = false;
+  const REFRESH_INTERVAL_MS = 5000;
 
   async function refresh() {
+    if (refreshing) return;
+    refreshing = true;
     try {
       const result = await listNotifications(25);
       notifications = result.items;
@@ -33,6 +37,7 @@
       }
     } finally {
       loading = false;
+      refreshing = false;
     }
   }
 
@@ -89,16 +94,18 @@
     void refresh();
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
-    }, 30000);
+    }, REFRESH_INTERVAL_MS);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') void refresh();
     };
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
     };
   });
 </script>
@@ -169,7 +176,7 @@
           </div>
         {/if}
         <a class="view-all" href="/notifications" onclick={() => (open = false)}>View all notifications <span>→</span></a>
-        <footer class="panel-footer">Updates refresh automatically every 30 seconds.</footer>
+        <footer class="panel-footer">Updates refresh automatically every 5 seconds while this tab is active.</footer>
       </section>
     {/if}
   </div>
