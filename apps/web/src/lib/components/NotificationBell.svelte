@@ -350,11 +350,26 @@
   .panel-footer { padding: 10px 15px; border-top: 1px solid #edf1ed; background: #fbfcfb; color: #9aa49d; font-size: 9px; text-align: center; }
   @media (max-width: 760px) {
     .lgi-mobile-identity { display: grid; }
-    .bell-button { width: 42px; height: 42px; }
+    .bell-button {
+      width: 36px;
+      height: 36px;
+    }
+    .bell-button svg {
+      width: 18px;
+      height: 18px;
+    }
   }
   @media (max-width: 480px) {
     .notification-bell {
       inset: 10px 12px auto auto !important;
+    }
+    .bell-button {
+      width: 34px;
+      height: 34px;
+    }
+    .bell-button svg {
+      width: 17px;
+      height: 17px;
     }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
   }
