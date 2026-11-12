@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import {
   db,
@@ -20,7 +20,8 @@ export type NotificationRoleCode =
   | 'LGI_ADMIN'
   | 'CDS_COORDINATOR'
   | 'CDS_PRESIDENT'
-  | 'CORPS_MEMBER';
+  | 'CORPS_MEMBER'
+  | 'CLO';
 
 export type NotificationEventInput = {
   type: string;
@@ -35,7 +36,8 @@ const rolePath: Record<NotificationRoleCode, string> = {
   LGI_ADMIN: '/lgi',
   CDS_COORDINATOR: '/coordinator',
   CDS_PRESIDENT: '/cds-president',
-  CORPS_MEMBER: '/corps-member'
+  CORPS_MEMBER: '/corps-member',
+  CLO: '/clo'
 };
 
 function notificationHref(roleCode: NotificationRoleCode, suffix: NotificationEventInput['hrefSuffix']) {
