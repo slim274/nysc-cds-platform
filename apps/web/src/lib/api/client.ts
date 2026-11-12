@@ -1863,3 +1863,19 @@ export async function updateLgiMonthlyClearance(
     body: JSON.stringify({ status, note })
   });
 }
+ 
+/** Read-only monthly clearance list for the caller's currently assigned CDS groups. */
+export async function listCoordinatorMonthlyClearances(filters: {
+  month: string;
+  search?: string;
+  status?: MonthlyClearanceStatus;
+}): Promise<LgiMonthlyClearanceData> {
+  const query = new URLSearchParams({ month: filters.month });
+  if (filters.search) query.set('search', filters.search);
+  if (filters.status) query.set('status', filters.status);
+  const response = await request<{ success: boolean; data: LgiMonthlyClearanceData }>(
+    `/coordinator/monthly-clearance?${query.toString()}`
+  );
+  return response.data;
+}
+
