@@ -36,6 +36,14 @@
   let noticeMessage = $state('');
   let declineReason = $state<DeclineReason>('personal');
   let declineNotes = $state('');
+  let menuOpen = $state(false);
+
+  // This is true only when the active President assignment belongs to the
+  // same group as this member's active Corps Member placement.
+  const isPresidentForAssignedGroup = $derived(
+    session?.roles.some((role) => role.code === 'CDS_PRESIDENT') === true &&
+    portal?.president?.userId === session?.user.id
+  );
 
   onMount(() => {
     void loadPortal();
@@ -154,14 +162,24 @@
 </svelte:head>
 
 <main class="page">
-  <header class="topbar">
-    <a href="/" class="brand">NYSC CDS <span>Corps Member Portal</span></a>
-    <div class="topbar-actions">
-      {#if portal}
-        <span class="member-code">{portal.member.stateCode}</span>
-      {/if}
-      <button class="signout" onclick={signOut}>Sign out</button>
+  <header class="topbar member-portal-topbar">
+    <a href="/corps-member" class="brand" aria-label="NYSC CDS Corps Member Portal">
+      <span class="brand-icon">N</span>
+      <span class="brand-copy"><strong>NYSC CDS</strong><small>Corps Member Portal</small></span>
+    </a>
+    <div class="topbar-tools member-portal-tools">
+      {#if portal}<span class="member-code">{portal.member.stateCode}</span>{/if}
+      <span class="role-label">Corps Member</span>
+      <button class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>☰</button>
     </div>
+    <nav class:open={menuOpen} class="member-nav member-portal-nav" aria-label="Corps Member navigation">
+      <a class="active" href="/corps-member" onclick={() => (menuOpen = false)}>My portal</a>
+      <a href="/corps-member/announcements" onclick={() => (menuOpen = false)}>Announcements</a>
+      {#if isPresidentForAssignedGroup}
+        <a class="president-nav-link" href="/cds-president" onclick={() => (menuOpen = false)}>President workspace <span>Active</span></a>
+      {/if}
+      <button class="signout" type="button" onclick={signOut}>Sign out</button>
+    </nav>
   </header>
 
   {#if loading}
@@ -186,6 +204,18 @@
       </div>
     </section>
 
+    {#if isPresidentForAssignedGroup && portal.cdsGroup}
+      <section class="president-appointment" aria-label="Active CDS President appointment">
+        <div class="appointment-icon" aria-hidden="true">★</div>
+        <div class="appointment-copy">
+          <div class="appointment-kicker"><span>ADDITIONAL RESPONSIBILITY</span><strong>CDS PRESIDENT</strong></div>
+          <h2>You are the CDS President for {portal.cdsGroup.name}</h2>
+          <p>Your Corps Member account remains your personal portal. Your President appointment gives you a separate workspace for your assigned group's leadership tasks.</p>
+        </div>
+        <a class="appointment-action" href="/cds-president">Open President workspace <span aria-hidden="true">→</span></a>
+      </section>
+    {/if}
+
     {#if noticeMessage}
       <div class="message success" role="status">{noticeMessage}</div>
     {/if}
@@ -193,10 +223,23 @@
       <div class="message error" role="alert">{errorMessage}</div>
     {/if}
 
-    <section class="member-summary" aria-label="Member information">
-      <article class="summary-item"><span>NYSC State Code</span><strong>{portal.member.stateCode}</strong></article>
-      <article class="summary-item"><span>Local Government Area</span><strong>{portal.member.lgaName ?? 'Not available'}</strong></article>
-      <article class="summary-item"><span>Academic Course</span><strong>{portal.member.courseName ?? 'Not recorded'}</strong></article>
+    <section class="profile-section" aria-labelledby="profile-heading">
+      <div class="profile-heading">
+        <div>
+          <span class="eyebrow">MEMBER DETAILS</span>
+          <h2 id="profile-heading">My NYSC profile</h2>
+          <p>Official service details linked to your Corps Member record.</p>
+        </div>
+        <span class="profile-readonly">Read only</span>
+      </div>
+      <div class="member-summary">
+        <article class="summary-item"><span>NYSC State Code</span><strong>{portal.member.stateCode}</strong></article>
+        <article class="summary-item"><span>Service Year</span><strong>{portal.member.serviceYear ?? 'Not recorded'}</strong></article>
+        <article class="summary-item"><span>Batch</span><strong>{portal.member.batchName ?? 'Not assigned'}</strong>{#if portal.member.batchCode}<small>{portal.member.batchCode}</small>{/if}</article>
+        <article class="summary-item"><span>Stream</span><strong>{portal.member.streamName ?? 'Not assigned'}</strong>{#if portal.member.streamCode}<small>{portal.member.streamCode}</small>{/if}</article>
+        <article class="summary-item"><span>Local Government Area</span><strong>{portal.member.lgaName ?? 'Not available'}</strong></article>
+        <article class="summary-item"><span>Academic Course</span><strong>{portal.member.courseName ?? 'Not recorded'}</strong></article>
+      </div>
     </section>
 
     {#if documentDashboard}
@@ -311,8 +354,12 @@
             <div>
               <span class="contact-label">CDS President</span>
               {#if portal.president}
-                <strong>{fullName(portal.president)}</strong>
-                <small>{portal.president.stateCode}{portal.president.email ? ` · ${portal.president.email}` : ''}</small>
+                <strong>{fullName(portal.president)}{isPresidentForAssignedGroup ? ' (You)' : ''}</strong>
+                {#if isPresidentForAssignedGroup}
+                  <small class="self-president-note">This is your active President appointment.</small>
+                {:else}
+                  <small>{portal.president.stateCode}{portal.president.email ? ` · ${portal.president.email}` : ''}</small>
+                {/if}
               {:else}
                 <strong>Not yet designated</strong>
                 <small>Your LGI has not designated a CDS President for this group yet.</small>
@@ -403,7 +450,7 @@
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; background: #f3f6f4; color: #17251c; font-family: Inter, Arial, sans-serif; }
   :global(button), :global(input), :global(select), :global(textarea) { font: inherit; }
-  .page { min-height: 100vh; padding: 24px clamp(16px, 4vw, 48px) 50px; }
+  .page { min-height: 100vh; padding: 0 0 50px; }
   .topbar { width: min(100%, 1120px); margin: 0 auto 34px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
   .brand { display: flex; flex-direction: column; gap: 3px; color: #0a5c37; text-decoration: none; font-weight: 800; }
   .brand span { color: #718078; font-size: 12px; font-weight: 400; }
@@ -421,9 +468,15 @@
   .message { padding: 12px 14px; margin-bottom: 16px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
   .message.success { border: 1px solid #cce6d3; background: #eff8f1; color: #155b37; }
   .message.error { border: 1px solid #efceca; background: #fff3f2; color: #a32920; }
-  .member-summary { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
-  .summary-item { display: grid; gap: 7px; padding: 15px 17px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
-  .summary-item strong { font-size: 13px; color: #263d30; }
+  .profile-section { width: min(100%, 1120px); margin: 0 auto 18px; }
+  .profile-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+  .profile-heading h2 { margin: 5px 0 3px; color: #183d29; font-size: 17px; }
+  .profile-heading p { margin: 0; color: #819087; font-size: 10px; line-height: 1.5; }
+  .profile-readonly { padding: 6px 9px; border-radius: 16px; background: #e8f5ec; color: #0a6841; font-size: 8px; font-weight: 800; white-space: nowrap; }
+  .member-summary { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 0; }
+  .summary-item { display: grid; align-content: start; gap: 7px; min-height: 78px; padding: 15px 17px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
+  .summary-item strong { font-size: 13px; color: #263d30; overflow-wrap: anywhere; }
+  .summary-item small { color: #819087; font-size: 9px; }
   .group-card { padding: 26px; margin-bottom: 18px; border: 1px solid #e0e9e2; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px #1936240a; }
   .group-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
   .group-card h2,.unassigned-card h2 { margin: 8px 0 4px; font-size: 23px; color: #183d29; }
@@ -493,7 +546,45 @@
   .matching-note { display: grid; gap: 5px; padding: 13px 15px; margin-top: 14px; border-radius: 9px; background: #f3f7f4; }
   .matching-note strong { color: #245c3c; font-size: 10px; }
   .matching-note span { color: #718078; font-size: 9px; line-height: 1.5; }
-  .coming-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+  .coming-grid {
+    width: min(100%, 1120px);
+    margin: 16px auto 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 12px;
+  }
+  .coming-grid .announcement-link {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #e4ebe6;
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    text-decoration: none;
+    box-shadow: 0 8px 24px #19362407;
+    transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  }
+  .coming-grid .announcement-link:hover {
+    border-color: #b8d6c1;
+    box-shadow: 0 10px 26px #19362410;
+    transform: translateY(-1px);
+  }
+  .coming-grid .announcement-link:focus-visible {
+    outline: 3px solid #8dcaa5;
+    outline-offset: 3px;
+  }
+  .coming-grid .announcement-link > div {
+    min-width: 0;
+    flex: 1;
+  }
+  .coming-grid .announcement-link strong {
+    display: block;
+    color: #34483b;
+    font-size: 11px;
+  }
   .coming-grid article { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
   .coming-icon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; background: #edf5ef; color: #0a6841; font-size: 14px; }
   .coming-grid strong { color: #34483b; font-size: 11px; }
@@ -527,7 +618,10 @@
   @media (max-width: 760px) {
     .welcome { align-items: flex-start; flex-direction: column; padding: 22px; }
     .account-chip { width: 100%; }
-    .member-summary { grid-template-columns: 1fr; }
+    .member-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .summary-item { min-height: 72px; padding: 12px; }
+    .summary-item strong { font-size: 11px; }
+    .profile-heading h2 { font-size: 15px; }
     .contacts-grid { grid-template-columns: 1fr; }
     .coming-grid { grid-template-columns: 1fr; }
     .group-card { padding: 20px; }
@@ -549,5 +643,272 @@
   }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
   @media (max-width: 560px) { .whatsapp-card { align-items: stretch; flex-direction: column; } .whatsapp-join { width: 100%; } }
-.attendance-history{padding:20px;margin-top:18px;border:1px solid #e5ebe6;border-radius:11px;background:#fff}.attendance-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.attendance-heading h2{margin:7px 0 5px;font-size:16px}.attendance-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.attendance-count{padding:6px 9px;border-radius:16px;background:#e8f5ec;color:#0a6841;font-size:9px;font-weight:800;white-space:nowrap}.attendance-list{display:grid;gap:7px}.attendance-record{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:8px;background:#f7f9f7}.attendance-record strong,.attendance-record small{display:block}.attendance-record strong{color:#344b3b;font-size:10px}.attendance-record small{margin-top:4px;color:#819087;font-size:9px}.attendance-status{padding:6px 9px;border-radius:18px;background:#f0f3f1;color:#52675a;font-size:8px;font-weight:800;white-space:nowrap}.attendance-status.present{background:#e8f5ec;color:#087443}.attendance-status.absent{background:#fff0ef;color:#a32920}.attendance-status.late{background:#fff4df;color:#9c6500}.attendance-status.excused{background:#eaf2ff;color:#315d9a}.attendance-empty{padding:22px 14px;border-radius:8px;background:#f7f9f7;color:#819087;font-size:10px;line-height:1.7}@media(max-width:560px){.attendance-history{padding:15px}.attendance-record{align-items:flex-start;flex-direction:column}.attendance-heading{flex-direction:column}}
+
+  /* Corps Member portal shell and dual-role appointment presentation. */
+  .topbar {
+    width: 100%;
+    max-width: none;
+    min-height: 72px;
+    margin: 0 0 28px;
+    padding: 10px clamp(16px, 4vw, 48px);
+    border-bottom: 1px solid #e1e9e3;
+    background: #fff;
+  }
+  .brand {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+  }
+  .brand-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #0a5c37;
+    color: #fff;
+    font-size: 21px;
+    font-weight: 800;
+  }
+  .brand-copy strong, .brand-copy small { display: block; }
+  .brand-copy strong { color: #0a5c37; font-size: 13px; }
+  .brand-copy small { margin-top: 3px; color: #819087; font-size: 9px; font-weight: 400; }
+  .topbar-tools { display: flex; align-items: center; gap: 8px; margin-left: 18px; }
+  .role-label { padding: 7px 9px; border: 1px solid #dce9df; border-radius: 18px; background: #f4f8f5; color: #496652; font-size: 9px; font-weight: 700; white-space: nowrap; }
+  .member-code { font-variant-numeric: tabular-nums; }
+  .member-nav { display: flex; align-items: center; gap: 17px; margin-left: auto; }
+  .member-nav > a { color: #65776b; font-size: 10px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .member-nav > a:hover, .member-nav > a.active { color: #0a6841; }
+  .member-nav .president-nav-link { display: inline-flex; align-items: center; gap: 7px; color: #0a6841; }
+  .president-nav-link span { padding: 3px 6px; border-radius: 10px; background: #e8f5ec; color: #0a6841; font-size: 8px; font-weight: 800; }
+  .menu-toggle { display: none; min-width: 38px; min-height: 38px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: #24543a; cursor: pointer; }
+  .signout { min-height: 36px; padding: 8px 12px; font-size: 10px; }
+  .welcome { position: relative; overflow: hidden; align-items: center; padding: 30px 32px; background: linear-gradient(112deg, #eaf4ed 0%, #f5faf6 75%, #e7f3ea 100%); }
+  .welcome:after { content: ""; position: absolute; width: 220px; height: 220px; right: 26%; top: -145px; border: 1px solid #cfe3d3; border-radius: 50%; pointer-events: none; }
+  .welcome > div:first-child { position: relative; z-index: 1; }
+  .welcome h1 { letter-spacing: -.5px; }
+  .account-chip { position: relative; z-index: 1; }
+  .president-appointment {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    width: min(100%, 1120px);
+    padding: 18px 20px;
+    margin: 0 auto 18px;
+    border: 1px solid #cfe4d4;
+    border-radius: 12px;
+    background: linear-gradient(105deg, #f0f8f2, #fff 78%);
+    box-shadow: 0 8px 22px #19362408;
+  }
+  .appointment-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: #0a5c37; color: #fff; font-size: 18px; }
+  .appointment-copy { min-width: 0; }
+  .appointment-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .appointment-kicker span { color: #718078; font-size: 8px; font-weight: 800; letter-spacing: 1px; }
+  .appointment-kicker strong { padding: 4px 7px; border-radius: 12px; background: #e1f1e6; color: #0a6841; font-size: 8px; letter-spacing: .4px; }
+  .appointment-copy h2 { margin: 6px 0 4px; color: #183d29; font-size: 15px; }
+  .appointment-copy p { max-width: 700px; margin: 0; color: #718078; font-size: 10px; line-height: 1.6; }
+  .appointment-action { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; padding: 10px 13px; border: 1px solid #0a5c37; border-radius: 8px; background: #0a5c37; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+  .appointment-action:hover { background: #064526; }
+  .self-president-note { color: #0a6841 !important; font-weight: 700; }
+  .summary-item { min-height: 78px; }
+  .documents-card, .group-card, .attendance-history, .unassigned-card { box-shadow: 0 8px 24px #19362407; }
+  .documents-card { padding: 26px; }
+  .documents-heading h2, .attendance-heading h2 { letter-spacing: -.2px; }
+  .document-row { padding: 17px 3px; }
+  .contact-card { min-height: 84px; }
+  .attendance-history {
+    width: min(100%, 1120px);
+    margin: 18px auto 0;
+    padding: 20px;
+    border: 1px solid #e5ebe6;
+    border-radius: 11px;
+    background: #fff;
+  }.attendance-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.attendance-heading h2{margin:7px 0 5px;font-size:16px}.attendance-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.attendance-count{padding:6px 9px;border-radius:16px;background:#e8f5ec;color:#0a6841;font-size:9px;font-weight:800;white-space:nowrap}.attendance-list{display:grid;gap:7px}.attendance-record{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:8px;background:#f7f9f7}.attendance-record strong,.attendance-record small{display:block}.attendance-record strong{color:#344b3b;font-size:10px}.attendance-record small{margin-top:4px;color:#819087;font-size:9px}.attendance-status{padding:6px 9px;border-radius:18px;background:#f0f3f1;color:#52675a;font-size:8px;font-weight:800;white-space:nowrap}.attendance-status.present{background:#e8f5ec;color:#087443}.attendance-status.absent{background:#fff0ef;color:#a32920}.attendance-status.late{background:#fff4df;color:#9c6500}.attendance-status.excused{background:#eaf2ff;color:#315d9a}.attendance-empty{padding:22px 14px;border-radius:8px;background:#f7f9f7;color:#819087;font-size:10px;line-height:1.7}@media(max-width:560px){.attendance-history{padding:15px}.attendance-record{align-items:flex-start;flex-direction:column}.attendance-heading{flex-direction:column}}
+
+  @media (max-width: 980px) {
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: initial;
+    }
+    .topbar-tools {
+      margin-left: 0;
+      justify-self: end;
+    }
+    .menu-toggle {
+      display: inline-grid;
+      place-items: center;
+    }
+    .member-nav {
+      display: none;
+      grid-column: 1 / -1;
+      width: 100%;
+      margin: 0;
+      padding: 9px;
+      border: 1px solid #e3ebe5;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 8px 22px #1936240b;
+    }
+    .member-nav.open {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
+    }
+    .member-nav > a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 40px;
+      padding: 9px 10px;
+      border-radius: 7px;
+    }
+    .member-nav > a:hover,
+    .member-nav > a.active {
+      background: #f1f7f2;
+    }
+    .member-nav .signout {
+      width: 100%;
+      margin: 5px 0 0;
+      text-align: center;
+    }
+    .president-appointment {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .appointment-action {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .page {
+      padding: 0 12px 34px;
+    }
+    .topbar {
+      width: calc(100% + 24px);
+      max-width: none;
+      margin: 0 -12px 18px;
+      padding: 8px 12px 12px;
+    }
+    .topbar-tools {
+      gap: 6px;
+    }
+    .member-code {
+      max-width: 112px;
+      overflow: hidden;
+      padding: 7px 8px;
+      font-size: 8px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .role-label {
+      display: none;
+    }
+    .member-nav.open {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .welcome {
+      padding: 21px 18px;
+    }
+    .welcome h1 {
+      font-size: 25px;
+    }
+    .president-appointment {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 11px;
+      padding: 14px;
+    }
+    .appointment-icon {
+      width: 36px;
+      height: 36px;
+      font-size: 15px;
+    }
+    .appointment-copy h2 {
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .appointment-copy p {
+      font-size: 9px;
+    }
+    .appointment-action {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+    .documents-card,
+    .group-card {
+      padding: 18px 15px;
+    }
+    .documents-heading {
+      flex-direction: column;
+    }
+    .document-row {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .document-upload,
+    .verified-mark,
+    .review-mark,
+    .pending-mark {
+      align-self: flex-start;
+    }
+    .contacts-grid {
+      grid-template-columns: 1fr;
+    }
+    .attendance-history {
+      width: 100%;
+      padding: 15px;
+    }
+    .attendance-record {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .attendance-heading {
+      align-items: flex-start;
+      flex-direction: row;
+    }
+    .coming-grid {
+      grid-template-columns: 1fr;
+    }
+    .announcement-link {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .member-summary { grid-template-columns: 1fr 1fr; }
+    .summary-item { min-height: 68px; padding: 10px; }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      flex-basis: 36px;
+    }
+    .brand-copy strong {
+      font-size: 12px;
+    }
+    .brand-copy small {
+      font-size: 8px;
+    }
+    .topbar-tools {
+      gap: 5px;
+    }
+    .member-code {
+      max-width: 72px;
+      font-size: 7px;
+    }
+    .menu-toggle {
+      min-width: 35px;
+      min-height: 35px;
+    }
+    .attendance-heading {
+      flex-direction: column;
+    }
+  }
 </style>

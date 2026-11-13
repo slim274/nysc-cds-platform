@@ -406,6 +406,11 @@ export interface CorpsMemberPortalData {
     lastName: string;
     lgaName: string | null;
     courseName: string | null;
+    serviceYear: number | null;
+    batchName: string | null;
+    batchCode: string | null;
+    streamName: string | null;
+    streamCode: string | null;
   };
   cdsGroup: {
     id: string;

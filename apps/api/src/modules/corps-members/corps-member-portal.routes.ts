@@ -6,6 +6,9 @@ import {
   db,
   corpsMembers,
   lgas,
+  streams,
+  batches,
+  serviceYears,
   cdsGroups,
   cdsGroupMemberships,
   courses,
@@ -56,6 +59,11 @@ async function getMemberPortalData(userId: string) {
       lgaId: corpsMembers.lgaId,
       lgaName: lgas.name,
       courseName: courses.name,
+      streamName: streams.name,
+      streamCode: streams.code,
+      batchName: batches.name,
+      batchCode: batches.code,
+      serviceYear: serviceYears.year,
       membershipId: cdsGroupMemberships.id,
       membershipSource: cdsGroupMemberships.source,
       assignedAt: cdsGroupMemberships.assignedAt,
@@ -76,6 +84,9 @@ async function getMemberPortalData(userId: string) {
     .leftJoin(cdsGroups, eq(cdsGroupMemberships.cdsGroupId, cdsGroups.id))
     .leftJoin(lgas, eq(corpsMembers.lgaId, lgas.id))
     .leftJoin(courses, eq(corpsMembers.courseId, courses.id))
+    .leftJoin(streams, eq(corpsMembers.streamId, streams.id))
+    .leftJoin(batches, eq(streams.batchId, batches.id))
+    .leftJoin(serviceYears, eq(batches.serviceYearId, serviceYears.id))
     .where(eq(corpsMembers.userId, userId))
     .limit(1);
 
@@ -96,7 +107,12 @@ async function getMemberPortalData(userId: string) {
         middleName: member.middleName,
         lastName: member.lastName,
         lgaName: member.lgaName,
-        courseName: member.courseName
+        courseName: member.courseName,
+        serviceYear: member.serviceYear,
+        batchName: member.batchName,
+        batchCode: member.batchCode,
+        streamName: member.streamName,
+        streamCode: member.streamCode
       },
       cdsGroup: null,
       coordinator: null,
@@ -148,7 +164,12 @@ async function getMemberPortalData(userId: string) {
       middleName: member.middleName,
       lastName: member.lastName,
       lgaName: member.lgaName,
-      courseName: member.courseName
+      courseName: member.courseName,
+      serviceYear: member.serviceYear,
+      batchName: member.batchName,
+      batchCode: member.batchCode,
+      streamName: member.streamName,
+      streamCode: member.streamCode
     },
     cdsGroup: {
       id: member.groupId,
