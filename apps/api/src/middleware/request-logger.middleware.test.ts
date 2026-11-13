@@ -30,7 +30,7 @@ describe('API request middleware', () => {
       c.header('X-Request-Id', c.get('requestId'));
       await next();
     });
-    app.use('*', requestLogger());
+    app.use('*', requestLogger);
     app.get('/health', (c) => c.json({ ok: true }));
 
     const response = await app.request('/health');
@@ -53,7 +53,7 @@ describe('API request middleware', () => {
       c.header('X-Request-Id', c.get('requestId'));
       await next();
     });
-    app.use('*', requestLogger());
+    app.use('*', requestLogger);
     app.get('/members/:memberId', (c) => c.json({ ok: true }));
 
     const response = await app.request('/members/123456789?token=must-not-be-logged');
