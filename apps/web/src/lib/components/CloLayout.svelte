@@ -55,7 +55,7 @@
         </button>
         <div><span class="breadcrumb">CLO Workspace / Document Operations</span><h1>Document Handling</h1></div>
       </div>
-      <div class="account"><div class="avatar">CLO</div><div><strong>Corps Liaison Officer</strong><span>{userEmail}</span></div></div>
+      <div class="account clo-header-controls"><div class="avatar">CLO</div><div class="account-details"><strong>Corps Liaison Officer</strong><span>{userEmail}</span></div></div>
     </header>
     <main class="page-content">{@render children()}</main>
     <footer>NYSC CDS Management Platform · Corps Liaison Officer Workspace</footer>
@@ -101,14 +101,14 @@
   .page-content { width: 100%; flex: 1; padding: 30px clamp(18px, 2.4vw, 36px); }
   footer { padding: 17px 34px; border-top: 1px solid #e8ece8; color: #89948c; font-size: 10px; }
   @media (max-width: 760px) {
-    .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(300px, 88vw); height: 100vh; height: 100dvh; transform: translateX(-105%); visibility: hidden; pointer-events: none; transition: transform 180ms ease, visibility 180ms ease; }
+    .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 1601; width: min(300px, 88vw); height: 100vh; height: 100dvh; transform: translateX(-105%); visibility: hidden; pointer-events: none; transition: transform 180ms ease, visibility 180ms ease; }
     .sidebar.open { transform: translateX(0); visibility: visible; pointer-events: auto; }
-    .backdrop { display: block; position: fixed; inset: 0; z-index: 40; width: 100%; border: 0; background: #0a19107a; }
+    .backdrop { display: block; position: fixed; inset: 0; z-index: 1600; width: 100%; border: 0; background: #0a19107a; }
     .close-menu { display: grid; width: 34px; height: 34px; place-items: center; margin-left: auto; border: 1px solid #ffffff47; border-radius: 8px; background: #ffffff14; color: #fff; font-size: 24px; }
     .topbar.clo-topbar {
       min-height: 64px;
       gap: 8px;
-      padding: 9px 54px 9px 12px !important;
+      padding: 9px 12px !important;
       justify-content: space-between;
     }
     .topbar.clo-topbar .heading {
@@ -149,18 +149,16 @@
     }
     .topbar.clo-topbar .account {
       flex: 0 0 auto;
-      gap: 0;
+      gap: 8px;
+      margin-left: auto;
     }
-    .topbar.clo-topbar .account > div:last-child { display: none; }
+    .topbar.clo-topbar .account-details { display: none; }
     .topbar.clo-topbar .avatar {
       width: 34px;
       height: 34px;
       flex: 0 0 34px;
     }
     .page-content { padding: 22px 15px 28px; }
-    @media (max-width: 480px) {
-      .topbar.clo-topbar { padding-right: 54px !important; }
-    }
     @media (max-width: 390px) {
       .topbar.clo-topbar { gap: 6px; padding-left: 10px; }
       .topbar.clo-topbar .heading { gap: 7px; }

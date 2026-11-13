@@ -156,6 +156,8 @@
   }
 </script>
 
+<svelte:window onkeydown={(event) => { if (event.key === 'Escape') menuOpen = false; }} />
+
 <svelte:head>
   <title>Corps Member Portal | NYSC CDS Platform</title>
   <meta name="description" content="View your assigned CDS group, Coordinator, President and member information." />
@@ -173,6 +175,7 @@
       <button class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>☰</button>
     </div>
     <nav class:open={menuOpen} class="member-nav member-portal-nav" aria-label="Corps Member navigation">
+      <button class="mobile-nav-close" type="button" aria-label="Close navigation menu" onclick={() => (menuOpen = false)}>×</button>
       <a class="active" href="/corps-member" onclick={() => (menuOpen = false)}>My portal</a>
       <a href="/corps-member/announcements" onclick={() => (menuOpen = false)}>Announcements</a>
       {#if isPresidentForAssignedGroup}
@@ -683,6 +686,7 @@
   .member-nav .president-nav-link { display: inline-flex; align-items: center; gap: 7px; color: #0a6841; }
   .president-nav-link span { padding: 3px 6px; border-radius: 10px; background: #e8f5ec; color: #0a6841; font-size: 8px; font-weight: 800; }
   .menu-toggle { display: none; min-width: 38px; min-height: 38px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: #24543a; cursor: pointer; }
+  .mobile-nav-close { display: none; }
   .signout { min-height: 36px; padding: 8px 12px; font-size: 10px; }
   .welcome { position: relative; overflow: hidden; align-items: center; padding: 30px 32px; background: linear-gradient(112deg, #eaf4ed 0%, #f5faf6 75%, #e7f3ea 100%); }
   .welcome:after { content: ""; position: absolute; width: 220px; height: 220px; right: 26%; top: -145px; border: 1px solid #cfe3d3; border-radius: 50%; pointer-events: none; }
@@ -760,6 +764,23 @@
       align-items: stretch;
       gap: 3px;
     }
+    .member-nav.open .mobile-nav-close {
+      display: grid;
+      place-items: center;
+      align-self: flex-end;
+      width: 34px;
+      height: 34px;
+      margin: 0 2px 2px 0;
+      padding: 0 0 3px;
+      border: 1px solid #dce5de;
+      border-radius: 8px;
+      background: #f7faf7;
+      color: #355442;
+      font-size: 25px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .member-nav.open .mobile-nav-close:focus-visible { outline: 3px solid #8dcaa5; outline-offset: 2px; }
     .member-nav > a {
       display: flex;
       align-items: center;

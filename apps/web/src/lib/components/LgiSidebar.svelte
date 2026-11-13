@@ -120,7 +120,7 @@
     .sidebar {
       position: fixed;
       inset: 0 auto 0 0;
-      z-index: 50;
+      z-index: 1601;
       width: min(300px, 88vw);
       height: 100vh;
       height: 100dvh;
@@ -132,7 +132,7 @@
       transition: transform 180ms ease, visibility 180ms ease;
     }
     .sidebar.open { transform: translateX(0); visibility: visible; pointer-events: auto; }
-    .drawer-backdrop { display: block; position: fixed; inset: 0; z-index: 40; width: 100%; height: 100%; padding: 0; border: 0; background: #0a19107a; }
+    .drawer-backdrop { display: block; position: fixed; inset: 0; z-index: 1600; width: 100%; height: 100%; padding: 0; border: 0; background: #0a19107a; }
     .brand { width: 100%; padding: 0 8px 25px; }
     .drawer-close { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; margin-left: auto; padding: 0 0 3px; border: 1px solid #ffffff47; border-radius: 9px; background: #ffffff14; color: #fff; font-size: 28px; cursor: pointer; }
     .nav-item { min-height: 46px; width: 100%; }

@@ -50,6 +50,8 @@
   }
 </script>
 
+<svelte:window onkeydown={(event) => { if (event.key === 'Escape') menuOpen = false; }} />
+
 <svelte:head>
   <title>CDS President Dashboard | NYSC CDS Platform</title>
   <meta name="description" content="View your assigned CDS group and member roster." />
@@ -67,10 +69,11 @@
         <button class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>☰</button>
       </div>
       <nav class:open={menuOpen} class="president-navigation president-header-nav" aria-label="President navigation">
-        <a class="active" href="/cds-president">Dashboard</a>
-         <a href="/cds-president/attendance">Attendance</a>
-        <a href="/cds-president/announcements">Announcements</a>
-        <a href="/corps-member">Corps Member portal</a>
+        <button class="mobile-nav-close" type="button" aria-label="Close navigation menu" onclick={() => (menuOpen = false)}>×</button>
+        <a class="active" href="/cds-president" onclick={() => (menuOpen = false)}>Dashboard</a>
+        <a href="/cds-president/attendance" onclick={() => (menuOpen = false)}>Attendance</a>
+        <a href="/cds-president/announcements" onclick={() => (menuOpen = false)}>Announcements</a>
+        <a href="/corps-member" onclick={() => (menuOpen = false)}>Corps Member portal</a>
         <span class="user-email">{currentUser.email}</span>
         <button class="signout" type="button" onclick={signOut}>Sign out</button>
       </nav>
@@ -130,7 +133,7 @@
 {/if}
 
 <style>
-  :global(*){box-sizing:border-box}:global(body){margin:0;background:#f4f7f5;color:#17251c;font-family:Inter,Arial,sans-serif}button{font:inherit}.workspace{min-height:100vh;display:flex;flex-direction:column}.topbar{min-height:76px;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:12px clamp(16px,4vw,48px);background:#fff;border-bottom:1px solid #e5ebe6}.brand{display:flex;align-items:center;gap:10px;text-decoration:none}.brand-icon{width:40px;height:40px;display:grid;place-items:center;background:#0a5c37;border-radius:9px;color:#fff;font-size:21px;font-weight:800}.brand strong,.brand small{display:block}.brand strong{color:#0a5c37;font-size:13px}.brand small{margin-top:4px;color:#819087;font-size:9px}.topbar nav{display:flex;align-items:center;gap:17px}.topbar nav a{color:#65776b;font-size:10px;font-weight:700;text-decoration:none}.topbar nav a.active,.topbar nav a:hover{color:#0a6841}.user-email{color:#819087;font-size:9px}.signout{padding:8px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#355442;font-size:9px;font-weight:700;cursor:pointer}.menu-toggle{display:none}
+  :global(*){box-sizing:border-box}:global(body){margin:0;background:#f4f7f5;color:#17251c;font-family:Inter,Arial,sans-serif}button{font:inherit}.workspace{min-height:100vh;display:flex;flex-direction:column}.topbar{min-height:76px;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:12px clamp(16px,4vw,48px);background:#fff;border-bottom:1px solid #e5ebe6}.brand{display:flex;align-items:center;gap:10px;text-decoration:none}.brand-icon{width:40px;height:40px;display:grid;place-items:center;background:#0a5c37;border-radius:9px;color:#fff;font-size:21px;font-weight:800}.brand strong,.brand small{display:block}.brand strong{color:#0a5c37;font-size:13px}.brand small{margin-top:4px;color:#819087;font-size:9px}.topbar nav{display:flex;align-items:center;gap:17px}.topbar nav a{color:#65776b;font-size:10px;font-weight:700;text-decoration:none}.topbar nav a.active,.topbar nav a:hover{color:#0a6841}.user-email{color:#819087;font-size:9px}.signout{padding:8px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#355442;font-size:9px;font-weight:700;cursor:pointer}.menu-toggle{display:none}.mobile-nav-close{display:none}
   .content{width:min(100%,1120px);margin:0 auto;padding:32px 22px;flex:1}.hero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}.eyebrow{color:#0a8050;font-size:9px;font-weight:800;letter-spacing:1.3px}h1{margin:8px 0;font-size:clamp(24px,3vw,32px)}.hero p{max-width:700px;margin:0;color:#718078;font-size:12px;line-height:1.65}.role-badge{display:flex;align-items:center;gap:7px;padding:9px 11px;border-radius:20px;background:#e8f5ec;color:#1c6840;font-size:9px;font-weight:700;white-space:nowrap}.role-badge span{width:7px;height:7px;border-radius:50%;background:#2ba267}
   .stats{display:grid;grid-template-columns:repeat(2,minmax(0,180px));gap:12px;margin:23px 0}.stats article{padding:15px 17px;border:1px solid #e3ebe5;border-radius:9px;background:#fff}.stats small,.stats strong{display:block}.stats small{color:#819087;font-size:9px}.stats strong{margin-top:7px;color:#12432b;font-size:22px}
   .groups{display:grid;gap:14px}.group-card{padding:20px;border:1px solid #e3ebe5;border-radius:11px;background:#fff}.group-top{display:flex;justify-content:space-between;align-items:center}.group-code{padding:6px 8px;border-radius:6px;background:#edf6ef;color:#0a6841;font-size:9px;font-weight:800}.badge{padding:5px 8px;border-radius:15px;background:#e8f5ec;color:#0a6841;font-size:8px;font-weight:800}.group-card h2{margin:13px 0 4px;color:#203b2b;font-size:17px}.location{margin:0;color:#819087;font-size:10px}.description{margin:9px 0 0;color:#718078;font-size:10px;line-height:1.6}.members-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0 10px;padding-bottom:10px;border-bottom:1px solid #edf1ed}.members-heading strong,.members-heading small{display:block}.members-heading strong{font-size:11px;color:#344b3b}.members-heading small{margin-top:4px;color:#819087;font-size:8px}.members-heading>span{color:#0a6841;font-size:9px;font-weight:700}.member-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.member-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;background:#f5f8f5}.member-row strong,.member-row small{display:block}.member-row strong{color:#344b3b;font-size:9px}.member-row small{margin-top:4px;color:#819087;font-size:8px}.member-row>span{color:#819087;font-size:8px;text-align:right}.empty-roster{padding:18px;text-align:center;color:#819087;font-size:10px;background:#f7faf7;border-radius:7px}
@@ -142,6 +145,8 @@
     .menu-toggle{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;margin:0;padding:0;border:1px solid #dce5de;border-radius:8px;background:#fff;color:#355442;cursor:pointer}
     .topbar nav{display:none;width:100%;align-items:flex-start;flex-direction:column;gap:12px;padding:12px 0 5px}
     .topbar nav.open{display:flex}
+    .topbar nav.open .mobile-nav-close{display:grid;place-items:center;align-self:flex-end;width:34px;height:34px;margin:0 0 2px;padding:0 0 3px;border:1px solid #dce5de;border-radius:8px;background:#f7faf7;color:#355442;font-size:25px;line-height:1;cursor:pointer}
+    .topbar nav.open .mobile-nav-close:focus-visible{outline:3px solid #8dcaa5;outline-offset:2px}
     .responsibility-grid{grid-template-columns:1fr 1fr}
   }
   @media(max-width:560px){.content{padding:24px 13px}.hero{flex-direction:column}.stats{grid-template-columns:1fr 1fr}.member-list,.responsibility-grid{grid-template-columns:1fr}.member-row>span{max-width:42%;}}

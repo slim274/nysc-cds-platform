@@ -68,7 +68,7 @@
           <h1>{pageTitle}</h1>
         </div>
       </div>
-      <div class="account">
+      <div class="account coordinator-header-controls">
         <div class="avatar">CD</div>
         <div class="account-details">
           <strong>CDS Coordinator</strong>
@@ -92,8 +92,9 @@
   .dashboard { min-height: 100vh; display: flex; }
   .main-content { min-width: 0; flex: 1; display: flex; flex-direction: column; }
   .topbar { position: sticky; top: 0; z-index: 15; min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px 34px; border-bottom: 1px solid #e8ece8; background: #fff; }
-  .topbar-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .topbar-heading { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; }
   .page-heading { min-width: 0; }
+  .coordinator-header-controls { flex: 0 0 auto; gap: 8px; margin-left: auto; justify-content: flex-end; }
   .breadcrumb { color: #819087; font-size: 10px; }
   .topbar h1 { margin: 5px 0 0; color: #19251e; font-size: 21px; }
   .account { display: flex; align-items: center; gap: 10px; }
@@ -109,19 +110,34 @@
     .page-content { padding-inline: 24px; }
   }
   @media (max-width: 760px) {
-    .topbar { min-height: 76px; padding: 13px 16px; gap: 12px; }
-    .topbar-heading { gap: 10px; }
+    .topbar { min-height: 66px; padding: 10px 16px; gap: 12px; }
+    .topbar-heading { width: 100%; padding-right: 88px; gap: 10px; }
+    .coordinator-header-controls {
+      position: absolute;
+      top: 50%;
+      right: 16px;
+      z-index: 16;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin: 0;
+      transform: translateY(-50%);
+    }
     .mobile-menu-button { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-content: center; gap: 5px; padding: 0; border: 1px solid #e1e9e2; border-radius: 9px; background: #fff; cursor: pointer; }
     .mobile-menu-button span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #0a5c37; }
     .mobile-menu-button:focus-visible { outline: 3px solid #7ac69b; outline-offset: 3px; }
     .account-details { display: none; }
-    .page-heading h1 { font-size: 19px; }
-    .breadcrumb { font-size: 9px; }
+    .breadcrumb { display: none; }
+    .page-heading h1 { margin: 0; font-size: 17px; line-height: 1.2; white-space: nowrap; }
     .page-content { padding: 22px 16px 28px; }
     footer { padding: 15px 16px; line-height: 1.5; }
   }
   @media (max-width: 380px) {
     .topbar { padding-inline: 12px; }
+    .topbar-heading { padding-right: 84px; }
+    .coordinator-header-controls { right: 12px; }
+    .page-heading h1 { font-size: 16px; }
     .page-content { padding-inline: 13px; }
   }
 </style>

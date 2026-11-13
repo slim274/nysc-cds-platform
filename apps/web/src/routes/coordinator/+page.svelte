@@ -9,17 +9,21 @@
     listMyCoordinatorPresidents,
     designateCdsPresident,
     saveMyCoordinatorWhatsAppGroup,
+    listCoordinatorAttendanceMeetings,
     logout
   } from '#lib/api/client.ts';
   import type {
     AuthUser,
     CoordinatorWorkspaceGroup,
-    CdsPresidentDesignation
+    CdsPresidentDesignation,
+    CdsMeetingSummary
   } from '#lib/api/client.ts';
 
   let currentUser = $state<AuthUser | null>(null);
   let groups = $state<CoordinatorWorkspaceGroup[]>([]);
   let presidentHistory = $state<CdsPresidentDesignation[]>([]);
+  let meetings = $state<CdsMeetingSummary[]>([]);
+  let attendanceOverviewError = $state('');
   let loading = $state(true);
   let savingGroupId = $state('');
   let selectedMembers = $state<Record<string, string>>({});
@@ -32,6 +36,20 @@
   const totalMembers = $derived(groups.reduce((sum, group) => sum + group.currentMemberCount, 0));
   const activePresidents = $derived(groups.filter((group) => group.president?.status === 'active').length);
   const pendingPresidents = $derived(groups.filter((group) => group.president?.status === 'pending_activation').length);
+  const pendingReviewMeetings = $derived(meetings.filter((meeting) => meeting.status === 'submitted'));
+  const returnedMeetings = $derived(meetings.filter((meeting) => meeting.reviewDecision === 'returned'));
+  const upcomingMeetings = $derived(
+    meetings
+      .filter((meeting) => meeting.status === 'scheduled' && new Date(meeting.startsAt).getTime() >= Date.now())
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+  );
+  const approvedRegisters = $derived(meetings.filter((meeting) => meeting.status === 'reviewed').length);
+  const attendanceAttention = $derived(
+    [...pendingReviewMeetings, ...returnedMeetings].sort((a, b) =>
+      new Date(b.submittedAt ?? b.updatedAt ?? b.startsAt).getTime() -
+      new Date(a.submittedAt ?? a.updatedAt ?? a.startsAt).getTime()
+    )
+  );
 
   onMount(() => { void loadPage(); });
 
@@ -53,6 +71,15 @@
       whatsappLinks = Object.fromEntries(groupRows.map((group) => [group.id, group.whatsappGroupLink ?? '']));
       whatsappAssistants = Object.fromEntries(groupRows.map((group) => [group.id, group.whatsappAssistantMemberId ?? '']));
       presidentHistory = leadershipRows;
+
+      try {
+        meetings = await listCoordinatorAttendanceMeetings();
+        attendanceOverviewError = '';
+      } catch {
+        // Keep the existing group-management workspace available if attendance data cannot load.
+        meetings = [];
+        attendanceOverviewError = 'Attendance overview is temporarily unavailable. Open Attendance Management to try again.';
+      }
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await goto('/login');
@@ -131,6 +158,15 @@
     return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  function meetingDate(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Date unavailable';
+    return new Intl.DateTimeFormat('en-NG', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(date);
+  }
+
   async function signOut() {
     try {
       await logout();
@@ -180,6 +216,75 @@
           <article class="summary-card"><span>Total active members</span><strong>{totalMembers}</strong><small>Across your assigned groups</small></article>
           <article class="summary-card"><span>Presidents designated</span><strong>{activePresidents}</strong><small>Active President access</small></article>
           <article class="summary-card"><span>Awaiting activation</span><strong>{pendingPresidents}</strong><small>Pending member registration</small></article>
+        </section>
+
+        <section class="section-heading attendance-heading">
+          <div>
+            <h2>Attendance Overview</h2>
+            <p>Track registers that need your attention and see what is coming up across your assigned groups.</p>
+          </div>
+          <a class="text-link" href="/coordinator/attendance">Manage attendance →</a>
+        </section>
+
+        <section class="summary-grid attendance-summary-grid" aria-label="Attendance summary">
+          <article class="summary-card"><span>Awaiting review</span><strong>{pendingReviewMeetings.length}</strong><small>Registers submitted by Presidents</small></article>
+          <article class="summary-card"><span>Returned for correction</span><strong>{returnedMeetings.length}</strong><small>Presidents need to update these registers</small></article>
+          <article class="summary-card"><span>Upcoming meetings</span><strong>{upcomingMeetings.length}</strong><small>Scheduled across your assigned groups</small></article>
+          <article class="summary-card"><span>Approved registers</span><strong>{approvedRegisters}</strong><small>Reviewed and locked attendance records</small></article>
+        </section>
+
+        {#if attendanceOverviewError}
+          <div class="message warning" role="status">{attendanceOverviewError}</div>
+        {/if}
+
+        <section class="dashboard-panels" aria-label="Attendance activity">
+          <article class="list-panel attendance-panel">
+            <div class="panel-heading attendance-panel-heading">
+              <div><span class="eyebrow">ACTION REQUIRED</span><h3>Attendance requiring attention</h3><p>Submitted registers and records returned to Presidents for correction.</p></div>
+              <a class="text-link" href="/coordinator/attendance">View all</a>
+            </div>
+            {#if attendanceAttention.length === 0}
+              <div class="history-empty">You are all caught up. New submissions and returned registers will appear here.</div>
+            {:else}
+              <div class="attention-list">
+                {#each attendanceAttention.slice(0, 5) as meeting (meeting.id)}
+                  <div class="attention-row">
+                    <div class="attention-main">
+                      <div class="attention-title">
+                        <strong>{meeting.title}</strong>
+                        <span class:returned={meeting.reviewDecision === 'returned'} class="attention-status">{meeting.reviewDecision === 'returned' ? 'Returned' : 'Awaiting review'}</span>
+                      </div>
+                      <p>{meeting.groupCode} · {meeting.groupName}</p>
+                      <small>{meetingDate(meeting.startsAt)} · {meeting.attendanceSummary.total} members on register</small>
+                      {#if meeting.reviewDecision === 'returned' && meeting.reviewNotes}
+                        <small class="review-reason">Correction note: {meeting.reviewNotes}</small>
+                      {/if}
+                    </div>
+                    <a class="attention-action" href="/coordinator/attendance">{meeting.reviewDecision === 'returned' ? 'Open register' : 'Review register'} →</a>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </article>
+
+          <article class="list-panel attendance-panel">
+            <div class="panel-heading attendance-panel-heading">
+              <div><span class="eyebrow">ON THE CALENDAR</span><h3>Upcoming CDS meetings</h3><p>The next scheduled meetings for your groups.</p></div>
+            </div>
+            {#if upcomingMeetings.length === 0}
+              <div class="history-empty">No upcoming meetings have been scheduled yet.</div>
+            {:else}
+              <div class="upcoming-list">
+                {#each upcomingMeetings.slice(0, 4) as meeting (meeting.id)}
+                  <div class="upcoming-row">
+                    <span class="upcoming-marker">◎</span>
+                    <div><strong>{meeting.title}</strong><small>{meeting.groupCode} · {meeting.groupName}</small><small>{meetingDate(meeting.startsAt)}</small></div>
+                  </div>
+                {/each}
+              </div>
+              <a class="text-link upcoming-link" href="/coordinator/attendance">Open meeting schedule →</a>
+            {/if}
+          </article>
         </section>
 
         <section class="section-heading group-section-heading">
@@ -321,6 +426,30 @@
   .summary-card span, .summary-card small { display: block; color: #819087; font-size: 10px; }
   .summary-card strong { display: block; margin: 6px 0 4px; color: #123d27; font-size: 24px; }
   .summary-card small { font-size: 9px; }
+  .attendance-heading { margin-top: 28px; }
+  .text-link { color: #0a6841; font-size: 10px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+  .text-link:hover { color: #064526; text-decoration: underline; }
+  .attendance-summary-grid { margin-bottom: 14px; }
+  .dashboard-panels { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 14px; }
+  .attendance-panel { min-width: 0; }
+  .attendance-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .attendance-panel-heading h3 { margin-top: 7px; }
+  .attendance-list, .attention-list, .upcoming-list { display: grid; margin-top: 12px; }
+  .attention-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid #edf1ed; }
+  .attention-main { min-width: 0; }
+  .attention-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .attention-title strong, .upcoming-row strong { color: #344b3b; font-size: 10px; }
+  .attention-status { padding: 4px 7px; border-radius: 15px; background: #fff4df; color: #94600e; font-size: 8px; font-weight: 800; white-space: nowrap; }
+  .attention-status.returned { background: #fff0e8; color: #a34d17; }
+  .attention-main p { margin: 5px 0 3px; color: #627267; font-size: 9px; }
+  .attention-main small, .upcoming-row small { display: block; margin-top: 4px; color: #819087; font-size: 8px; line-height: 1.5; }
+  .attention-main .review-reason { color: #a34d17; }
+  .attention-action { flex: 0 0 auto; color: #0a6841; font-size: 9px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+  .attention-action:hover { text-decoration: underline; }
+  .upcoming-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-top: 1px solid #edf1ed; }
+  .upcoming-marker { width: 26px; height: 26px; flex: 0 0 26px; display: grid; place-items: center; border-radius: 7px; background: #e7f4eb; color: #0a6841; font-size: 13px; }
+  .upcoming-row > div { min-width: 0; }
+  .upcoming-link { display: inline-block; margin-top: 10px; }
   .group-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .group-card { min-width: 0; padding: 21px; border: 1px solid #e5ebe6; border-radius: 10px; background: #fff; }
   .group-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -412,7 +541,7 @@
   @media (max-width: 1050px) {
     .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .group-grid { grid-template-columns: 1fr; }
+    .group-grid, .dashboard-panels { grid-template-columns: 1fr; }
   }
   @media (max-width: 760px) {
     .welcome { min-height: 0; padding: 22px 19px; }
@@ -424,6 +553,11 @@
     .summary-card strong { font-size: 21px; }
     .group-grid, .feature-grid { grid-template-columns: 1fr; gap: 12px; }
     .group-card { padding: 17px; }
+    .attendance-heading { align-items: flex-start; flex-direction: column; }
+    .attendance-panel { padding: 16px; }
+    .attention-row { align-items: flex-start; flex-direction: column; gap: 9px; }
+    .attention-action { align-self: flex-start; }
+    .attendance-panel-heading { align-items: flex-start; }
     .designation-row { flex-direction: column; }
     .designation-row .primary-button { width: 100%; }
     .history-row { grid-template-columns: 1fr auto; }
