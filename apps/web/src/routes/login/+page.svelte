@@ -79,11 +79,12 @@
       if (error instanceof ApiError && error.status === 429) {
         if (error.retryAfterSeconds !== null) {
           startLoginCountdown(error.retryAfterSeconds);
+          errorMessage = '';
         } else {
-          loginBlocked = true;
-          retryAfterSeconds = 0;
+          // Do not permanently disable the form if a proxy strips Retry-After.
+          loginBlocked = false;
+          errorMessage = error.message;
         }
-        errorMessage = '';
       } else {
         loginBlocked = false;
         errorMessage = error instanceof ApiError
