@@ -19,8 +19,13 @@ export class LoginRateLimitError extends Error {
 }
 
 function getPepper(): string {
-  const pepper = Bun.env.API_RATE_LIMIT_PEPPER ?? Bun.env.IDENTITY_VERIFICATION_PEPPER;
-  if (!pepper || Buffer.byteLength(pepper, 'utf8') < 32) {
+  const pepper = Bun.env.API_RATE_LIMIT_PEPPER?.trim()
+    || Bun.env.IDENTITY_VERIFICATION_PEPPER?.trim();
+  if (
+    !pepper
+    || Buffer.byteLength(pepper, 'utf8') < 32
+    || /^(replace-with|change-me|example)/i.test(pepper)
+  ) {
     throw new Error('API_RATE_LIMIT_PEPPER must be configured with at least 32 bytes.');
   }
   return pepper;
