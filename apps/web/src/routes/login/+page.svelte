@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { login, getCurrentUser, logout, ApiError } from '#lib/api/client.ts';
 
@@ -6,11 +7,53 @@
   let password = $state('');
   let submitting = $state(false);
   let errorMessage = $state('');
+  let loginBlocked = $state(false);
+  let retryAfterSeconds = $state(0);
+  let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+  function formatCountdown(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function stopLoginCountdown() {
+    if (countdownInterval !== null) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+  }
+
+  function startLoginCountdown(seconds: number) {
+    stopLoginCountdown();
+    retryAfterSeconds = Math.max(0, Math.ceil(seconds));
+    loginBlocked = retryAfterSeconds > 0;
+
+    if (!loginBlocked) return;
+
+    countdownInterval = setInterval(() => {
+      if (retryAfterSeconds <= 1) {
+        stopLoginCountdown();
+        retryAfterSeconds = 0;
+        loginBlocked = false;
+        errorMessage = '';
+        return;
+      }
+
+      retryAfterSeconds -= 1;
+    }, 1000);
+  }
+
+  onDestroy(stopLoginCountdown);
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
+    if (loginBlocked) return;
+
     errorMessage = '';
+    loginBlocked = false;
+    retryAfterSeconds = 0;
     submitting = true;
 
     try {
@@ -33,9 +76,20 @@
       }
 
     } catch (error) {
-      errorMessage = error instanceof ApiError
-        ? error.message
-        : 'Unable to connect to the server. Please try again.';
+      if (error instanceof ApiError && error.status === 429) {
+        if (error.retryAfterSeconds !== null) {
+          startLoginCountdown(error.retryAfterSeconds);
+        } else {
+          loginBlocked = true;
+          retryAfterSeconds = 0;
+        }
+        errorMessage = '';
+      } else {
+        loginBlocked = false;
+        errorMessage = error instanceof ApiError
+          ? error.message
+          : 'Unable to connect to the server. Please try again.';
+      }
     } finally {
       submitting = false;
       password = '';
@@ -71,7 +125,16 @@
       <p>Sign in to continue to your NYSC CDS workspace.</p>
     </div>
 
-    {#if errorMessage}
+    {#if loginBlocked}
+      <div class="error-message lockout-message" role="alert" aria-live="polite">
+        <strong>Too many login attempts.</strong>
+        {#if retryAfterSeconds > 0}
+          <p>Please try again in <strong>{formatCountdown(retryAfterSeconds)}</strong>.</p>
+        {:else}
+          <p>Please try again later.</p>
+        {/if}
+      </div>
+    {:else if errorMessage}
       <div class="error-message" role="alert">
         {errorMessage}
       </div>
@@ -89,7 +152,7 @@
           placeholder="Enter your email or phone number"
           autocomplete="username"
           required
-          disabled={submitting}
+          disabled={submitting || loginBlocked}
         />
       </div>
 
@@ -103,13 +166,13 @@
           placeholder="Enter your password"
           autocomplete="current-password"
           required
-          disabled={submitting}
+          disabled={submitting || loginBlocked}
         />
       </div>
 
       <button
         type="submit"
-        disabled={submitting || !identifier.trim() || !password}
+        disabled={submitting || loginBlocked || !identifier.trim() || !password}
       >
         {submitting ? 'Signing in...' : 'Sign in'}
       </button>
@@ -270,6 +333,11 @@
     border-radius: 8px;
     color: #b42318;
     font-size: 13px;
+  }
+
+  .lockout-message p {
+    margin: 6px 0 0;
+    line-height: 1.5;
   }
 
   .login-footer {
