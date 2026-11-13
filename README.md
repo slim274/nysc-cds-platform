@@ -173,10 +173,10 @@ The existing Corps Member identity-verification throttling and OTP send/verifica
 
 ### Configuration and migration
 
-Set a dedicated random secret of at least 32 bytes in the root `.env`:
+Set a dedicated random secret of at least 32 bytes in the root `.env`. Generate one with `openssl rand -hex 32` and copy the output:
 
 ```env
-API_RATE_LIMIT_PEPPER=replace-with-a-unique-random-secret-at-least-32-bytes-long
+API_RATE_LIMIT_PEPPER=<your-generated-secret>
 ```
 
 For local compatibility, the service temporarily falls back to `IDENTITY_VERIFICATION_PEPPER` when `API_RATE_LIMIT_PEPPER` is not set. Use a separate value in deployed environments. Do not commit either secret.
