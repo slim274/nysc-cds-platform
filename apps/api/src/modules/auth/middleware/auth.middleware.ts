@@ -28,6 +28,7 @@ export type AuthEnv = {
     };
     authSessionId: string;
     authRoles: AuthRole[];
+    requestId: string;
   };
 };
 

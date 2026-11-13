@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { login, getCurrentUser, logout, ApiError } from '#lib/api/client.ts';
 
@@ -6,15 +7,112 @@
   let password = $state('');
   let submitting = $state(false);
   let errorMessage = $state('');
+  let loginBlocked = $state(false);
+  let retryAfterSeconds = $state(0);
+  let blockedUntilTimestamp: number | null = null;
+  let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+  const LOGIN_LOCKOUT_STORAGE_KEY = 'nysc-cds-login-blocked-until';
+
+  function formatCountdown(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function stopLoginCountdown() {
+    if (countdownInterval !== null) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+  }
+
+  function clearLoginLockout() {
+    stopLoginCountdown();
+    blockedUntilTimestamp = null;
+    retryAfterSeconds = 0;
+    loginBlocked = false;
+
+    try {
+      sessionStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+    } catch {
+      // The API remains authoritative if browser storage is unavailable.
+    }
+  }
+
+  function updateLoginCountdown() {
+    if (blockedUntilTimestamp === null) return;
+
+    const remainingSeconds = Math.ceil(
+      (blockedUntilTimestamp - Date.now()) / 1000
+    );
+
+    if (remainingSeconds <= 0) {
+      clearLoginLockout();
+      errorMessage = '';
+      return;
+    }
+
+    retryAfterSeconds = remainingSeconds;
+    loginBlocked = true;
+  }
+
+  function startLoginCountdown(seconds: number) {
+    clearLoginLockout();
+
+    const durationSeconds = Math.max(0, Math.ceil(seconds));
+    if (durationSeconds === 0) return;
+
+    blockedUntilTimestamp = Date.now() + durationSeconds * 1000;
+
+    try {
+      sessionStorage.setItem(
+        LOGIN_LOCKOUT_STORAGE_KEY,
+        String(blockedUntilTimestamp)
+      );
+    } catch {
+      // The countdown still works until this page is refreshed.
+    }
+
+    updateLoginCountdown();
+    countdownInterval = setInterval(updateLoginCountdown, 1000);
+  }
+
+  function restoreLoginCountdown() {
+    try {
+      const storedTimestamp = Number(
+        sessionStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY)
+      );
+
+      if (Number.isFinite(storedTimestamp) && storedTimestamp > Date.now()) {
+        blockedUntilTimestamp = storedTimestamp;
+        updateLoginCountdown();
+        countdownInterval = setInterval(updateLoginCountdown, 1000);
+        return;
+      }
+
+      sessionStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+    } catch {
+      // Continue normally; the API will still reject requests during a block.
+    }
+  }
+
+  onMount(restoreLoginCountdown);
+  onDestroy(stopLoginCountdown);
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
+    if (loginBlocked) return;
+
     errorMessage = '';
+    loginBlocked = false;
+    retryAfterSeconds = 0;
     submitting = true;
 
     try {
       await login(identifier.trim(), password);
+      clearLoginLockout();
       const session = await getCurrentUser();
 
       if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
@@ -33,9 +131,21 @@
       }
 
     } catch (error) {
-      errorMessage = error instanceof ApiError
-        ? error.message
-        : 'Unable to connect to the server. Please try again.';
+      if (error instanceof ApiError && error.status === 429) {
+        if (error.retryAfterSeconds !== null) {
+          startLoginCountdown(error.retryAfterSeconds);
+          errorMessage = '';
+        } else {
+          // Do not permanently disable the form if a proxy strips Retry-After.
+          loginBlocked = false;
+          errorMessage = error.message;
+        }
+      } else {
+        clearLoginLockout();
+        errorMessage = error instanceof ApiError
+          ? error.message
+          : 'Unable to connect to the server. Please try again.';
+      }
     } finally {
       submitting = false;
       password = '';
@@ -71,7 +181,16 @@
       <p>Sign in to continue to your NYSC CDS workspace.</p>
     </div>
 
-    {#if errorMessage}
+    {#if loginBlocked}
+      <div class="error-message lockout-message" role="alert" aria-live="polite">
+        <strong>Too many login attempts.</strong>
+        {#if retryAfterSeconds > 0}
+          <p>Please try again in <strong>{formatCountdown(retryAfterSeconds)}</strong>.</p>
+        {:else}
+          <p>Please try again later.</p>
+        {/if}
+      </div>
+    {:else if errorMessage}
       <div class="error-message" role="alert">
         {errorMessage}
       </div>
@@ -89,7 +208,7 @@
           placeholder="Enter your email or phone number"
           autocomplete="username"
           required
-          disabled={submitting}
+          disabled={submitting || loginBlocked}
         />
       </div>
 
@@ -103,13 +222,13 @@
           placeholder="Enter your password"
           autocomplete="current-password"
           required
-          disabled={submitting}
+          disabled={submitting || loginBlocked}
         />
       </div>
 
       <button
         type="submit"
-        disabled={submitting || !identifier.trim() || !password}
+        disabled={submitting || loginBlocked || !identifier.trim() || !password}
       >
         {submitting ? 'Signing in...' : 'Sign in'}
       </button>
@@ -270,6 +389,11 @@
     border-radius: 8px;
     color: #b42318;
     font-size: 13px;
+  }
+
+  .lockout-message p {
+    margin: 6px 0 0;
+    line-height: 1.5;
   }
 
   .login-footer {
