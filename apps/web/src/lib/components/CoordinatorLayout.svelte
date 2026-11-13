@@ -110,7 +110,7 @@
     .page-content { padding-inline: 24px; }
   }
   @media (max-width: 760px) {
-    .topbar { min-height: 76px; padding: 13px 16px; gap: 12px; }
+    .topbar { min-height: 66px; padding: 10px 16px; gap: 12px; }
     .topbar-heading { width: 100%; padding-right: 88px; gap: 10px; }
     .coordinator-header-controls {
       position: absolute;
@@ -128,8 +128,8 @@
     .mobile-menu-button span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #0a5c37; }
     .mobile-menu-button:focus-visible { outline: 3px solid #7ac69b; outline-offset: 3px; }
     .account-details { display: none; }
-    .page-heading h1 { font-size: 19px; }
-    .breadcrumb { font-size: 9px; }
+    .breadcrumb { display: none; }
+    .page-heading h1 { margin: 0; font-size: 17px; line-height: 1.2; white-space: nowrap; }
     .page-content { padding: 22px 16px 28px; }
     footer { padding: 15px 16px; line-height: 1.5; }
   }
@@ -137,6 +137,7 @@
     .topbar { padding-inline: 12px; }
     .topbar-heading { padding-right: 84px; }
     .coordinator-header-controls { right: 12px; }
+    .page-heading h1 { font-size: 16px; }
     .page-content { padding-inline: 13px; }
   }
 </style>
