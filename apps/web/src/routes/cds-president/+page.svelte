@@ -61,12 +61,12 @@
   <main class="state-screen"><h2>President workspace unavailable</h2><p>{errorMessage}</p><a href="/login">Return to sign in</a></main>
 {:else}
   <div class="workspace">
-    <header class="topbar">
+    <header class="topbar president-workspace-topbar">
       <a class="brand" href="/cds-president"><span class="brand-icon">N</span><span><strong>NYSC CDS</strong><small>President workspace</small></span></a>
       <div class="president-header-controls">
         <button class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>☰</button>
       </div>
-      <nav class:open={menuOpen} class="president-navigation" aria-label="President navigation">
+      <nav class:open={menuOpen} class="president-navigation president-header-nav" aria-label="President navigation">
         <a class="active" href="/cds-president">Dashboard</a>
          <a href="/cds-president/attendance">Attendance</a>
         <a href="/cds-president/announcements">Announcements</a>
@@ -135,11 +135,11 @@
   .stats{display:grid;grid-template-columns:repeat(2,minmax(0,180px));gap:12px;margin:23px 0}.stats article{padding:15px 17px;border:1px solid #e3ebe5;border-radius:9px;background:#fff}.stats small,.stats strong{display:block}.stats small{color:#819087;font-size:9px}.stats strong{margin-top:7px;color:#12432b;font-size:22px}
   .groups{display:grid;gap:14px}.group-card{padding:20px;border:1px solid #e3ebe5;border-radius:11px;background:#fff}.group-top{display:flex;justify-content:space-between;align-items:center}.group-code{padding:6px 8px;border-radius:6px;background:#edf6ef;color:#0a6841;font-size:9px;font-weight:800}.badge{padding:5px 8px;border-radius:15px;background:#e8f5ec;color:#0a6841;font-size:8px;font-weight:800}.group-card h2{margin:13px 0 4px;color:#203b2b;font-size:17px}.location{margin:0;color:#819087;font-size:10px}.description{margin:9px 0 0;color:#718078;font-size:10px;line-height:1.6}.members-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0 10px;padding-bottom:10px;border-bottom:1px solid #edf1ed}.members-heading strong,.members-heading small{display:block}.members-heading strong{font-size:11px;color:#344b3b}.members-heading small{margin-top:4px;color:#819087;font-size:8px}.members-heading>span{color:#0a6841;font-size:9px;font-weight:700}.member-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.member-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;background:#f5f8f5}.member-row strong,.member-row small{display:block}.member-row strong{color:#344b3b;font-size:9px}.member-row small{margin-top:4px;color:#819087;font-size:8px}.member-row>span{color:#819087;font-size:8px;text-align:right}.empty-roster{padding:18px;text-align:center;color:#819087;font-size:10px;background:#f7faf7;border-radius:7px}
   .responsibilities{padding:19px;margin-top:18px;border:1px solid #e3ebe5;border-radius:11px;background:#fff}.responsibilities h2{margin:7px 0 15px;font-size:15px}.responsibility-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.responsibility-grid article{display:flex;gap:10px;padding:12px;border-radius:8px;background:#f6f9f6}.responsibility-grid article>span{color:#0a8050;font-size:11px;font-weight:800}.responsibility-grid strong{color:#355442;font-size:10px}.responsibility-grid p{margin:5px 0 0;color:#819087;font-size:9px;line-height:1.55}.policy{display:grid;gap:5px;padding:14px 16px;margin-top:17px;border-radius:8px;background:#eaf4ed}.policy strong{color:#245c3c;font-size:10px}.policy span{color:#718078;font-size:9px;line-height:1.6}.message{padding:10px 13px;margin:12px 0;border-radius:7px;font-size:10px}.message.error{border:1px solid #efceca;background:#fff3f2;color:#a32920}.empty{padding:50px 22px;text-align:center;border:1px solid #e3ebe5;border-radius:11px;background:#fff}.empty h2{margin:9px 0;color:#203b2b;font-size:17px}.empty p{max-width:520px;margin:0 auto;color:#819087;font-size:11px;line-height:1.7}.empty-icon{color:#0a8050;font-size:30px}footer{padding:18px;text-align:center;color:#819087;font-size:9px}
-  .president-header-controls{display:none;align-items:center;gap:7px;flex:0 0 auto}
+  .president-header-controls{display:none;align-items:center;gap:10px;flex:0 0 auto}
   @media(max-width:850px){
     .topbar{flex-wrap:wrap;gap:10px}
-    .president-header-controls{display:flex;margin-left:auto}
-    .menu-toggle{display:grid;place-items:center;width:38px;height:38px;margin:0;padding:0;border:1px solid #dce5de;border-radius:8px;background:#fff;color:#355442;cursor:pointer}
+    .president-header-controls{display:flex;align-items:center;gap:10px;margin-left:auto}
+    .menu-toggle{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;margin:0;padding:0;border:1px solid #dce5de;border-radius:8px;background:#fff;color:#355442;cursor:pointer}
     .topbar nav{display:none;width:100%;align-items:flex-start;flex-direction:column;gap:12px;padding:12px 0 5px}
     .topbar nav.open{display:flex}
     .responsibility-grid{grid-template-columns:1fr 1fr}
