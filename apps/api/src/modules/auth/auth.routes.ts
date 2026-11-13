@@ -44,6 +44,13 @@ import {
   type AuthEnv
 } from './middleware/auth.middleware';
 
+import {
+  assertLoginAllowed,
+  clearFailedLoginBucket,
+  LoginRateLimitError,
+  recordFailedLogin
+} from './services/login-rate-limit.service';
+
 const authRoutes = new Hono<AuthEnv>();
 
 function getPostgresErrorCode(error: unknown): string | null {
@@ -271,15 +278,42 @@ authRoutes.post('/login', async (c) => {
     }, 400);
   }
 
+  const clientAddress = c.req.header('x-nysc-client-address') ?? 'unknown';
+
   try {
+    await assertLoginAllowed(validation.data.identifier, clientAddress);
+
     const user = await authenticateUser(validation.data);
 
     if (!user) {
+      const retryAfterSeconds = await recordFailedLogin(
+        validation.data.identifier,
+        clientAddress
+      );
+
+      if (retryAfterSeconds) {
+        c.header('Retry-After', String(retryAfterSeconds));
+        return c.json({
+          success: false,
+          message: 'Too many login attempts. Try again later.'
+        }, 429);
+      }
+
       return c.json({
         success: false,
         message: 'Invalid email or password.'
       }, 401);
     }
+
+    // Reset this identifier/IP failure bucket after successful authentication.
+    // A cleanup failure must not prevent a legitimate login.
+    await clearFailedLoginBucket(validation.data.identifier, clientAddress)
+      .catch((error) => console.warn(JSON.stringify({
+        level: 'warn',
+        event: 'auth.login_rate_limit_reset_failed',
+        requestId: c.get('requestId'),
+        errorName: error instanceof Error ? error.name : 'UnknownError'
+      })));
 
     const session = await createSession(
       user.id,
@@ -303,12 +337,25 @@ authRoutes.post('/login', async (c) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    if (error instanceof LoginRateLimitError) {
+      c.header('Retry-After', String(error.retryAfterSeconds));
+      return c.json({
+        success: false,
+        message: 'Too many login attempts. Try again later.'
+      }, 429);
+    }
+
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'auth.login_failed_to_process',
+      requestId: c.get('requestId'),
+      errorName: error instanceof Error ? error.name : 'UnknownError'
+    }));
 
     return c.json({
       success: false,
-      message: 'Unable to process login.'
-    }, 500);
+      message: 'Unable to process login at this time.'
+    }, 503);
   }
 });
 
