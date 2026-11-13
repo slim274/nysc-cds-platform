@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 import { HTTPException } from 'hono/http-exception';
-import { requestLogger } from './middleware/request-logger.middleware';
+import { redactPathIdentifiers, requestLogger } from './middleware/request-logger.middleware';
 
 import {
   checkDatabaseConnection
@@ -94,7 +94,7 @@ app.onError((error, c) => {
     event: 'http.request.unhandled_error',
     requestId: c.get('requestId'),
     method: c.req.method,
-    path: new URL(c.req.url).pathname,
+    path: redactPathIdentifiers(new URL(c.req.url).pathname),
     status,
     errorName: error instanceof Error ? error.name : 'UnknownError'
   }));
