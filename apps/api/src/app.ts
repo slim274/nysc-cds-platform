@@ -1,4 +1,8 @@
 import { Hono } from 'hono';
+import { requestId } from 'hono/request-id';
+import { secureHeaders } from 'hono/secure-headers';
+import { HTTPException } from 'hono/http-exception';
+import { requestLogger } from './middleware/request-logger.middleware';
 
 import {
   checkDatabaseConnection
@@ -62,7 +66,51 @@ import type {
   AuthEnv
 } from './modules/auth/middleware/auth.middleware';
 
-const app = new Hono<AuthEnv>();
+type ApiEnv = AuthEnv & {
+  Variables: AuthEnv['Variables'] & { requestId: string }
+};
+
+const app = new Hono<ApiEnv>();
+
+// Apply headers and request correlation before routing. HSTS is enabled only
+// behind HTTPS in production so local HTTP development is not pinned to HTTPS.
+app.use('*', secureHeaders({
+  strictTransportSecurity: Bun.env.NODE_ENV === 'production'
+    ? 'max-age=15552000; includeSubDomains'
+    : false
+}));
+app.use('*', requestId({ headerName: '' }));
+app.use('*', async (c, next) => {
+  c.header('X-Request-Id', c.get('requestId'));
+  await next();
+});
+app.use('*', requestLogger());
+
+app.onError((error, c) => {
+  const status = error instanceof HTTPException ? error.status : 500;
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: 'error',
+    event: 'http.request.unhandled_error',
+    requestId: c.get('requestId'),
+    method: c.req.method,
+    path: new URL(c.req.url).pathname,
+    status,
+    errorName: error instanceof Error ? error.name : 'UnknownError'
+  }));
+
+  return c.json({
+    success: false,
+    message: status >= 500 ? 'An unexpected server error occurred.' : error.message,
+    requestId: c.get('requestId')
+  }, status as 400 | 401 | 403 | 404 | 405 | 408 | 409 | 410 | 413 | 415 | 422 | 429 | 500 | 501 | 502 | 503 | 504);
+});
+
+app.notFound((c) => c.json({
+  success: false,
+  message: 'API endpoint not found.',
+  requestId: c.get('requestId')
+}, 404));
 
 // API information
 app.get('/', (c) => {
