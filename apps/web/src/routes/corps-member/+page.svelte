@@ -437,7 +437,7 @@
   :global(*) { box-sizing: border-box; }
   :global(body) { margin: 0; background: #f3f6f4; color: #17251c; font-family: Inter, Arial, sans-serif; }
   :global(button), :global(input), :global(select), :global(textarea) { font: inherit; }
-  .page { min-height: 100vh; padding: 24px clamp(16px, 4vw, 48px) 50px; }
+  .page { min-height: 100vh; padding: 0 0 50px; }
   .topbar { width: min(100%, 1120px); margin: 0 auto 34px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
   .brand { display: flex; flex-direction: column; gap: 3px; color: #0a5c37; text-decoration: none; font-weight: 800; }
   .brand span { color: #718078; font-size: 12px; font-weight: 400; }
@@ -624,10 +624,13 @@
 
   /* Corps Member portal shell and dual-role appointment presentation. */
   .topbar {
-    min-height: 70px;
-    margin-bottom: 28px;
-    padding: 10px 0;
+    width: 100%;
+    max-width: none;
+    min-height: 72px;
+    margin: 0 0 28px;
+    padding: 10px clamp(16px, 4vw, 48px);
     border-bottom: 1px solid #e1e9e3;
+    background: #fff;
   }
   .brand {
     flex-direction: row;
@@ -767,6 +770,7 @@
     }
     .topbar {
       width: calc(100% + 24px);
+      max-width: none;
       margin: 0 -12px 18px;
       padding: 8px 12px 12px;
     }
