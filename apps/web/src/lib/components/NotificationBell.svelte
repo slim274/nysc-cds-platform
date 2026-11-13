@@ -181,6 +181,15 @@
         }
       }
 
+      const isCoordinatorWorkspace = window.location.pathname.startsWith('/coordinator');
+      if (isCoordinatorWorkspace) {
+        const coordinatorHeaderTarget = document.querySelector<HTMLElement>('.coordinator-header-controls');
+        if (coordinatorHeaderTarget) {
+          if (node.parentElement !== coordinatorHeaderTarget) coordinatorHeaderTarget.appendChild(node);
+          return;
+        }
+      }
+
       const isMobileClo = window.location.pathname.startsWith('/clo') &&
         window.matchMedia('(max-width: 760px)').matches;
       const cloHeader = isMobileClo
@@ -247,7 +256,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} class:member-header={page.url.pathname === '/corps-member'} class:president-header={page.url.pathname.startsWith('/cds-president')} use:portalToOverlay>
+  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} class:member-header={page.url.pathname === '/corps-member'} class:president-header={page.url.pathname.startsWith('/cds-president')} class:coordinator-header={page.url.pathname.startsWith('/coordinator')} use:portalToOverlay>
     {#if page.url.pathname.startsWith('/lgi')}
       <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
     {/if}
@@ -342,6 +351,39 @@
     display: flex !important;
     align-items: center;
     gap: 8px;
+  }
+  .notification-bell.coordinator-header {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    inset: auto !important;
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    transform: none !important;
+    z-index: 1510 !important;
+    pointer-events: none !important;
+  }
+  .notification-bell.coordinator-header .bell-button {
+    width: 36px;
+    height: 36px;
+  }
+  .notification-bell.coordinator-header .bell-button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .notification-bell.coordinator-header .notification-panel {
+    top: calc(100% + 9px);
+    right: 0;
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(560px, calc(100dvh - 90px));
   }
   .notification-bell.president-header {
     position: relative !important;
@@ -494,7 +536,7 @@
     }
   }
   @media (max-width: 480px) {
-    .notification-bell:not(.member-header):not(.president-header) {
+    .notification-bell:not(.member-header):not(.president-header):not(.coordinator-header) {
       inset: 10px 12px auto auto !important;
     }
     .bell-button {
