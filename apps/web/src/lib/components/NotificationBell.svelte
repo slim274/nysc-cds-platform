@@ -157,6 +157,18 @@
     }
 
     function placeNotificationBell() {
+      const isCorpsMemberHome = window.location.pathname === '/corps-member';
+      if (isCorpsMemberHome) {
+        const isMobileMember = window.matchMedia('(max-width: 980px)').matches;
+        const memberHeaderTarget = isMobileMember
+          ? document.querySelector<HTMLElement>('.member-portal-tools')
+          : document.querySelector<HTMLElement>('.member-portal-nav');
+        if (memberHeaderTarget) {
+          if (node.parentElement !== memberHeaderTarget) memberHeaderTarget.appendChild(node);
+          return;
+        }
+      }
+
       const isMobileClo = window.location.pathname.startsWith('/clo') &&
         window.matchMedia('(max-width: 760px)').matches;
       const cloHeader = isMobileClo
@@ -223,7 +235,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} use:portalToOverlay>
+  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} class:member-header={page.url.pathname === '/corps-member'} use:portalToOverlay>
     {#if page.url.pathname.startsWith('/lgi')}
       <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
     {/if}
@@ -319,6 +331,39 @@
     align-items: center;
     gap: 8px;
   }
+  .notification-bell.member-header {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    inset: auto !important;
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    transform: none !important;
+    z-index: 1510 !important;
+    pointer-events: none !important;
+  }
+  .notification-bell.member-header .bell-button {
+    width: 36px;
+    height: 36px;
+  }
+  .notification-bell.member-header .bell-button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .notification-bell.member-header .notification-panel {
+    top: calc(100% + 9px);
+    right: 0;
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(560px, calc(100dvh - 90px));
+  }
   .lgi-mobile-identity {
     display: none;
     width: 36px;
@@ -398,7 +443,7 @@
     }
   }
   @media (max-width: 480px) {
-    .notification-bell {
+    .notification-bell:not(.member-header) {
       inset: 10px 12px auto auto !important;
     }
     .bell-button {
@@ -410,6 +455,14 @@
       height: 17px;
     }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
+    .notification-bell.member-header .bell-button {
+      width: 34px;
+      height: 34px;
+    }
+    .notification-bell.member-header .bell-button svg {
+      width: 17px;
+      height: 17px;
+    }
   }
   @media (prefers-reduced-motion: reduce) { .bell-button { transition: none; } }
 </style>
