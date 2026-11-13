@@ -494,7 +494,7 @@
     }
   }
   @media (max-width: 480px) {
-    .notification-bell:not(.member-header) {
+    .notification-bell:not(.member-header):not(.president-header) {
       inset: 10px 12px auto auto !important;
     }
     .bell-button {
@@ -506,13 +506,25 @@
       height: 17px;
     }
     .notification-panel { right: 0; width: min(390px, calc(100vw - 24px)); }
-    .notification-bell.member-header .bell-button {
+    .notification-bell.member-header .bell-button,
+    .notification-bell.president-header .bell-button {
       width: 34px;
       height: 34px;
     }
-    .notification-bell.member-header .bell-button svg {
+    .notification-bell.member-header .bell-button svg,
+    .notification-bell.president-header .bell-button svg {
       width: 17px;
       height: 17px;
+    }
+    .notification-bell.president-header {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      left: auto !important;
+      inset: auto !important;
+      margin: 0 0 0 4px !important;
+      transform: none !important;
     }
   }
   @media (prefers-reduced-motion: reduce) { .bell-button { transition: none; } }
