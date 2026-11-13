@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import app from './app';
+// The app imports the database client at module load, but these tests do not
+// execute database routes. Supply a local-only URL so no real database is needed.
+Bun.env.DATABASE_URL ||= 'postgresql://test:test@127.0.0.1:5432/nysc_test';
+const { default: app } = await import('./app');
 
 describe('API application error handling', () => {
   const originalError = console.error;
