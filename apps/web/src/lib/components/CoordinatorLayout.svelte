@@ -94,7 +94,7 @@
   .topbar { position: sticky; top: 0; z-index: 15; min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px 34px; border-bottom: 1px solid #e8ece8; background: #fff; }
   .topbar-heading { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; }
   .page-heading { min-width: 0; }
-  .coordinator-header-controls { flex: 0 0 auto; gap: 8px; }
+  .coordinator-header-controls { flex: 0 0 auto; gap: 8px; margin-left: auto; justify-content: flex-end; }
   .breadcrumb { color: #819087; font-size: 10px; }
   .topbar h1 { margin: 5px 0 0; color: #19251e; font-size: 21px; }
   .account { display: flex; align-items: center; gap: 10px; }
