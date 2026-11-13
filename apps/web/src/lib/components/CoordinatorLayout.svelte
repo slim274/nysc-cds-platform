@@ -110,19 +110,49 @@
     .page-content { padding-inline: 24px; }
   }
   @media (max-width: 760px) {
-    .topbar { min-height: 76px; padding: 13px 16px; gap: 12px; }
-    .topbar-heading { gap: 10px; }
-    .mobile-menu-button { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-content: center; gap: 5px; padding: 0; border: 1px solid #e1e9e2; border-radius: 9px; background: #fff; cursor: pointer; }
+    .topbar {
+      min-height: 68px;
+      padding: 10px 14px;
+      gap: 10px;
+    }
+    .topbar-heading {
+      flex: 1 1 auto;
+      gap: 9px;
+      min-width: 0;
+    }
+    .mobile-menu-button {
+      display: grid;
+      flex: 0 0 40px;
+      width: 40px;
+      height: 40px;
+      place-content: center;
+      gap: 5px;
+      padding: 0;
+      border: 1px solid #e1e9e2;
+      border-radius: 9px;
+      background: #fff;
+      cursor: pointer;
+    }
     .mobile-menu-button span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #0a5c37; }
     .mobile-menu-button:focus-visible { outline: 3px solid #7ac69b; outline-offset: 3px; }
-    .account-details { display: none; }
-    .page-heading h1 { font-size: 19px; }
-    .breadcrumb { font-size: 9px; }
+    .page-heading { flex: 1 1 auto; min-width: 0; }
+    .breadcrumb { display: none; }
+    .topbar h1 {
+      margin: 0;
+      overflow: hidden;
+      font-size: 17px;
+      line-height: 1.25;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-details, .coordinator-header-controls .avatar { display: none; }
+    .coordinator-header-controls { gap: 0; }
     .page-content { padding: 22px 16px 28px; }
     footer { padding: 15px 16px; line-height: 1.5; }
   }
   @media (max-width: 380px) {
     .topbar { padding-inline: 12px; }
     .page-content { padding-inline: 13px; }
+    .topbar h1 { font-size: 16px; }
   }
 </style>
