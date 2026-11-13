@@ -68,7 +68,7 @@
           <h1>{pageTitle}</h1>
         </div>
       </div>
-      <div class="account">
+      <div class="account coordinator-header-controls">
         <div class="avatar">CD</div>
         <div class="account-details">
           <strong>CDS Coordinator</strong>
