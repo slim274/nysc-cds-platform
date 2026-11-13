@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 import type { RequestIdVariables } from 'hono/request-id';
 
-function redactPathIdentifiers(pathname: string): string {
+export function redactPathIdentifiers(pathname: string): string {
   return pathname
     .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?=\/|$)/gi, '/:id')
     .replace(/\/\d{6,}(?=\/|$)/g, '/:id');
