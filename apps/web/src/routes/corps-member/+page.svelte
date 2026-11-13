@@ -763,11 +763,12 @@
 
   @media (max-width: 620px) {
     .page {
-      padding: 14px 12px 34px;
+      padding: 0 12px 34px;
     }
     .topbar {
-      margin-bottom: 18px;
-      padding: 8px 0 12px;
+      width: calc(100% + 24px);
+      margin: 0 -12px 18px;
+      padding: 8px 12px 12px;
     }
     .topbar-tools {
       gap: 6px;
@@ -871,7 +872,7 @@
       gap: 5px;
     }
     .member-code {
-      max-width: 96px;
+      max-width: 72px;
       font-size: 7px;
     }
     .menu-toggle {
