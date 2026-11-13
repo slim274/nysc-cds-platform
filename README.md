@@ -201,6 +201,49 @@ Within assigned groups, Coordinators can view the member roster, designate or re
 
 The shared academic course catalogue is managed from the existing LGI administration module at `/lgi/course-catalogue`. LGI administrators can add, edit, deactivate/reactivate and bulk-import courses. These changes apply to the shared catalogue used by all LGAs. It supports discipline categories, canonical course names, aliases and CSV import. The development starter catalogue is representative, not exhaustive or an official national list. See [Course Catalogue documentation](docs/course-catalogue.md) for the API, CSV format, bootstrap and security rules.
 
+## CDS group allocation algorithm
+
+The platform uses a **rule-based, constraint-aware greedy allocation process with least-utilised-first load balancing**. These are three complementary algorithmic techniques working together in one automatic allocation flow, not three separate allocation services.
+
+### 1. Rule-based eligibility filtering
+
+Before an automatic assignment is considered, the system checks the Corps Member and the available CDS groups against explicit business rules:
+
+- The Corps Member record must exist, must not have a rejected profile and must have an academic course recorded.
+- The LGA must have active document requirements, including at least one active mandatory requirement. The latest submission for every active mandatory requirement must have a `verified` status.
+- The Corps Member must not already have an active CDS group membership.
+- A candidate CDS group must be active, belong to the Corps Member's LGA and have an exact course-ID mapping for the Corps Member's recorded course.
+- A group previously cancelled by that Corps Member is excluded from their automatic candidate list.
+- The candidate group must have at least one available seat.
+
+The LGI configures course eligibility by mapping catalogue courses to each CDS group. Matching uses the stored course IDs; it is not AI prediction, machine learning or fuzzy course-name matching.
+
+### 2. Greedy group selection
+
+After filtering, the system selects the best currently eligible group in one pass through the ordered candidates. It does not calculate a global assignment plan across all Corps Members. New members are allocated one at a time as their verification process completes.
+
+### 3. Least-utilised-first load balancing
+
+Eligible groups are ranked by capacity utilisation:
+
+`utilisation = active members / maximum capacity`
+
+The group with the lowest utilisation is selected first, helping distribute new members across groups instead of filling one group before considering others. Ties are resolved deterministically by:
+
+1. Lower active-member count.
+2. Earlier group creation date.
+3. Group ID in ascending order.
+
+The member and candidate groups are locked within the database transaction during matching to reduce the risk of concurrent registrations taking the same final seat. The selected membership is recorded with an automatic assignment source.
+
+### LGI manual placement and course-mapping override
+
+LGI administrators can also place a Corps Member into a selected group through the manual assignment workflow. The system still enforces LGA scope, active group status, mandatory-document verification, one active membership per Corps Member and group capacity. The member's course must match the group's mapped course unless an authorised LGI explicitly uses the course-mapping override and supplies a reason of at least 10 characters. The override and reason are stored with the membership for traceability.
+
+### Allocation outcomes
+
+Automatic matching can return a clear outcome such as: member not found, course not recorded, document requirements not configured, documents incomplete, already assigned, no eligible group or all eligible groups full. This makes it possible for the application to explain why an automatic assignment did not take place instead of silently assigning a member to an unsuitable group.
+
 ## Local development
 
 ### Prerequisites
