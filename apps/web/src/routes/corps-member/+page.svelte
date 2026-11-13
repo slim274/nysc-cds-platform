@@ -162,17 +162,17 @@
 </svelte:head>
 
 <main class="page">
-  <header class="topbar">
+  <header class="topbar member-portal-topbar">
     <a href="/corps-member" class="brand" aria-label="NYSC CDS Corps Member Portal">
       <span class="brand-icon">N</span>
       <span class="brand-copy"><strong>NYSC CDS</strong><small>Corps Member Portal</small></span>
     </a>
-    <div class="topbar-tools">
+    <div class="topbar-tools member-portal-tools">
       {#if portal}<span class="member-code">{portal.member.stateCode}</span>{/if}
       <span class="role-label">Corps Member</span>
       <button class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>☰</button>
     </div>
-    <nav class:open={menuOpen} class="member-nav" aria-label="Corps Member navigation">
+    <nav class:open={menuOpen} class="member-nav member-portal-nav" aria-label="Corps Member navigation">
       <a class="active" href="/corps-member" onclick={() => (menuOpen = false)}>My portal</a>
       <a href="/corps-member/announcements" onclick={() => (menuOpen = false)}>Announcements</a>
       {#if isPresidentForAssignedGroup}
