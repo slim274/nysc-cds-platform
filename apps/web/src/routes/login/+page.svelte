@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { login, getCurrentUser, logout, ApiError } from '#lib/api/client.ts';
 
@@ -9,7 +9,10 @@
   let errorMessage = $state('');
   let loginBlocked = $state(false);
   let retryAfterSeconds = $state(0);
+  let blockedUntilTimestamp: number | null = null;
   let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+  const LOGIN_LOCKOUT_STORAGE_KEY = 'nysc-cds-login-blocked-until';
 
   function formatCountdown(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
@@ -24,26 +27,77 @@
     }
   }
 
-  function startLoginCountdown(seconds: number) {
+  function clearLoginLockout() {
     stopLoginCountdown();
-    retryAfterSeconds = Math.max(0, Math.ceil(seconds));
-    loginBlocked = retryAfterSeconds > 0;
+    blockedUntilTimestamp = null;
+    retryAfterSeconds = 0;
+    loginBlocked = false;
 
-    if (!loginBlocked) return;
+    try {
+      sessionStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+    } catch {
+      // The API remains authoritative if browser storage is unavailable.
+    }
+  }
 
-    countdownInterval = setInterval(() => {
-      if (retryAfterSeconds <= 1) {
-        stopLoginCountdown();
-        retryAfterSeconds = 0;
-        loginBlocked = false;
-        errorMessage = '';
+  function updateLoginCountdown() {
+    if (blockedUntilTimestamp === null) return;
+
+    const remainingSeconds = Math.ceil(
+      (blockedUntilTimestamp - Date.now()) / 1000
+    );
+
+    if (remainingSeconds <= 0) {
+      clearLoginLockout();
+      errorMessage = '';
+      return;
+    }
+
+    retryAfterSeconds = remainingSeconds;
+    loginBlocked = true;
+  }
+
+  function startLoginCountdown(seconds: number) {
+    clearLoginLockout();
+
+    const durationSeconds = Math.max(0, Math.ceil(seconds));
+    if (durationSeconds === 0) return;
+
+    blockedUntilTimestamp = Date.now() + durationSeconds * 1000;
+
+    try {
+      sessionStorage.setItem(
+        LOGIN_LOCKOUT_STORAGE_KEY,
+        String(blockedUntilTimestamp)
+      );
+    } catch {
+      // The countdown still works until this page is refreshed.
+    }
+
+    updateLoginCountdown();
+    countdownInterval = setInterval(updateLoginCountdown, 1000);
+  }
+
+  function restoreLoginCountdown() {
+    try {
+      const storedTimestamp = Number(
+        sessionStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY)
+      );
+
+      if (Number.isFinite(storedTimestamp) && storedTimestamp > Date.now()) {
+        blockedUntilTimestamp = storedTimestamp;
+        updateLoginCountdown();
+        countdownInterval = setInterval(updateLoginCountdown, 1000);
         return;
       }
 
-      retryAfterSeconds -= 1;
-    }, 1000);
+      sessionStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+    } catch {
+      // Continue normally; the API will still reject requests during a block.
+    }
   }
 
+  onMount(restoreLoginCountdown);
   onDestroy(stopLoginCountdown);
 
   async function handleSubmit(event: SubmitEvent) {
@@ -58,6 +112,7 @@
 
     try {
       await login(identifier.trim(), password);
+      clearLoginLockout();
       const session = await getCurrentUser();
 
       if (session.roles.some((role) => role.code === 'LGI_ADMIN')) {
@@ -86,7 +141,7 @@
           errorMessage = error.message;
         }
       } else {
-        loginBlocked = false;
+        clearLoginLockout();
         errorMessage = error instanceof ApiError
           ? error.message
           : 'Unable to connect to the server. Please try again.';
