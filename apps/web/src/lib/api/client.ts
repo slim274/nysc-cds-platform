@@ -1,7 +1,8 @@
 export class ApiError extends Error {
   constructor(
     message: string,
-    public readonly status: number
+    public readonly status: number,
+    public readonly retryAfterSeconds: number | null = null
   ) {
     super(message);
     this.name = 'ApiError';
@@ -62,7 +63,22 @@ async function request<T>(
         ? data.message
         : 'An unexpected API error occurred.';
 
-    throw new ApiError(message, response.status);
+    const retryAfterHeader = response.headers.get('Retry-After');
+    let retryAfterSeconds: number | null = null;
+
+    if (retryAfterHeader) {
+      const seconds = Number(retryAfterHeader);
+      if (Number.isFinite(seconds) && seconds > 0) {
+        retryAfterSeconds = Math.ceil(seconds);
+      } else {
+        const retryAt = Date.parse(retryAfterHeader);
+        if (Number.isFinite(retryAt)) {
+          retryAfterSeconds = Math.max(1, Math.ceil((retryAt - Date.now()) / 1000));
+        }
+      }
+    }
+
+    throw new ApiError(message, response.status, retryAfterSeconds);
   }
 
   return data as T;
