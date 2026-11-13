@@ -2,36 +2,93 @@
 
 A role-based platform for managing NYSC Community Development Service (CDS) operations, corps-member allocation, meetings, attendance and monthly readiness.
 
-## Current architecture
+## Architecture overview
 
-- **Frontend:** SvelteKit 3 and Svelte 5
-- **API:** Hono on Bun
-- **Database:** PostgreSQL with Drizzle ORM
-- **Local infrastructure:** Docker Compose
-- **Repository layout:** Bun workspaces monorepo
+The platform is a **Bun workspaces monorepo** with a SvelteKit web application, a Hono API and a shared Drizzle database package.
 
-The initial implementation is a modular monolith. The API owns authorization and business rules; the browser is not trusted to enforce permissions.
+| Layer | Technology | Responsibility |
+|---|---|---|
+| Web application | SvelteKit 3, Svelte 5, Vite | Role-based user interfaces and browser navigation |
+| API runtime | Hono on Bun | HTTP routes, authentication, validation, authorization and business rules |
+| Data access | Drizzle ORM, `postgres` driver | Typed queries and PostgreSQL access, shared through `@nysc/database` |
+| Database | PostgreSQL 17 | Accounts, role assignments, CDS groups, meetings, attendance, documents, announcements and operational records |
+| Local infrastructure | Docker Compose | Runs the PostgreSQL container and its persistent named volume |
+| Workspace tooling | Bun | Installs dependencies and runs the web and API development processes |
+
+### System architecture
+
+The diagram below shows the **current local development topology**. It distinguishes the Dockerized database from the web and API processes, which currently run through Bun on the developer's machine.
+
+```mermaid
+flowchart TB
+  Browser["User browser"]
+
+  subgraph Local["Developer machine — Bun processes"]
+    Web["SvelteKit 3 / Svelte 5<br/>Vite web application"]
+    API["Hono API<br/>Bun runtime — port 3001"]
+    Modules["API modules<br/>Auth · LGI · Coordinator · President<br/>Corps Member · CLO · Attendance<br/>Documents · Announcements · Reports"]
+    Data["@nysc/database<br/>Drizzle ORM + postgres driver"]
+    Web -->|"Vite proxies /api/*<br/>to localhost:3001"| API
+    API --> Modules
+    Modules --> Data
+  end
+
+  subgraph Docker["Docker Engine — Docker Compose"]
+    PG[("PostgreSQL 17 Alpine<br/>nysc-postgres")]
+    Volume[("Persistent volume<br/>nysc-postgres-data")]
+    PG <--> Volume
+  end
+
+  Browser -->|"Web UI"| Web
+  Data -->|"DATABASE_URL<br/>localhost:5432"| PG
+```
+
+### Important Docker and runtime detail
+
+- `docker-compose.yml` currently defines **one service: PostgreSQL 17 Alpine**. Docker Compose does not currently start the SvelteKit frontend or Hono API.
+- The database container is published on `127.0.0.1:5432`, allowing the local API to connect through `DATABASE_URL`.
+- The named volume `nysc-postgres-data` keeps database files across container restarts and normal `docker compose down` operations.
+- The API runs locally through `bun run dev:api` on port `3001`.
+- The frontend runs locally through `bun run dev:web`. Vite forwards requests beginning with `/api` to `http://localhost:3001` and strips the `/api` prefix.
+- Full application containerization and production deployment topology are separate work; this diagram does not imply that the web and API services are already Dockerized.
+
+### Repository layout
+
+| Path | Contents |
+|---|---|
+| `apps/web` | SvelteKit application, role-based pages and shared UI components |
+| `apps/api` | Hono API entry point, route modules, middleware and application services |
+| `packages/database` | Drizzle client, PostgreSQL schema, migrations and development seed |
+| `docker-compose.yml` | Local PostgreSQL container and persistent volume |
+| `.env.example` | Environment-variable template for local development and optional providers |
+
+The API is a modular monolith. The browser presents the interface, but the API remains responsible for authentication, authorization, data validation and business rules. Protected operations must enforce role and resource scope on the server; hiding a button in the browser is not an authorization check.
 
 ## Role model
 
 | Role | Scope and responsibilities |
 |---|---|
-| LGI Administrator | Manages assigned LGA operations, including service years, batches, streams, corps-member records, CDS groups, coordinator accounts, assignments, exemptions and reports. LGI administrators also maintain the shared course catalogue; catalogue changes apply across all LGAs. |
-| CDS Coordinator | Manages assigned CDS groups and designates CDS Presidents only from corps members allocated to those groups. |
-| CDS President | Records and views attendance for the specifically assigned CDS group. |
-| Corps Member | Activates an account, maintains profile information, views allocation and attendance, and submits eligible requests. |
+| LGI Administrator | Manages assigned LGA operations: Corps Member records, service years, batches, streams, CDS groups, shared course catalogue, Coordinator accounts, CLO assignments, document requirements, reports and monthly clearance. |
+| CDS Coordinator | Manages only assigned CDS groups, member rosters, President designations, WhatsApp group settings, CDS meetings, attendance review and Coordinator announcements. |
+| CDS President | Works only with group(s) attached to an active President assignment; coordinates the group, records attendance and submits eligible announcements for review. |
+| Corps Member | Uses one personal account to manage their member portal, view NYSC/CDS allocation and contacts, submit required documents, join the assigned WhatsApp group and view approved attendance. |
+| Corps Liaison Officer (CLO) | Reviews Corps Member document submissions and records verification or resubmission decisions within configured document-review access. |
 
-Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission. LGI administrators manage LGA operational records only within their assigned LGA(s). Their shared course-catalogue management permission is available from the LGI module and changes the common reference list used by every LGA.
+Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission. LGI administrators manage LGA operational records only within their assigned LGA(s). The shared academic course catalogue is centrally managed from the LGI module and is used across LGAs.
+
+A person who is both a Corps Member and CDS President uses **one account** with multiple role assignments. The President role does not create a duplicate Corps Member record. Removing the President role must not disable the underlying Corps Member account.
 
 ## Account administration workflow
 
-1. An LGI administrator creates/invites a CDS Coordinator and assigns one or more CDS groups.
-2. The Coordinator receives a single-use, time-limited activation invitation and sets their own password.
-3. The Coordinator selects an existing corps member allocated to one of their assigned groups and designates that person as CDS President.
-4. The President receives an invitation if their corps-member account has not yet been activated.
-5. The LGI can disable/reactivate a Coordinator, revoke their active sessions, and reassign affected groups.
+1. An LGI administrator creates/invites a CDS Coordinator and assigns one or more CDS groups within the LGI's scope.
+2. The Coordinator activates their account using the invitation flow.
+3. The Coordinator selects an existing active Corps Member from one of their assigned groups and designates that member as CDS President.
+4. If the selected member has not activated their portal account, the President designation can remain pending until account activation.
+5. President replacements are confirmed and recorded in designation history, including the reason supplied by the Coordinator.
+6. LGI administrators manage Coordinator account status, group transfers and handovers. A successor can review and acknowledge transferred group responsibilities.
+7. LGI administrators create CLO access and configure the LGA coverage used for document handling.
 
-A corps member must not receive a duplicate person/account record when designated President. Removing the President role must not disable the underlying corps-member account. Disabling accounts preserves historical attendance, meetings and audit records.
+A Corps Member must not receive a duplicate person/account record when designated President. Disabling a Coordinator must preserve historical attendance, meetings, handovers and audit records.
 
 ## Responsive design requirements
 
@@ -54,31 +111,49 @@ Responsive acceptance checks:
 - Keyboard navigation, visible focus, semantic labels and sufficient contrast are maintained.
 - Test at 360, 375, 390, 430, 768, 1024, 1280 and 1440 CSS pixels.
 
-## Product workflow
+## Implemented workspace capabilities
 
-1. LGI configures service years, batches, streams and LGA reference data.
-2. LGI preloads corps-member records and required identity/reference material.
-3. Corps members activate their accounts and complete profiles.
-4. The allocation engine maps member academic/course information to eligible CDS groups and balances utilisation within capacity constraints.
-5. Coordinators manage only their assigned groups and designate Presidents from the existing group membership.
-6. Presidents record attendance for their assigned group meetings.
-7. Attendance readiness is calculated from valid distinct meetings using the configured monthly policy.
+The following describes functional areas present in the current development branch. Production readiness still depends on provider configuration, deployment, security review and end-to-end testing.
 
-Medical exemption and reassignment decisions remain subject to authorised human review. Internal attendance readiness must not be represented as official NYSC clearance without an authorised integration.
+| Workspace / area | Implemented functionality |
+|---|---|
+| LGI administration | Manage service years, batches, streams, Corps Member records, CDS groups, membership, Coordinator accounts and group assignments. |
+| Shared course catalogue | Manage course categories, canonical course names and aliases; import course data from CSV; use the searchable catalogue when mapping courses to CDS groups. |
+| Coordinator management | Invite and manage Coordinators, transfer group responsibility, maintain handover records and review successor acknowledgements. |
+| CLO management | Create/manage CLO access and configured LGA assignments; publish document requirements and review document-submission workflows. |
+| Coordinator workspace | View assigned CDS groups and members; designate or replace a President from existing group members; manage the group's WhatsApp invite link and optional WhatsApp assistant. |
+| CDS President workspace | View assigned group(s) and member roster; open meeting registers, mark members present/absent/late/excused and submit the completed register. |
+| Attendance management | Coordinators schedule CDS meetings, inspect submitted registers, approve attendance or return it for correction with review notes. Returned registers can be corrected and resubmitted. LGI attendance reporting is read-only. |
+| Corps Member portal | View NYSC profile details, group assignment, contacts, document checklist, WhatsApp access and approved attendance history. A dual-role member can move to the President workspace without creating a second account. |
+| Document handling | Corps Members submit required documents; authorised reviewers can verify submissions or request resubmission. Manual review is the default document-verification mode. |
+| Announcements and notifications | Role-based announcement workflows and a shared notification centre with unread counts and mark-all-read behaviour. |
+| Reports and monthly clearance | LGI attendance analytics/reporting and monthly-clearance workflows, with scoped Coordinator visibility where applicable. |
 
-## Account recovery
+### Attendance lifecycle
 
-Password recovery is available to authorised roles, including LGI administrators, through a self-service reset flow:
+1. The Coordinator schedules a meeting for an assigned CDS group.
+2. The President opens the register and records each member as present, absent, late or excused.
+3. The President submits the completed register. A submitted register is locked while awaiting review.
+4. The Coordinator approves the register or returns it with a correction note.
+5. A returned register can be updated by the President and submitted again. An approved register is locked and its approved attendance is visible in the Corps Member portal.
 
-1. The user submits the email address registered to their account.
-2. The system responds with a generic message regardless of whether the address exists, and creates a reset token only for an eligible account with a verified recovery email.
-3. A single-use, short-lived reset link is delivered to that verified email address.
-4. The user sets a new password. The API validates and consumes the token transactionally and stores the new password using Argon2id.
-5. All active sessions for that account are revoked so the user must authenticate again.
+### Documents and announcements
 
-Reset tokens are stored as hashes, are never logged or returned by production API responses, and are rate-limited. A password reset must never reactivate a disabled or suspended account. If an LGI loses access to the registered recovery address, recovery requires an authorised system owner to follow a separate identity-verified and audited process; a CDS Coordinator cannot reset an LGI account.
+- LGI administrators configure and publish the document requirements used by Corps Members.
+- Corps Members upload the requested documents through their portal.
+- CLO reviewers handle submissions within their configured access and record verification or a reason for resubmission.
+- LGI administrators and Coordinators publish announcements to selected groups through their respective workflows. President announcements are subject to Coordinator review before publication.
+- The notification bell provides a shared place for authenticated users to see relevant unread notifications.
 
-The database already includes the `password_reset` token purpose and `auth_tokens` table. The reset endpoints, email delivery integration, UI and tests remain to be implemented.
+### WhatsApp group access
+
+A Coordinator manages the invite link for each assigned CDS group and can optionally designate one group member as its WhatsApp assistant. Eligible Corps Members assigned to that group see the Join WhatsApp Group action in their portal. Coordinators can change or remove the link and assistant for their own assigned groups.
+
+## Account recovery status
+
+The database schema includes the `password_reset` token purpose and `auth_tokens` table, but the complete self-service password-recovery flow is **not yet available as a production-ready feature**. The reset UI, delivery integration, single-use token handling and end-to-end tests must be completed and verified before it is presented as an available production feature.
+
+When implemented, recovery must use generic responses, short-lived single-use hashed tokens, rate limits, transactional token consumption and session revocation. A password reset must never reactivate a disabled or suspended account. Recovery of an LGI account whose registered email is inaccessible requires an authorised, identity-verified and audited administrative process.
 
 ## Security and integrity requirements
 
@@ -90,46 +165,37 @@ The database already includes the `password_reset` token purpose and `auth_token
 - Audit records retain administrative changes and historical attendance.
 - Biometric identity verification, if introduced, requires privacy review, secure processing, consent/lawful-basis analysis, retention limits, liveness/PAD and empirical threshold calibration. Use synthetic data during development.
 
-## Development status
+## Development status and production readiness
 
-The development branch contains the frontend login and LGI dashboard, responsive layouts and mobile navigation updates. The authentication API, database schema and synthetic seed have been implemented and tested in the local development environment. The latest responsive changes still require local Svelte checks, production build and browser validation across the documented viewport widths.
+### Implemented in the development branch
 
-| Component | Status |
-|---|---|
-| Monorepo setup | Completed locally |
-| SvelteKit frontend scaffold | Completed |
-| Hono backend scaffold | Completed |
-| PostgreSQL + Docker | Completed locally |
-| Drizzle ORM and initial schema | Completed locally |
-| Synthetic seed data | Completed locally |
-| Account activation, Argon2id password hashing | Completed locally |
-| Login/logout and PostgreSQL session management | Implemented and tested locally |
-| Authentication middleware and LGI role authorization | Implemented and typechecked locally |
-| Frontend login and LGI dashboard | Implemented and committed on the development branch |
-| Responsive landing and login layouts | Implemented on the development branch; local validation pending |
-| Responsive LGI mobile navigation drawer and sticky header | Implemented on the development branch; local validation pending |
-| CDS group domain model and API design | Documented |
-| Shared course catalogue categories and aliases schema | Implemented; course-alias migration generated, committed and applied locally |
-| LGI shared course catalogue management and CSV import API | Implemented; GitHub Actions API typecheck passed; database/import integration checks pending |
-| LGI course catalogue screen | Implemented; GitHub Actions Svelte check and production build passed |
-| LGI searchable read-only course picker | Implemented; GitHub Actions Svelte check and production build passed |
-| Expanded development course starter records | Added to the seed; local seed validation pending |
-| CDS groups, course mappings and membership-history Drizzle schemas | Added on the development branch |
-| CDS group migration | Generated, committed and applied successfully to the local PostgreSQL database |
-| Group-scoped role assignments | Added to the database schema and authenticated role context |
-| LGI CDS Group Management API | Implemented on the development branch; local typecheck and integration tests pending |
-| LGI CDS Groups interface | Implemented on the development branch; local Svelte check and browser tests pending |
+- Role-scoped authentication, account activation and PostgreSQL-backed sessions.
+- LGI administration for cohorts, Corps Member records, CDS groups, course catalogue, Coordinator and CLO management.
+- Coordinator group operations, President designation/replacement, WhatsApp group management, meetings and attendance review.
+- CDS President attendance recording and announcement workflows.
+- Corps Member portal, NYSC cohort/profile details, document submission and approved attendance history.
+- CLO document review, announcement/notification workflows, LGI reports and monthly-clearance screens.
+- Responsive layouts and mobile navigation across the role workspaces.
 
-| LGI course catalogue API | Implemented on the development branch; local typecheck and access tests pending |
-| LGI course catalogue interface | Implemented on the development branch; local Svelte check and browser tests pending |
-| CSV catalogue import and template | Implemented on the development branch; local import tests pending |
-| LGI shared course catalogue and searchable CDS-group picker | Implemented on the development branch; local integration tests pending |
-| CDS Coordinator account and group assignment management | Implemented on the development branch; GitHub Actions API typecheck, Svelte checks and frontend build passed; email delivery and runtime integration tests remain pending |
-| CDS group handover records, transfer and successor acknowledgement | Implemented on the development branch; migration, API and UI added; CI and runtime database testing pending |
+These features are being developed and validated incrementally. A feature being present in the development branch does not by itself mean its provider integrations, accessibility review, browser coverage or production operations are complete.
+
+### Remaining deployment and verification work
+
+- Configure and verify real email/SMS delivery providers for onboarding and other flows that require external delivery. The example configuration defaults `OTP_DELIVERY_MODE=console` for local development.
+- Complete and validate Coordinator invitation email delivery where required.
+- Configure persistent, encrypted and access-restricted storage for uploaded profile photos and documents. The example paths under `.data/` are local-development defaults.
+- Keep document verification in manual mode unless AI mode, its API key, privacy controls and fallback behaviour have been deliberately configured and tested.
+- Complete automated integration tests and browser acceptance testing across the responsive viewport widths listed above.
+- Complete the self-service password-recovery flow before describing it as available.
+- Define and test the production hosting topology, secrets management, database backups, monitoring and recovery procedures. The current Compose file is a local PostgreSQL setup, not a full production deployment.
 
 ## CDS Coordinator management
 
-LGI administrators manage Coordinator invitations, group assignments, account disable/reactivate and session revocation from `/lgi/coordinators`. Coordinators can be assigned to multiple groups within the LGI's assigned LGA scope; each active group has one active coordinator. Disabling an account releases its group assignments while preserving inactive history. For a unit-level resignation or replacement, the LGI can create an LGA-scoped standby Coordinator with no CDS group assignment, transfer an individual CDS group to that person, record pending activities, upcoming events and outstanding tasks, and require the successor to acknowledge the handover from `/coordinator/handovers`. Group membership and historical records remain with the CDS group. The full group-operations workspace is still future work. See [Coordinator Management documentation](docs/coordinator-management.md) for lifecycle rules, handover details and remaining email-delivery work.
+LGI administrators manage Coordinator invitations, group assignments, account disable/reactivate and session revocation from `/lgi/coordinators`. A Coordinator can be assigned to multiple groups within the LGI's assigned LGA scope; active group responsibility is explicitly assigned.
+
+For a unit-level resignation or replacement, the LGI can create or assign a successor, transfer a CDS group, record pending activities, upcoming events and outstanding tasks, and require the successor to acknowledge the handover from `/coordinator/handovers`. Group membership and historical records remain with the CDS group.
+
+Within assigned groups, Coordinators can view the member roster, designate or replace a CDS President from existing members, manage WhatsApp group settings, schedule meetings, review attendance registers, publish announcements and work with group-scoped monthly-clearance information. President designation history is retained. See [Coordinator Management documentation](docs/coordinator-management.md) for lifecycle rules, handover details and remaining email-delivery work.
 
 ## Shared course catalogue
 
@@ -137,34 +203,79 @@ The shared academic course catalogue is managed from the existing LGI administra
 
 ## Local development
 
-Use the root workspace scripts from the repository root:
+### Prerequisites
+
+- Bun installed.
+- Docker Engine and the Docker Compose plugin.
+- Git.
+
+### Configure environment
+
+From the repository root:
+
+```bash
+cp .env.example .env
+```
+
+Review `.env` and set the PostgreSQL values and `DATABASE_URL`. The example file contains local placeholders; replace them before using the environment. Do not commit `.env` or real credentials.
+
+### Start PostgreSQL with Docker Compose
+
+```bash
+docker compose up -d postgres
+docker compose ps
+```
+
+Compose starts the PostgreSQL 17 Alpine container and attaches the persistent `nysc-postgres-data` volume. The database is exposed to the host on `127.0.0.1:5432`.
+
+### Install, migrate and seed
 
 ```bash
 bun install
+bun run --filter @nysc/database db:migrate
+bun run --filter @nysc/database db:seed
+```
+
+The seed is for development/testing. Do not load synthetic seed records into a production environment.
+
+### Start the API and web application
+
+Open separate terminals from the repository root.
+
+Terminal 1 — Hono API on port `3001`:
+
+```bash
 bun run dev:api
+```
+
+Terminal 2 — SvelteKit/Vite frontend:
+
+```bash
 bun run dev:web
 ```
 
-The web development server proxies `/api` requests to the Hono API on port 3001. Keep secrets in the local ignored `.env`; commit only `.env.example`.
+Vite proxies requests under `/api` to `http://localhost:3001`. The API connects to PostgreSQL using `DATABASE_URL`.
 
-Run frontend diagnostics with:
+### Checks
 
 ```bash
 bun run --filter @nysc/web check
-```
-
-Run API typechecking with:
-
-```bash
+bun run --filter @nysc/web build
 bun run --filter @nysc/api typecheck
 ```
 
+To stop the local database container without deleting its data:
+
+```bash
+docker compose stop postgres
+```
+
+Do not use `docker compose down -v` unless you intentionally want to delete the PostgreSQL volume and its local data.
+
 ## Next implementation sequence
 
-1. Pull the latest development branch and run API typecheck, frontend check and production build.
-2. Generate, review and apply the course-alias migration, then run the development seed.
-3. Test LGI course catalogue management, CSV import and shared catalogue search from CDS Group Management.
-4. Polish CDS Group Management and the searchable course picker.
-5. Integrate email delivery and complete runtime tests for CDS Coordinator invitations, group assignment, handover transfer/acceptance, disable/reactivate and session revocation.
-6. Build corps-member administration and NYSC cohort/reference-data management.
-7. Add Coordinator-scoped President designation, meeting attendance and reports.
+1. Complete browser acceptance tests for all workspaces at 360, 375, 390, 430, 768, 1024, 1280 and 1440 CSS pixels.
+2. Complete integration testing for attendance submission/review, document review/resubmission, Coordinator handovers and group-scoped authorization.
+3. Configure and verify provider-backed email/SMS delivery and secure persistent upload storage.
+4. Complete password recovery and production-grade operational controls, including database backups, monitoring and restore tests.
+5. Design and validate the production deployment topology. Decide whether the web application and API should be containerized alongside PostgreSQL; the present Docker Compose configuration only runs the database.
