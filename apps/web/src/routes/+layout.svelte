@@ -31,7 +31,7 @@
 		flex-shrink: 0;
 		background: #fff;
 	}
-	:global(.topbar:not(.member-portal-topbar)) {
+	:global(.topbar:not(.member-portal-topbar):not(.president-workspace-topbar)) {
 		padding-right: 84px !important;
 	}
 	@media (max-width: 760px) {
