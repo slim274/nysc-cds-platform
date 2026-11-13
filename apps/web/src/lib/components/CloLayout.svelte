@@ -55,7 +55,7 @@
         </button>
         <div><span class="breadcrumb">CLO Workspace / Document Operations</span><h1>Document Handling</h1></div>
       </div>
-      <div class="account clo-header-controls"><div class="avatar">CLO</div><div><strong>Corps Liaison Officer</strong><span>{userEmail}</span></div></div>
+      <div class="account clo-header-controls"><div class="avatar">CLO</div><div class="account-details"><strong>Corps Liaison Officer</strong><span>{userEmail}</span></div></div>
     </header>
     <main class="page-content">{@render children()}</main>
     <footer>NYSC CDS Management Platform · Corps Liaison Officer Workspace</footer>
@@ -152,7 +152,7 @@
       gap: 8px;
       margin-left: auto;
     }
-    .topbar.clo-topbar .account > div:last-child { display: none; }
+    .topbar.clo-topbar .account-details { display: none; }
     .topbar.clo-topbar .avatar {
       width: 34px;
       height: 34px;
