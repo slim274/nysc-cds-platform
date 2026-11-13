@@ -84,7 +84,7 @@ app.use('*', async (c, next) => {
   c.header('X-Request-Id', c.get('requestId'));
   await next();
 });
-app.use('*', requestLogger());
+app.use('*', requestLogger);
 
 app.onError((error, c) => {
   const status = error instanceof HTTPException ? error.status : 500;
