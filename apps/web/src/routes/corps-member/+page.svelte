@@ -223,10 +223,23 @@
       <div class="message error" role="alert">{errorMessage}</div>
     {/if}
 
-    <section class="member-summary" aria-label="Member information">
-      <article class="summary-item"><span>NYSC State Code</span><strong>{portal.member.stateCode}</strong></article>
-      <article class="summary-item"><span>Local Government Area</span><strong>{portal.member.lgaName ?? 'Not available'}</strong></article>
-      <article class="summary-item"><span>Academic Course</span><strong>{portal.member.courseName ?? 'Not recorded'}</strong></article>
+    <section class="profile-section" aria-labelledby="profile-heading">
+      <div class="profile-heading">
+        <div>
+          <span class="eyebrow">MEMBER DETAILS</span>
+          <h2 id="profile-heading">My NYSC profile</h2>
+          <p>Official service details linked to your Corps Member record.</p>
+        </div>
+        <span class="profile-readonly">Read only</span>
+      </div>
+      <div class="member-summary">
+        <article class="summary-item"><span>NYSC State Code</span><strong>{portal.member.stateCode}</strong></article>
+        <article class="summary-item"><span>Service Year</span><strong>{portal.member.serviceYear ?? 'Not recorded'}</strong></article>
+        <article class="summary-item"><span>Batch</span><strong>{portal.member.batchName ?? 'Not assigned'}</strong>{#if portal.member.batchCode}<small>{portal.member.batchCode}</small>{/if}</article>
+        <article class="summary-item"><span>Stream</span><strong>{portal.member.streamName ?? 'Not assigned'}</strong>{#if portal.member.streamCode}<small>{portal.member.streamCode}</small>{/if}</article>
+        <article class="summary-item"><span>Local Government Area</span><strong>{portal.member.lgaName ?? 'Not available'}</strong></article>
+        <article class="summary-item"><span>Academic Course</span><strong>{portal.member.courseName ?? 'Not recorded'}</strong></article>
+      </div>
     </section>
 
     {#if documentDashboard}
@@ -455,9 +468,15 @@
   .message { padding: 12px 14px; margin-bottom: 16px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
   .message.success { border: 1px solid #cce6d3; background: #eff8f1; color: #155b37; }
   .message.error { border: 1px solid #efceca; background: #fff3f2; color: #a32920; }
-  .member-summary { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
-  .summary-item { display: grid; gap: 7px; padding: 15px 17px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
-  .summary-item strong { font-size: 13px; color: #263d30; }
+  .profile-section { width: min(100%, 1120px); margin: 0 auto 18px; }
+  .profile-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+  .profile-heading h2 { margin: 5px 0 3px; color: #183d29; font-size: 17px; }
+  .profile-heading p { margin: 0; color: #819087; font-size: 10px; line-height: 1.5; }
+  .profile-readonly { padding: 6px 9px; border-radius: 16px; background: #e8f5ec; color: #0a6841; font-size: 8px; font-weight: 800; white-space: nowrap; }
+  .member-summary { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 0; }
+  .summary-item { display: grid; align-content: start; gap: 7px; min-height: 78px; padding: 15px 17px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
+  .summary-item strong { font-size: 13px; color: #263d30; overflow-wrap: anywhere; }
+  .summary-item small { color: #819087; font-size: 9px; }
   .group-card { padding: 26px; margin-bottom: 18px; border: 1px solid #e0e9e2; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px #1936240a; }
   .group-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
   .group-card h2,.unassigned-card h2 { margin: 8px 0 4px; font-size: 23px; color: #183d29; }
@@ -599,7 +618,10 @@
   @media (max-width: 760px) {
     .welcome { align-items: flex-start; flex-direction: column; padding: 22px; }
     .account-chip { width: 100%; }
-    .member-summary { grid-template-columns: 1fr; }
+    .member-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .summary-item { min-height: 72px; padding: 12px; }
+    .summary-item strong { font-size: 11px; }
+    .profile-heading h2 { font-size: 15px; }
     .contacts-grid { grid-template-columns: 1fr; }
     .coming-grid { grid-template-columns: 1fr; }
     .group-card { padding: 20px; }
@@ -861,6 +883,8 @@
   }
 
   @media (max-width: 380px) {
+    .member-summary { grid-template-columns: 1fr 1fr; }
+    .summary-item { min-height: 68px; padding: 10px; }
     .brand-icon {
       width: 36px;
       height: 36px;
