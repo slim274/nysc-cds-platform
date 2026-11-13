@@ -193,7 +193,7 @@
       const isMobileClo = window.location.pathname.startsWith('/clo') &&
         window.matchMedia('(max-width: 760px)').matches;
       const cloHeader = isMobileClo
-        ? document.querySelector<HTMLElement>('.clo-topbar')
+        ? document.querySelector<HTMLElement>('.clo-header-controls')
         : null;
 
       if (cloHeader) {
@@ -527,16 +527,41 @@
       height: 18px;
     }
     .notification-bell.clo-header {
-      top: 50% !important;
-      right: 10px !important;
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
       bottom: auto !important;
       left: auto !important;
-      inset: 50% 10px auto auto !important;
-      transform: translateY(-50%);
+      inset: auto !important;
+      width: auto !important;
+      height: auto !important;
+      flex: 0 0 auto;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      overflow: visible !important;
+      background: transparent !important;
+      transform: none !important;
+      z-index: 1 !important;
+      pointer-events: none !important;
+    }
+    .notification-bell.clo-header .bell-button {
+      width: 34px;
+      height: 34px;
+    }
+    .notification-bell.clo-header .bell-button svg {
+      width: 17px;
+      height: 17px;
+    }
+    .notification-bell.clo-header .notification-panel {
+      top: calc(100% + 9px);
+      right: 0;
+      width: min(360px, calc(100vw - 24px));
+      max-height: min(560px, calc(100dvh - 90px));
     }
   }
   @media (max-width: 480px) {
-    .notification-bell:not(.member-header):not(.president-header):not(.coordinator-header) {
+    .notification-bell:not(.member-header):not(.president-header):not(.coordinator-header):not(.clo-header) {
       inset: 10px 12px auto auto !important;
     }
     .bell-button {
