@@ -149,6 +149,50 @@ The following describes functional areas present in the current development bran
 
 A Coordinator manages the invite link for each assigned CDS group and can optionally designate one group member as its WhatsApp assistant. Eligible Corps Members assigned to that group see the Join WhatsApp Group action in their portal. Coordinators can change or remove the link and assistant for their own assigned groups.
 
+## API security, throttling and observability
+
+The API applies shared security and observability middleware:
+
+- **Request correlation:** every request receives a server-generated request ID. The API returns it in the `X-Request-Id` response header and includes it in logs and unexpected-error responses.
+- **Security headers:** Hono's secure-headers middleware removes the framework-identifying header and applies browser security headers. Strict-Transport-Security is enabled only in production, where HTTPS is expected.
+- **Central error handling:** uncaught errors return a generic response and request ID. Internal exception details are not sent to the client.
+- **Structured request logs:** one JSON record is emitted per completed request with timestamp, request ID, method, path, status and duration. Query strings, request bodies, cookies, authorization headers and client IP addresses are deliberately excluded.
+
+### Authentication throttling
+
+Failed login attempts are tracked in PostgreSQL using HMAC-derived bucket keys. Raw login identifiers and source IP addresses are not stored in the rate-limit table.
+
+| Scope | Threshold | Window | Block |
+|---|---:|---:|---:|
+| Source IP | 30 failed login attempts | 15 minutes | 15 minutes |
+| Login identifier + source IP | 5 failed login attempts | 15 minutes | 15 minutes |
+
+A successful login clears that identifier/IP failure bucket. The IP bucket remains so that a successful login to one account cannot erase failed attempts against other accounts from the same address. Rate-limited responses use HTTP 429 and include a `Retry-After` header.
+
+The existing Corps Member identity-verification throttling and OTP send/verification limits remain in place. This is targeted authentication protection, **not a global request limit across every API route**. A distributed general-purpose API limiter can be introduced later if traffic requires it, preferably at a shared gateway or Redis-backed layer rather than writing every request to PostgreSQL.
+
+### Configuration and migration
+
+Set a dedicated random secret of at least 32 bytes in the root `.env`:
+
+```env
+API_RATE_LIMIT_PEPPER=replace-with-a-unique-random-secret-at-least-32-bytes-long
+```
+
+For local compatibility, the service temporarily falls back to `IDENTITY_VERIFICATION_PEPPER` when `API_RATE_LIMIT_PEPPER` is not set. Use a separate value in deployed environments. Do not commit either secret.
+
+Apply the new database migration after pulling the feature branch:
+
+```bash
+bun run --filter @nysc/database db:migrate
+```
+
+### Logging privacy
+
+Never log passwords, OTP values, session tokens, cookies, authorization headers, dates of birth, State Codes, call-up numbers or uploaded document contents. Production logs should be routed to a protected log service with access controls and retention limits.
+
+Caching is not included in this milestone. Redis and caching policies should be introduced only after performance measurements identify safe, high-value data to cache.
+
 ## Account recovery status
 
 The database schema includes the `password_reset` token purpose and `auth_tokens` table, but the complete self-service password-recovery flow is **not yet available as a production-ready feature**. The reset UI, delivery integration, single-use token handling and end-to-end tests must be completed and verified before it is presented as an available production feature.
