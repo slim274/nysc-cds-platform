@@ -30,6 +30,9 @@ jobs:
       - name: Typecheck API
         run: bun run --filter @nysc/api typecheck
 
+      - name: Run API unit tests
+        run: bun run --filter @nysc/api test
+
       - name: Check Svelte components
         run: bun run --filter @nysc/web check
 
