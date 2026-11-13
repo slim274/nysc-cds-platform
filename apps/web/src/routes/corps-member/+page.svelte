@@ -527,7 +527,45 @@
   .matching-note { display: grid; gap: 5px; padding: 13px 15px; margin-top: 14px; border-radius: 9px; background: #f3f7f4; }
   .matching-note strong { color: #245c3c; font-size: 10px; }
   .matching-note span { color: #718078; font-size: 9px; line-height: 1.5; }
-  .coming-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+  .coming-grid {
+    width: min(100%, 1120px);
+    margin: 16px auto 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 12px;
+  }
+  .coming-grid .announcement-link {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #e4ebe6;
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    text-decoration: none;
+    box-shadow: 0 8px 24px #19362407;
+    transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  }
+  .coming-grid .announcement-link:hover {
+    border-color: #b8d6c1;
+    box-shadow: 0 10px 26px #19362410;
+    transform: translateY(-1px);
+  }
+  .coming-grid .announcement-link:focus-visible {
+    outline: 3px solid #8dcaa5;
+    outline-offset: 3px;
+  }
+  .coming-grid .announcement-link > div {
+    min-width: 0;
+    flex: 1;
+  }
+  .coming-grid .announcement-link strong {
+    display: block;
+    color: #34483b;
+    font-size: 11px;
+  }
   .coming-grid article { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #e4ebe6; border-radius: 10px; background: #fff; }
   .coming-icon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; background: #edf5ef; color: #0a6841; font-size: 14px; }
   .coming-grid strong { color: #34483b; font-size: 11px; }
@@ -655,39 +693,193 @@
   .documents-heading h2, .attendance-heading h2 { letter-spacing: -.2px; }
   .document-row { padding: 17px 3px; }
   .contact-card { min-height: 84px; }
-  .attendance-history{padding:20px;margin-top:18px;border:1px solid #e5ebe6;border-radius:11px;background:#fff}.attendance-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.attendance-heading h2{margin:7px 0 5px;font-size:16px}.attendance-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.attendance-count{padding:6px 9px;border-radius:16px;background:#e8f5ec;color:#0a6841;font-size:9px;font-weight:800;white-space:nowrap}.attendance-list{display:grid;gap:7px}.attendance-record{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:8px;background:#f7f9f7}.attendance-record strong,.attendance-record small{display:block}.attendance-record strong{color:#344b3b;font-size:10px}.attendance-record small{margin-top:4px;color:#819087;font-size:9px}.attendance-status{padding:6px 9px;border-radius:18px;background:#f0f3f1;color:#52675a;font-size:8px;font-weight:800;white-space:nowrap}.attendance-status.present{background:#e8f5ec;color:#087443}.attendance-status.absent{background:#fff0ef;color:#a32920}.attendance-status.late{background:#fff4df;color:#9c6500}.attendance-status.excused{background:#eaf2ff;color:#315d9a}.attendance-empty{padding:22px 14px;border-radius:8px;background:#f7f9f7;color:#819087;font-size:10px;line-height:1.7}@media(max-width:560px){.attendance-history{padding:15px}.attendance-record{align-items:flex-start;flex-direction:column}.attendance-heading{flex-direction:column}}
+  .attendance-history {
+    width: min(100%, 1120px);
+    margin: 18px auto 0;
+    padding: 20px;
+    border: 1px solid #e5ebe6;
+    border-radius: 11px;
+    background: #fff;
+  }.attendance-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.attendance-heading h2{margin:7px 0 5px;font-size:16px}.attendance-heading p{margin:0;color:#819087;font-size:10px;line-height:1.5}.attendance-count{padding:6px 9px;border-radius:16px;background:#e8f5ec;color:#0a6841;font-size:9px;font-weight:800;white-space:nowrap}.attendance-list{display:grid;gap:7px}.attendance-record{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:8px;background:#f7f9f7}.attendance-record strong,.attendance-record small{display:block}.attendance-record strong{color:#344b3b;font-size:10px}.attendance-record small{margin-top:4px;color:#819087;font-size:9px}.attendance-status{padding:6px 9px;border-radius:18px;background:#f0f3f1;color:#52675a;font-size:8px;font-weight:800;white-space:nowrap}.attendance-status.present{background:#e8f5ec;color:#087443}.attendance-status.absent{background:#fff0ef;color:#a32920}.attendance-status.late{background:#fff4df;color:#9c6500}.attendance-status.excused{background:#eaf2ff;color:#315d9a}.attendance-empty{padding:22px 14px;border-radius:8px;background:#f7f9f7;color:#819087;font-size:10px;line-height:1.7}@media(max-width:560px){.attendance-history{padding:15px}.attendance-record{align-items:flex-start;flex-direction:column}.attendance-heading{flex-direction:column}}
 
   @media (max-width: 980px) {
-    .topbar { flex-wrap: wrap; gap: 10px; }
-    .topbar-tools { margin-left: auto; }
-    .menu-toggle { display: inline-grid; place-items: center; }
-    .topbar-tools { margin-left: auto; }\n    .member-nav { display: none; width: 100%; margin: 6px 0 0; padding: 12px; border: 1px solid #e3ebe5; border-radius: 10px; background: #fff; }
-    .member-nav { margin-left: 0; }\n    .member-nav.open { display: flex; flex-wrap: wrap; align-items: center; gap: 13px 18px; }
-    .member-nav .signout { margin-left: auto; }
-    .president-appointment { grid-template-columns: auto minmax(0, 1fr); }
-    .appointment-action { grid-column: 2; justify-self: start; }
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: initial;
+    }
+    .topbar-tools {
+      margin-left: 0;
+      justify-self: end;
+    }
+    .menu-toggle {
+      display: inline-grid;
+      place-items: center;
+    }
+    .member-nav {
+      display: none;
+      grid-column: 1 / -1;
+      width: 100%;
+      margin: 0;
+      padding: 9px;
+      border: 1px solid #e3ebe5;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 8px 22px #1936240b;
+    }
+    .member-nav.open {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
+    }
+    .member-nav > a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 40px;
+      padding: 9px 10px;
+      border-radius: 7px;
+    }
+    .member-nav > a:hover,
+    .member-nav > a.active {
+      background: #f1f7f2;
+    }
+    .member-nav .signout {
+      width: 100%;
+      margin: 5px 0 0;
+      text-align: center;
+    }
+    .president-appointment {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .appointment-action {
+      grid-column: 2;
+      justify-self: start;
+    }
   }
+
   @media (max-width: 620px) {
-    .page { padding: 14px 12px 34px; }
-    .topbar { margin-bottom: 18px; padding: 8px 0 12px; }
-    .topbar-tools { gap: 6px; }
-    .member-code { padding: 7px 8px; font-size: 8px; }
-    .role-label { display: none; }
-    .member-nav.open { align-items: stretch; flex-direction: column; }
-    .member-nav .signout { width: 100%; margin-left: 0; }
-    .welcome { padding: 21px 18px; }
-    .welcome h1 { font-size: 25px; }
-    .president-appointment { grid-template-columns: auto minmax(0, 1fr); gap: 11px; padding: 14px; }
-    .appointment-icon { width: 36px; height: 36px; font-size: 15px; }
-    .appointment-copy h2 { font-size: 13px; line-height: 1.35; }
-    .appointment-copy p { font-size: 9px; }
-    .appointment-action { grid-column: 1 / -1; width: 100%; }
-    .documents-card, .group-card { padding: 18px 15px; }
-    .documents-heading { flex-direction: column; }
-    .document-row { align-items: stretch; flex-direction: column; gap: 11px; }
-    .document-upload, .verified-mark, .review-mark, .pending-mark { align-self: flex-start; }
-    .contacts-grid { grid-template-columns: 1fr; }
-    .attendance-history { padding: 15px; }
-    .attendance-record { align-items: flex-start; flex-direction: column; }
+    .page {
+      padding: 14px 12px 34px;
+    }
+    .topbar {
+      margin-bottom: 18px;
+      padding: 8px 0 12px;
+    }
+    .topbar-tools {
+      gap: 6px;
+    }
+    .member-code {
+      max-width: 112px;
+      overflow: hidden;
+      padding: 7px 8px;
+      font-size: 8px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .role-label {
+      display: none;
+    }
+    .member-nav.open {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .welcome {
+      padding: 21px 18px;
+    }
+    .welcome h1 {
+      font-size: 25px;
+    }
+    .president-appointment {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 11px;
+      padding: 14px;
+    }
+    .appointment-icon {
+      width: 36px;
+      height: 36px;
+      font-size: 15px;
+    }
+    .appointment-copy h2 {
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .appointment-copy p {
+      font-size: 9px;
+    }
+    .appointment-action {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+    .documents-card,
+    .group-card {
+      padding: 18px 15px;
+    }
+    .documents-heading {
+      flex-direction: column;
+    }
+    .document-row {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .document-upload,
+    .verified-mark,
+    .review-mark,
+    .pending-mark {
+      align-self: flex-start;
+    }
+    .contacts-grid {
+      grid-template-columns: 1fr;
+    }
+    .attendance-history {
+      width: 100%;
+      padding: 15px;
+    }
+    .attendance-record {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .attendance-heading {
+      align-items: flex-start;
+      flex-direction: row;
+    }
+    .coming-grid {
+      grid-template-columns: 1fr;
+    }
+    .announcement-link {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      flex-basis: 36px;
+    }
+    .brand-copy strong {
+      font-size: 12px;
+    }
+    .brand-copy small {
+      font-size: 8px;
+    }
+    .topbar-tools {
+      gap: 5px;
+    }
+    .member-code {
+      max-width: 96px;
+      font-size: 7px;
+    }
+    .menu-toggle {
+      min-width: 35px;
+      min-height: 35px;
+    }
+    .attendance-heading {
+      flex-direction: column;
+    }
   }
 </style>
