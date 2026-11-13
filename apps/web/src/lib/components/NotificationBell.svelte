@@ -170,8 +170,11 @@
       }
 
       const isPresidentWorkspace = window.location.pathname.startsWith('/cds-president');
-      if (isPresidentWorkspace && window.matchMedia('(max-width: 850px)').matches) {
-        const presidentHeaderTarget = document.querySelector<HTMLElement>('.president-header-controls');
+      if (isPresidentWorkspace) {
+        const isMobilePresident = window.matchMedia('(max-width: 850px)').matches;
+        const presidentHeaderTarget = isMobilePresident
+          ? document.querySelector<HTMLElement>('.president-header-controls')
+          : document.querySelector<HTMLElement>('.president-header-nav');
         if (presidentHeaderTarget) {
           if (node.parentElement !== presidentHeaderTarget) presidentHeaderTarget.appendChild(node);
           return;
@@ -362,6 +365,12 @@
   .notification-bell.president-header .bell-button {
     width: 36px;
     height: 36px;
+  }
+  .president-header-controls .notification-bell.president-header {
+    margin-left: 2px !important;
+  }
+  .president-header-nav .notification-bell.president-header {
+    margin-left: 0 !important;
   }
   .notification-bell.president-header .bell-button svg {
     width: 18px;
