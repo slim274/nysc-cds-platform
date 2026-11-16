@@ -12,7 +12,7 @@ The platform is a **Bun workspaces monorepo** with a SvelteKit web application, 
 | API runtime | Hono on Bun | HTTP routes, authentication, validation, authorization and business rules |
 | Data access | Drizzle ORM, `postgres` driver | Typed queries and PostgreSQL access, shared through `@nysc/database` |
 | Database | PostgreSQL 17 | Accounts, role assignments, CDS groups, meetings, attendance, documents, announcements and operational records |
-| Local infrastructure | Docker Compose | Runs the PostgreSQL container and its persistent named volume |
+| Local infrastructure | Docker Compose | Runs PostgreSQL and Redis with persistent named volumes |
 | Workspace tooling | Bun | Installs dependencies and runs the web and API development processes |
 
 ### System architecture
@@ -36,18 +36,23 @@ flowchart TB
   subgraph Docker["Docker Engine — Docker Compose"]
     PG[("PostgreSQL 17 Alpine<br/>nysc-postgres")]
     Volume[("Persistent volume<br/>nysc-postgres-data")]
+    Redis[("Redis 7.4 Alpine<br/>nysc-redis")]
+    RedisVolume[("Persistent volume<br/>nysc-redis-data")]
     PG <--> Volume
+    Redis <--> RedisVolume
   end
 
   Browser -->|"Web UI"| Web
   Data -->|"DATABASE_URL<br/>localhost:5432"| PG
+  API -->|"REDIS_URL<br/>localhost:6379"| Redis
 ```
 
 ### Important Docker and runtime detail
 
-- `docker-compose.yml` currently defines **one service: PostgreSQL 17 Alpine**. Docker Compose does not currently start the SvelteKit frontend or Hono API.
+- `docker-compose.yml` defines **two infrastructure services: PostgreSQL 17 Alpine and Redis 7.4 Alpine**. Docker Compose does not start the SvelteKit frontend or Hono API.
 - The database container is published on `127.0.0.1:5432`, allowing the local API to connect through `DATABASE_URL`.
-- The named volume `nysc-postgres-data` keeps database files across container restarts and normal `docker compose down` operations.
+- The named volumes `nysc-postgres-data` and `nysc-redis-data` retain their respective service data across container restarts and normal `docker compose down` operations.
+- The Redis container is published to the host on `127.0.0.1:6379`; the API connects using the password-protected `REDIS_URL` in the root `.env`.
 - The API runs locally through `bun run dev:api` on port `3001`.
 - The frontend runs locally through `bun run dev:web`. Vite forwards requests beginning with `/api` to `http://localhost:3001` and strips the `/api` prefix.
 - Full application containerization and production deployment topology are separate work; this diagram does not imply that the web and API services are already Dockerized.
@@ -59,7 +64,7 @@ flowchart TB
 | `apps/web` | SvelteKit application, role-based pages and shared UI components |
 | `apps/api` | Hono API entry point, route modules, middleware and application services |
 | `packages/database` | Drizzle client, PostgreSQL schema, migrations and development seed |
-| `docker-compose.yml` | Local PostgreSQL container and persistent volume |
+| `docker-compose.yml` | Local PostgreSQL and Redis containers with persistent volumes |
 | `.env.example` | Environment-variable template for local development and optional providers |
 
 The API is a modular monolith. The browser presents the interface, but the API remains responsible for authentication, authorization, data validation and business rules. Protected operations must enforce role and resource scope on the server; hiding a button in the browser is not an authorization check.
@@ -158,9 +163,24 @@ The API applies shared security and observability middleware:
 - **Central error handling:** uncaught errors return a generic response and request ID. Internal exception details are not sent to the client.
 - **Structured request logs:** one JSON record is emitted per completed request with timestamp, request ID, method, path, status and duration. Query strings, request bodies, cookies, authorization headers and client IP addresses are deliberately excluded.
 
+### Distributed API throttling
+
+A shared Redis 7.4 service provides fixed-window request counters across API instances. Counters are incremented and assigned an expiry atomically using a Redis Lua script. The API derives client keys with HMAC-SHA256 using the rate-limit pepper; raw client IP addresses are not written to Redis keys.
+
+| Scope | Threshold | Window | Applied to |
+|---|---:|---:|---|
+| General API | 1,200 requests | 5 minutes | All routes except health probes |
+| Authentication | 600 requests | 15 minutes | `/auth/*` |
+| Upload operations | 120 requests | 10 minutes | Write requests for document, upload, photo and import routes |
+| Attendance writes | 600 requests | 5 minutes | Write requests to attendance routes |
+
+The general limit is applied in addition to the route-specific limit. Health probes (`/health`, `/health/db` and `/health/redis`) bypass request throttling so monitoring can still diagnose a Redis incident. A request that exceeds a limit receives HTTP 429, a `Retry-After` header and rate-limit response headers. Windows are fixed windows, not sliding windows.
+
+Redis connection failures are logged as a degraded rate-limiting state and the general middleware fails open so a Redis outage does not make every API route unavailable. The existing PostgreSQL-backed failed-login and identity-verification limits remain independent and continue to protect those sensitive flows. Production monitoring should alert on `api.rate_limit.redis_unavailable` and `api.rate_limit.redis_recovered` log events.
+
 ### Authentication throttling
 
-Failed login attempts are tracked in PostgreSQL using HMAC-derived bucket keys. Raw login identifiers and source IP addresses are not stored in the rate-limit table.
+Failed login attempts are also tracked in PostgreSQL using HMAC-derived bucket keys. Raw login identifiers and source IP addresses are not stored in the rate-limit table.
 
 | Scope | Threshold | Window | Block |
 |---|---:|---:|---:|
@@ -169,29 +189,42 @@ Failed login attempts are tracked in PostgreSQL using HMAC-derived bucket keys. 
 
 A successful login clears that identifier/IP failure bucket. The IP bucket remains so that a successful login to one account cannot erase failed attempts against other accounts from the same address. Rate-limited responses use HTTP 429 and include a `Retry-After` header.
 
-The existing Corps Member identity-verification throttling and OTP send/verification limits remain in place. This is targeted authentication protection, **not a global request limit across every API route**. A distributed general-purpose API limiter can be introduced later if traffic requires it, preferably at a shared gateway or Redis-backed layer rather than writing every request to PostgreSQL.
+The existing Corps Member identity-verification throttling and OTP send/verification limits also remain in place.
 
-### Configuration and migration
+### Redis configuration
 
-Set a dedicated random secret of at least 32 bytes in the root `.env`. Generate one with `openssl rand -hex 32` and copy the output:
+The local Docker Compose configuration runs Redis 7.4 Alpine with a password and persistent named volume. Redis is published only on `127.0.0.1:6379`; the API running locally connects through the `REDIS_URL` in the root `.env`.
 
-```env
-API_RATE_LIMIT_PEPPER=<your-generated-secret>
-```
-
-For local compatibility, the service temporarily falls back to `IDENTITY_VERIFICATION_PEPPER` when `API_RATE_LIMIT_PEPPER` is not set. Use a separate value in deployed environments. Do not commit either secret.
-
-Apply the new database migration after pulling the feature branch:
+Generate a unique Redis password and HMAC pepper:
 
 ```bash
-bun run --filter @nysc/database db:migrate
+openssl rand -hex 32
 ```
+
+Set the generated values in your untracked root `.env`:
+
+```env
+REDIS_PASSWORD=<your-generated-redis-password>
+REDIS_URL=redis://:<your-generated-redis-password>@127.0.0.1:6379/0
+API_RATE_LIMIT_PEPPER=<your-generated-hmac-secret>
+```
+
+Use the same Redis password in `REDIS_PASSWORD` and the URL. Do not commit `.env` or real credentials. In production, use a managed/private Redis endpoint, TLS where supported, and a dedicated secret value; do not expose Redis directly to the public internet.
+
+Start and inspect the local services:
+
+```bash
+docker compose up -d postgres redis
+docker compose ps
+```
+
+The API health endpoint `GET /health/redis` reports whether Redis is reachable. It returns HTTP 503 when Redis is unavailable. The liveness endpoint `GET /health` remains independent of Redis.
 
 ### Logging privacy
 
 Never log passwords, OTP values, session tokens, cookies, authorization headers, dates of birth, State Codes, call-up numbers or uploaded document contents. Production logs should be routed to a protected log service with access controls and retention limits.
 
-Caching is not included in this milestone. Redis and caching policies should be introduced only after performance measurements identify safe, high-value data to cache.
+Redis caching is not included in this milestone; it will be introduced separately with explicit per-data caching and invalidation policies.
 
 ## Account recovery status
 
@@ -306,14 +339,14 @@ cp .env.example .env
 
 Review `.env` and set the PostgreSQL values and `DATABASE_URL`. The example file contains local placeholders; replace them before using the environment. Do not commit `.env` or real credentials.
 
-### Start PostgreSQL with Docker Compose
+### Start PostgreSQL and Redis with Docker Compose
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 docker compose ps
 ```
 
-Compose starts the PostgreSQL 17 Alpine container and attaches the persistent `nysc-postgres-data` volume. The database is exposed to the host on `127.0.0.1:5432`.
+Compose starts PostgreSQL 17 Alpine and Redis 7.4 Alpine. PostgreSQL is exposed on `127.0.0.1:5432` and Redis on `127.0.0.1:6379`; both use persistent named volumes. Set `REDIS_PASSWORD` and `REDIS_URL` in `.env` as described in [Redis configuration](#redis-configuration).
 
 ### Install, migrate and seed
 
@@ -349,6 +382,7 @@ Vite proxies requests under `/api` to `http://localhost:3001`. The API connects 
 bun run --filter @nysc/web check
 bun run --filter @nysc/web build
 bun run --filter @nysc/api typecheck
+bun run --filter @nysc/api test
 ```
 
 To stop the local database container without deleting its data:
