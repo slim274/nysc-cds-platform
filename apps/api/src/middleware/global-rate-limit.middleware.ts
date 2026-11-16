@@ -18,25 +18,25 @@ export type RateLimitPolicy = {
 
 const GLOBAL_POLICY: RateLimitPolicy = {
   name: 'global',
-  limit: 300,
+  limit: 1_200,
   windowSeconds: 5 * 60
 };
 
 const AUTH_POLICY: RateLimitPolicy = {
   name: 'auth',
-  limit: 60,
+  limit: 600,
   windowSeconds: 15 * 60
 };
 
 const UPLOAD_POLICY: RateLimitPolicy = {
   name: 'uploads',
-  limit: 30,
+  limit: 120,
   windowSeconds: 10 * 60
 };
 
 const ATTENDANCE_POLICY: RateLimitPolicy = {
   name: 'attendance-writes',
-  limit: 120,
+  limit: 600,
   windowSeconds: 5 * 60
 };
 
