@@ -1106,7 +1106,7 @@
   .modal-layer { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; overflow-y: auto; padding: 22px; }
   .modal-scrim { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #10251980; cursor: pointer; }
   .group-modal { position: relative; z-index: 1; width: min(100%, 650px); max-height: min(92vh, 900px); overflow-y: auto; padding: 25px; border-radius: 14px; background: #fff; box-shadow: 0 22px 70px #071e1250; }
-  .group-modal.editing { transform: translateY(18px); }
+  .group-modal.editing { transform: translateY(28px); }
   @media (max-height: 760px) { .group-modal.editing { transform: none; } }
   .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 20px; }
   .modal-header h2 { margin: 8px 0 5px; color: #1d3426; font-size: 20px; }
