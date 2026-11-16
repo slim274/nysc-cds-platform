@@ -1,4 +1,5 @@
 import app from './app';
+import { closeRedisClient } from './lib/redis';
 
 const port = Number(Bun.env.PORT ?? 3001);
 
@@ -18,3 +19,19 @@ Bun.serve({
 });
 
 console.log(`NYSC API running at http://localhost:${port}`);
+
+let shuttingDown = false;
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.info(JSON.stringify({
+    level: 'info',
+    event: 'api.shutdown',
+    signal
+  }));
+  closeRedisClient();
+  process.exit(0);
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
