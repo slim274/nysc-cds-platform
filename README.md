@@ -214,7 +214,7 @@ Use the same Redis password in `REDIS_PASSWORD` and the URL. Do not commit `.env
 Start and inspect the local services:
 
 ```bash
-docker compose up -d postgres redis redis
+docker compose up -d postgres redis
 docker compose ps
 ```
 
@@ -342,7 +342,7 @@ Review `.env` and set the PostgreSQL values and `DATABASE_URL`. The example file
 ### Start PostgreSQL and Redis with Docker Compose
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 docker compose ps
 ```
 
