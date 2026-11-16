@@ -1,4 +1,30 @@
 services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: nysc-redis
+    restart: unless-stopped
+
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
+
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+
+    ports:
+      - "127.0.0.1:6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   postgres:
     image: postgres:17-alpine
     container_name: nysc-postgres
@@ -23,5 +49,8 @@ services:
       start_period: 10s
 
 volumes:
+  redis_data:
+    name: nysc-redis-data
+
   postgres_data:
     name: nysc-postgres-data
