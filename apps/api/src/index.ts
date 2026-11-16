@@ -3,7 +3,7 @@ import { closeRedisClient } from './lib/redis';
 
 const port = Number(Bun.env.PORT ?? 3001);
 
-Bun.serve({
+const server = Bun.serve({
   port,
   fetch(request, server) {
     const remoteAddress = server.requestIP(request)?.address ?? 'unknown';
@@ -29,8 +29,9 @@ function shutdown(signal: string) {
     event: 'api.shutdown',
     signal
   }));
+  // Stop accepting new connections and let in-flight HTTP requests finish.
+  server.stop();
   closeRedisClient();
-  process.exit(0);
 }
 
 process.once('SIGINT', () => shutdown('SIGINT'));
