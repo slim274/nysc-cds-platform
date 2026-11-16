@@ -20,6 +20,8 @@ import type {
 } from './course-catalogue.schema';
 
 import { COURSE_DISCIPLINE_CATEGORIES } from './course-catalogue.constants';
+import { redisJsonCache } from '../../lib/redis-cache';
+import { invalidateCourseReferenceCaches } from '../../lib/reference-data-cache';
 
 export class CourseCatalogueError extends Error {
   constructor(
@@ -108,7 +110,7 @@ async function ensureNamesAvailable(
   }
 }
 
-export async function listCourseCatalogue(filters: {
+async function queryCourseCatalogue(filters: {
   q?: string;
   category?: string;
   status?: 'active' | 'inactive' | 'all';
@@ -175,6 +177,25 @@ export async function listCourseCatalogue(filters: {
   }));
 }
 
+export async function listCourseCatalogue(filters: {
+  q?: string;
+  category?: string;
+  status?: 'active' | 'inactive' | 'all';
+}) {
+  const normalizedFilters = {
+    q: filters.q?.trim() || undefined,
+    category: filters.category || undefined,
+    status: filters.status ?? 'all'
+  };
+
+  return redisJsonCache.getOrSet(
+    'course-catalogue',
+    JSON.stringify(normalizedFilters),
+    30 * 60,
+    () => queryCourseCatalogue(normalizedFilters)
+  );
+}
+
 export async function createCourse(input: CreateCourseInput) {
   assertCategory(input.disciplineCategory);
 
@@ -216,6 +237,7 @@ export async function createCourse(input: CreateCourseInput) {
     }
   });
 
+  await invalidateCourseReferenceCaches();
   return (await listCourseCatalogue({ q: name, status: 'all' }))
     .find((course) => course.normalizedName === normalizedName);
 }
@@ -287,6 +309,7 @@ export async function updateCourse(
     }
   });
 
+  await invalidateCourseReferenceCaches();
   return (await listCourseCatalogue({ status: 'all' }))
     .find((course) => course.id === courseId);
 }
@@ -437,6 +460,7 @@ export async function importCourses(rows: CourseImportRow[]) {
     }
   });
 
+  await invalidateCourseReferenceCaches();
   return { inserted, updated, aliasesAdded, totalProcessed: rows.length };
 }
 

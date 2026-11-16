@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq } from 'drizzle-orm';
 
 import { db, serviceYears, batches, streams, corpsMembers } from '@nysc/database';
+import { invalidateCohortReferenceCaches } from '../../lib/reference-data-cache';
 
 export class CohortServiceError extends Error {
   constructor(message: string, public readonly status: number, public readonly code: string) {
@@ -158,6 +159,7 @@ export async function createServiceYear(input: {
       isActive: input.isActive
     }).returning({ id: serviceYears.id });
     if (!created) throw new Error('The service year could not be created.');
+    await invalidateCohortReferenceCaches();
     return created;
   } catch (error) {
     throwDuplicate(error, 'That service year already exists.', 'SERVICE_YEAR_DUPLICATE');
@@ -185,6 +187,7 @@ export async function updateServiceYear(
 
   try {
     await db.update(serviceYears).set(input).where(eq(serviceYears.id, serviceYearId));
+    await invalidateCohortReferenceCaches();
   } catch (error) {
     throwDuplicate(error, 'That service year already exists.', 'SERVICE_YEAR_DUPLICATE');
   }
@@ -208,6 +211,7 @@ export async function createBatch(
       isActive: input.isActive
     }).returning({ id: batches.id });
     if (!created) throw new Error('The batch could not be created.');
+    await invalidateCohortReferenceCaches();
     return created;
   } catch (error) {
     throwDuplicate(error, 'That batch code already exists in this service year.', 'BATCH_DUPLICATE');
@@ -226,6 +230,7 @@ export async function updateBatch(
 
   try {
     await db.update(batches).set(input).where(eq(batches.id, batchId));
+    await invalidateCohortReferenceCaches();
   } catch (error) {
     throwDuplicate(error, 'That batch code already exists in this service year.', 'BATCH_DUPLICATE');
   }
@@ -249,6 +254,7 @@ export async function createStream(
       isActive: input.isActive
     }).returning({ id: streams.id });
     if (!created) throw new Error('The stream could not be created.');
+    await invalidateCohortReferenceCaches();
     return created;
   } catch (error) {
     throwDuplicate(error, 'That stream code already exists in this batch.', 'STREAM_DUPLICATE');
@@ -267,6 +273,7 @@ export async function updateStream(
 
   try {
     await db.update(streams).set(input).where(eq(streams.id, streamId));
+    await invalidateCohortReferenceCaches();
   } catch (error) {
     throwDuplicate(error, 'That stream code already exists in this batch.', 'STREAM_DUPLICATE');
   }

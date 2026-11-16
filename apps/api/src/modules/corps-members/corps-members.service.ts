@@ -24,6 +24,12 @@ import type {
   CreateCorpsMemberInput,
   UpdateCorpsMemberInput
 } from './corps-members.schema';
+import {
+  getCachedActiveLgaOptions,
+  getCachedCohortReferenceOptions,
+  getCachedActiveInstitutionOptions,
+  getCachedActiveCourseOptions
+} from '../../lib/reference-data-cache';
 
 export class CorpsMemberServiceError extends Error {
   constructor(
@@ -151,41 +157,23 @@ async function validateReferences(
 export async function getCorpsMemberReferenceData(lgaIds: string[]) {
   assertLgaScope(lgaIds);
 
-  const [assignedLgas, streamOptions, institutionOptions, courseOptions] = await Promise.all([
-    db.select({
-      id: lgas.id,
-      name: lgas.name,
-      stateName: lgas.stateName
-    }).from(lgas)
-      .where(and(inArray(lgas.id, lgaIds), eq(lgas.isActive, true)))
-      .orderBy(asc(lgas.stateName), asc(lgas.name)),
-    db.select({
-      id: streams.id,
-      code: streams.code,
-      name: streams.name,
-      isActive: streams.isActive,
-      batchId: batches.id,
-      batchCode: batches.code,
-      batchName: batches.name,
-      batchIsActive: batches.isActive,
-      serviceYearId: serviceYears.id,
-      serviceYear: serviceYears.year,
-      serviceYearIsActive: serviceYears.isActive
-    }).from(streams)
-      .innerJoin(batches, eq(streams.batchId, batches.id))
-      .innerJoin(serviceYears, eq(batches.serviceYearId, serviceYears.id))
-      .orderBy(asc(serviceYears.year), asc(batches.code), asc(streams.code)),
-    db.select({ id: institutions.id, name: institutions.name, abbreviation: institutions.abbreviation })
-      .from(institutions)
-      .where(eq(institutions.isActive, true))
-      .orderBy(asc(institutions.name)),
-    db.select({ id: courses.id, name: courses.name, disciplineCategory: courses.disciplineCategory })
-      .from(courses)
-      .where(eq(courses.isActive, true))
-      .orderBy(asc(courses.name))
+  const [allLgas, streamOptions, institutionOptions, courseOptions] = await Promise.all([
+    getCachedActiveLgaOptions(),
+    getCachedCohortReferenceOptions(),
+    getCachedActiveInstitutionOptions(),
+    getCachedActiveCourseOptions()
   ]);
 
-  return { lgas: assignedLgas, streams: streamOptions, institutions: institutionOptions, courses: courseOptions };
+  // Apply the authenticated LGI's scope after reading the shared LGA directory.
+  const allowedLgas = new Set(lgaIds);
+  const assignedLgas = allLgas.filter((lga) => allowedLgas.has(lga.id));
+
+  return {
+    lgas: assignedLgas,
+    streams: streamOptions,
+    institutions: institutionOptions,
+    courses: courseOptions
+  };
 }
 
 export async function listCorpsMembers(

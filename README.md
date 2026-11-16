@@ -178,6 +178,23 @@ The general limit is applied in addition to the route-specific limit. Health pro
 
 Redis connection failures are logged as a degraded rate-limiting state and the general middleware fails open so a Redis outage does not make every API route unavailable. The existing PostgreSQL-backed failed-login and identity-verification limits remain independent and continue to protect those sensitive flows. Production monitoring should alert on `api.rate_limit.redis_unavailable` and `api.rate_limit.redis_recovered` log events.
 
+### Redis reference-data caching
+
+Redis also provides read-through JSON caching for shared reference data. Each dataset has an explicit TTL and a namespace version. Successful LGI mutations increment the relevant namespace version so old query variants are no longer served; cache failures fall back to PostgreSQL and are logged without failing the request.
+
+| Reference data | Cache lifetime | Invalidation |
+|---|---:|---|
+| Course catalogue search/list results, including aliases | 30 minutes | Course create, edit and CSV import |
+| Active course options | 30 minutes | Course create, edit and CSV import |
+| Active LGA/state options | 1 hour | Time-based expiry; LGI access scope is filtered after cache read |
+| Active institution options | 1 hour | Time-based expiry |
+| Service-year, batch and stream form options | 30 minutes | Service-year, batch or stream create/edit |
+| CDS group form reference data (assigned LGAs and active courses) | 5 minutes | Course create, edit and CSV import; each LGA scope has a separate cache key |
+
+The cache contains only shared reference options. Authentication and LGI role checks still run for each request, and LGA-scoped results are filtered using the authenticated account's current assignments after the shared LGA directory is read.
+
+Operational or personal data is deliberately excluded: Corps Member records and profiles, documents, attendance, notifications, CDS group rosters, live group membership/capacity counts and the /lgi/batches-streams structure (which includes live member counts) are always read from PostgreSQL. Cache invalidation uses Redis namespace version counters rather than blocking key scans. If Redis is unavailable, reads bypass the cache and use PostgreSQL; failed invalidations are logged and the bounded TTL limits stale data.
+
 ### Authentication throttling
 
 Failed login attempts are also tracked in PostgreSQL using HMAC-derived bucket keys. Raw login identifiers and source IP addresses are not stored in the rate-limit table.
