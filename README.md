@@ -164,10 +164,10 @@ A shared Redis 7.4 service provides fixed-window request counters across API ins
 
 | Scope | Threshold | Window | Applied to |
 |---|---:|---:|---|
-| General API | 300 requests | 5 minutes | All routes except health probes |
-| Authentication | 60 requests | 15 minutes | `/auth/*` |
-| Upload operations | 30 requests | 10 minutes | Write requests for document, upload, photo and import routes |
-| Attendance writes | 120 requests | 5 minutes | Write requests to attendance routes |
+| General API | 1,200 requests | 5 minutes | All routes except health probes |
+| Authentication | 600 requests | 15 minutes | `/auth/*` |
+| Upload operations | 120 requests | 10 minutes | Write requests for document, upload, photo and import routes |
+| Attendance writes | 600 requests | 5 minutes | Write requests to attendance routes |
 
 The general limit is applied in addition to the route-specific limit. Health probes (`/health`, `/health/db` and `/health/redis`) bypass request throttling so monitoring can still diagnose a Redis incident. A request that exceeds a limit receives HTTP 429, a `Retry-After` header and rate-limit response headers. Windows are fixed windows, not sliding windows.
 
