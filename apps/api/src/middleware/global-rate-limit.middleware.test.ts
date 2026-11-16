@@ -110,6 +110,25 @@ describe('global API rate limiting', () => {
     expect(redis.keys.some((key) => key.startsWith('nysc:api:rate-limit:v1:global:'))).toBe(true);
   });
 
+
+  it('keeps counters separate for different client addresses', async () => {
+    const redis = new FakeRedisClient();
+    const app = createTestApp(redis);
+
+    const first = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'x-nysc-client-address': '203.0.113.10' }
+    });
+    const second = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'x-nysc-client-address': '203.0.113.11' }
+    });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(new Set(redis.keys.filter((key) => key.includes(':global:'))).size).toBe(2);
+  });
+
   it('fails open when Redis is unavailable so application routes remain available', async () => {
     const unavailableRedis: RedisCommandClient = {
       send: async () => {
