@@ -32,6 +32,7 @@ import type {
 } from './cds-groups.schema';
 
 import { hasVerifiedMandatoryDocuments } from './cds-matching.service';
+import { getCachedCdsGroupReferenceData } from '../../lib/reference-data-cache';
 
 export class CdsGroupServiceError extends Error {
   constructor(
@@ -56,35 +57,7 @@ function assertLgaScope(lgaIds: string[]): void {
 
 export async function getCdsGroupReferenceData(lgaIds: string[]) {
   assertLgaScope(lgaIds);
-
-  const [assignedLgas, activeCourses] = await Promise.all([
-    db
-      .select({
-        id: lgas.id,
-        name: lgas.name,
-        stateName: lgas.stateName
-      })
-      .from(lgas)
-      .where(and(
-        inArray(lgas.id, lgaIds),
-        eq(lgas.isActive, true)
-      ))
-      .orderBy(asc(lgas.stateName), asc(lgas.name)),
-    db
-      .select({
-        id: courses.id,
-        name: courses.name,
-        disciplineCategory: courses.disciplineCategory
-      })
-      .from(courses)
-      .where(eq(courses.isActive, true))
-      .orderBy(asc(courses.name))
-  ]);
-
-  return {
-    lgas: assignedLgas,
-    courses: activeCourses
-  };
+  return getCachedCdsGroupReferenceData(lgaIds);
 }
 
 export async function listCdsGroups(
