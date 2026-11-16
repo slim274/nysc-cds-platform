@@ -29,7 +29,8 @@ import {
   createSession,
   revokeSession,
   SESSION_COOKIE,
-  SESSION_TTL_SECONDS
+  SESSION_TTL_SECONDS,
+  isSessionCookieSecure
 } from './services/session.service';
 
 import {
@@ -223,7 +224,7 @@ authRoutes.post('/register-corps-member', async (c) => {
 
     setCookie(c, SESSION_COOKIE, session.token, {
       httpOnly: true,
-      secure: Bun.env.NODE_ENV === 'production',
+      secure: isSessionCookieSecure(),
       sameSite: 'Lax',
       path: '/',
       maxAge: SESSION_TTL_SECONDS,
@@ -322,7 +323,7 @@ authRoutes.post('/login', async (c) => {
 
     setCookie(c, SESSION_COOKIE, session.token, {
       httpOnly: true,
-      secure: Bun.env.NODE_ENV === 'production',
+      secure: isSessionCookieSecure(),
       sameSite: 'Lax',
       path: '/',
       maxAge: SESSION_TTL_SECONDS,
@@ -370,7 +371,7 @@ authRoutes.post('/logout', async (c) => {
 
     deleteCookie(c, SESSION_COOKIE, {
       path: '/',
-      secure: Bun.env.NODE_ENV === 'production',
+      secure: isSessionCookieSecure(),
       sameSite: 'Lax'
     });
 
