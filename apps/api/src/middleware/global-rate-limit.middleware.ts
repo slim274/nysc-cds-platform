@@ -53,12 +53,15 @@ const FIXED_WINDOW_SCRIPT = [
   'if count == 1 then',
   '  redis.call("EXPIRE", KEYS[1], ARGV[1])',
   'end',
-  'local ttl = redis.call("TTL", KEYS[1])',
-  'if ttl < 1 then',
-  '  redis.call("EXPIRE", KEYS[1], ARGV[1])',
-  '  ttl = tonumber(ARGV[1])',
+  'local ttl = redis.call("PTTL", KEYS[1])',
+  'if ttl == -1 then',
+  '  ttl = tonumber(ARGV[1]) * 1000',
+  '  redis.call("PEXPIRE", KEYS[1], ttl)',
   'end',
-  'return { count, ttl }'
+  'if ttl < 0 then',
+  '  return redis.error_reply("Rate-limit counter has no active expiry.")',
+  'end',
+  'return { count, math.max(1, math.ceil(ttl / 1000)) }'
 ].join('\n');
 
 type RateLimitContext = {

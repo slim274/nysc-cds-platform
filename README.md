@@ -382,6 +382,7 @@ Vite proxies requests under `/api` to `http://localhost:3001`. The API connects 
 bun run --filter @nysc/web check
 bun run --filter @nysc/web build
 bun run --filter @nysc/api typecheck
+bun run --filter @nysc/api test
 ```
 
 To stop the local database container without deleting its data:
