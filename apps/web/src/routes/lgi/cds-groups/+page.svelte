@@ -660,7 +660,7 @@
 {#if formOpen}
   <div class="modal-layer">
     <button class="modal-scrim" type="button" aria-label="Close group form" onclick={() => (formOpen = false)}></button>
-    <section class="group-modal" role="dialog" aria-modal="true" aria-labelledby="group-form-title">
+    <section class="group-modal" class:editing={Boolean(editingGroup)} role="dialog" aria-modal="true" aria-labelledby="group-form-title">
       <div class="modal-header">
         <div>
           <span class="eyebrow">CDS GROUP DETAILS</span>
@@ -1106,6 +1106,8 @@
   .modal-layer { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; overflow-y: auto; padding: 22px; }
   .modal-scrim { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #10251980; cursor: pointer; }
   .group-modal { position: relative; z-index: 1; width: min(100%, 650px); max-height: min(92vh, 900px); overflow-y: auto; padding: 25px; border-radius: 14px; background: #fff; box-shadow: 0 22px 70px #071e1250; }
+  .group-modal.editing { transform: translateY(18px); }
+  @media (max-height: 760px) { .group-modal.editing { transform: none; } }
   .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 20px; }
   .modal-header h2 { margin: 8px 0 5px; color: #1d3426; font-size: 20px; }
   .modal-header p { margin: 0; color: #718078; font-size: 11px; line-height: 1.6; }
