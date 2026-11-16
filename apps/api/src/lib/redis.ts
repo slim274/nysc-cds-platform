@@ -18,7 +18,7 @@ export function getRedisClient(): RedisClient {
   sharedRedisClient = new RedisClient(redisUrl, {
     connectionTimeout: 1_000,
     autoReconnect: true,
-    maxRetries: 2,
+    maxRetries: 5,
     enableOfflineQueue: false
   });
 
@@ -27,7 +27,11 @@ export function getRedisClient(): RedisClient {
 
 /** Verify the shared Redis connection without exposing connection details. */
 export async function checkRedisConnection(): Promise<void> {
-  await getRedisClient().ping();
+  const client = getRedisClient();
+  // Bun's client needs an explicit connect() after it exhausts its automatic
+  // retry budget. This also lets the API recover when Redis starts later.
+  if (!client.connected) await client.connect();
+  await client.ping();
 }
 
 /** Close the shared connection during API shutdown. */
