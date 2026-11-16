@@ -3,6 +3,8 @@ import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 import { HTTPException } from 'hono/http-exception';
 import { redactPathIdentifiers, requestLogger } from './middleware/request-logger.middleware';
+import { globalRateLimit } from './middleware/global-rate-limit.middleware';
+import { checkRedisConnection } from './lib/redis';
 
 import {
   checkDatabaseConnection
@@ -85,6 +87,9 @@ app.use('*', async (c, next) => {
   await next();
 });
 app.use('*', requestLogger);
+// Apply after request IDs/logging so rate-limit responses also carry correlation
+// IDs and are included in the privacy-preserving request log.
+app.use('*', globalRateLimit);
 
 app.onError((error, c) => {
   const status = error instanceof HTTPException ? error.status : 500;
@@ -127,6 +132,25 @@ app.get('/health', (c) => {
     status: 'healthy',
     service: 'nysc-api'
   });
+});
+
+// Redis health check. This endpoint is excluded from API rate limiting so
+// monitoring remains available during Redis incidents.
+app.get('/health/redis', async (c) => {
+  try {
+    await checkRedisConnection();
+    return c.json({
+      status: 'healthy',
+      service: 'nysc-api',
+      redis: 'connected'
+    });
+  } catch {
+    return c.json({
+      status: 'degraded',
+      service: 'nysc-api',
+      redis: 'disconnected'
+    }, 503);
+  }
 });
 
 // Database health check
