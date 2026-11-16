@@ -1210,8 +1210,20 @@
     .stat-card small { font-size: 8px; }
     .form-row, .course-options, .course-picker-tools { grid-template-columns: 1fr; }
     .course-selection-actions { align-items: flex-start; flex-direction: column; }
-    .modal-layer { padding: 10px; }
-    .group-modal { max-height: 96vh; padding: 18px; border-radius: 12px; }
+    .modal-layer {
+      box-sizing: border-box;
+      align-content: start;
+      align-items: start;
+      grid-template-rows: max-content;
+      padding: calc(76px + 12px + env(safe-area-inset-top)) 10px 12px;
+    }
+    .group-modal {
+      max-height: calc(100vh - 100px);
+      max-height: calc(100dvh - 100px - env(safe-area-inset-top));
+      padding: 18px;
+      border-radius: 12px;
+    }
+    .group-modal.editing { transform: none; }
     .modal-actions { flex-direction: column-reverse; }
     .modal-actions button { width: 100%; }
   }
