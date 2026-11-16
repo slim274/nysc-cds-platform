@@ -41,6 +41,7 @@ const ATTENDANCE_POLICY: RateLimitPolicy = {
 };
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const HEALTH_PATHS = new Set(['/', '/health', '/health/db', '/health/redis']);
 
 /**
  * Increment and expire a fixed-window counter in one atomic Redis operation.
@@ -75,12 +76,9 @@ export function getRateLimitPolicies(
 ): RateLimitPolicy[] {
   const normalizedPath = pathname.split('?')[0] || '/';
 
-  // Keep liveness/readiness probes reachable when Redis is degraded.
-  if (
-    normalizedPath === '/'
-    || normalizedPath === '/health'
-    || normalizedPath.startsWith('/health/')
-  ) {
+  // Keep only the known liveness/readiness probes reachable when Redis is degraded.
+  // Do not exempt arbitrary future paths just because they share the /health prefix.
+  if (HEALTH_PATHS.has(normalizedPath)) {
     return [];
   }
 
