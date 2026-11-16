@@ -53,7 +53,7 @@ function createTestApp(client: RedisCommandClient) {
 describe('global API rate limiting', () => {
   it('selects global limits and stricter route-specific policies', () => {
     expect(getRateLimitPolicies('GET', '/lgi/groups')).toEqual([
-      { name: 'global', limit: 300, windowSeconds: 300 }
+      { name: 'global', limit: 1_200, windowSeconds: 300 }
     ]);
 
     expect(getRateLimitPolicies('POST', '/auth/login').map((policy) => policy.name))
@@ -72,7 +72,7 @@ describe('global API rate limiting', () => {
     const redis = new FakeRedisClient();
     const app = createTestApp(redis);
 
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < 600; attempt += 1) {
       const response = await app.request('/auth/login', {
         method: 'POST',
         headers: { 'x-nysc-client-address': '203.0.113.41' }
@@ -87,7 +87,7 @@ describe('global API rate limiting', () => {
 
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('Retry-After')).toBe('900');
-    expect(blocked.headers.get('RateLimit-Limit')).toBe('60');
+    expect(blocked.headers.get('RateLimit-Limit')).toBe('600');
     expect(blocked.headers.get('RateLimit-Remaining')).toBe('0');
 
     const body = await blocked.json() as { success: boolean; requestId: string };
