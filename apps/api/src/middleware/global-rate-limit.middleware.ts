@@ -6,6 +6,8 @@ import { getRedisClient } from '../lib/redis';
 
 export interface RedisCommandClient {
   send(command: string, args: string[]): Promise<unknown>;
+  connected?: boolean;
+  connect?: () => Promise<void>;
 }
 
 export type RateLimitPolicy = {
@@ -182,6 +184,9 @@ export function createGlobalRateLimitMiddleware(
     try {
       const pepper = getPepper();
       const client = getClient();
+      // Retry an explicit connection after Bun's automatic reconnect budget
+      // has been exhausted, allowing recovery after a Redis restart.
+      if (client.connected === false && client.connect) await client.connect();
       const clientAddress = c.req.header('x-nysc-client-address')?.trim() || 'unknown';
       const addressHash = createHmac('sha256', pepper)
         .update('nysc-api-global-rate-limit:' + clientAddress)
