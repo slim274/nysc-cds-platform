@@ -66,6 +66,9 @@ describe('global API rate limiting', () => {
       .toEqual(['global', 'attendance-writes']);
 
     expect(getRateLimitPolicies('GET', '/health/redis')).toEqual([]);
+    expect(getRateLimitPolicies('POST', '/health/unknown')).toEqual([
+      { name: 'global', limit: 1_200, windowSeconds: 300 }
+    ]);
   });
 
   it('returns HTTP 429 with Retry-After after the route-specific threshold', async () => {
