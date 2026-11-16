@@ -22,6 +22,7 @@ describe('Redis fixed-window rate-limit integration', () => {
   });
 
   it('increments concurrent requests atomically and starts a fresh window after expiry', async () => {
+    await redis.connect();
     await redis.ping();
     const key = `nysc:test:rate-limit:${crypto.randomUUID()}`;
 
