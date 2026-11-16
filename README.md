@@ -12,7 +12,7 @@ The platform is a **Bun workspaces monorepo** with a SvelteKit web application, 
 | API runtime | Hono on Bun | HTTP routes, authentication, validation, authorization and business rules |
 | Data access | Drizzle ORM, `postgres` driver | Typed queries and PostgreSQL access, shared through `@nysc/database` |
 | Database | PostgreSQL 17 | Accounts, role assignments, CDS groups, meetings, attendance, documents, announcements and operational records |
-| Local infrastructure | Docker Compose | Runs the PostgreSQL container and its persistent named volume |
+| Local infrastructure | Docker Compose | Runs PostgreSQL and Redis with persistent named volumes |
 | Workspace tooling | Bun | Installs dependencies and runs the web and API development processes |
 
 ### System architecture
@@ -36,18 +36,23 @@ flowchart TB
   subgraph Docker["Docker Engine — Docker Compose"]
     PG[("PostgreSQL 17 Alpine<br/>nysc-postgres")]
     Volume[("Persistent volume<br/>nysc-postgres-data")]
+    Redis[("Redis 7.4 Alpine<br/>nysc-redis")]
+    RedisVolume[("Persistent volume<br/>nysc-redis-data")]
     PG <--> Volume
+    Redis <--> RedisVolume
   end
 
   Browser -->|"Web UI"| Web
   Data -->|"DATABASE_URL<br/>localhost:5432"| PG
+  API -->|"REDIS_URL<br/>localhost:6379"| Redis
 ```
 
 ### Important Docker and runtime detail
 
-- `docker-compose.yml` currently defines **one service: PostgreSQL 17 Alpine**. Docker Compose does not currently start the SvelteKit frontend or Hono API.
+- `docker-compose.yml` defines **two infrastructure services: PostgreSQL 17 Alpine and Redis 7.4 Alpine**. Docker Compose does not start the SvelteKit frontend or Hono API.
 - The database container is published on `127.0.0.1:5432`, allowing the local API to connect through `DATABASE_URL`.
-- The named volume `nysc-postgres-data` keeps database files across container restarts and normal `docker compose down` operations.
+- The named volumes `nysc-postgres-data` and `nysc-redis-data` retain their respective service data across container restarts and normal `docker compose down` operations.
+- The Redis container is published to the host on `127.0.0.1:6379`; the API connects using the password-protected `REDIS_URL` in the root `.env`.
 - The API runs locally through `bun run dev:api` on port `3001`.
 - The frontend runs locally through `bun run dev:web`. Vite forwards requests beginning with `/api` to `http://localhost:3001` and strips the `/api` prefix.
 - Full application containerization and production deployment topology are separate work; this diagram does not imply that the web and API services are already Dockerized.
@@ -59,7 +64,7 @@ flowchart TB
 | `apps/web` | SvelteKit application, role-based pages and shared UI components |
 | `apps/api` | Hono API entry point, route modules, middleware and application services |
 | `packages/database` | Drizzle client, PostgreSQL schema, migrations and development seed |
-| `docker-compose.yml` | Local PostgreSQL container and persistent volume |
+| `docker-compose.yml` | Local PostgreSQL and Redis containers with persistent volumes |
 | `.env.example` | Environment-variable template for local development and optional providers |
 
 The API is a modular monolith. The browser presents the interface, but the API remains responsible for authentication, authorization, data validation and business rules. Protected operations must enforce role and resource scope on the server; hiding a button in the browser is not an authorization check.
@@ -209,7 +214,7 @@ Use the same Redis password in `REDIS_PASSWORD` and the URL. Do not commit `.env
 Start and inspect the local services:
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres redis redis
 docker compose ps
 ```
 
@@ -334,14 +339,14 @@ cp .env.example .env
 
 Review `.env` and set the PostgreSQL values and `DATABASE_URL`. The example file contains local placeholders; replace them before using the environment. Do not commit `.env` or real credentials.
 
-### Start PostgreSQL with Docker Compose
+### Start PostgreSQL and Redis with Docker Compose
 
 ```bash
 docker compose up -d postgres
 docker compose ps
 ```
 
-Compose starts the PostgreSQL 17 Alpine container and attaches the persistent `nysc-postgres-data` volume. The database is exposed to the host on `127.0.0.1:5432`.
+Compose starts PostgreSQL 17 Alpine and Redis 7.4 Alpine. PostgreSQL is exposed on `127.0.0.1:5432` and Redis on `127.0.0.1:6379`; both use persistent named volumes. Set `REDIS_PASSWORD` and `REDIS_URL` in `.env` as described in [Redis configuration](#redis-configuration).
 
 ### Install, migrate and seed
 
