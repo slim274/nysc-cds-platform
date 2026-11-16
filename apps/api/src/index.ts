@@ -4,6 +4,7 @@ import { closeRedisClient } from './lib/redis';
 const port = Number(Bun.env.PORT ?? 3001);
 
 const server = Bun.serve({
+  hostname: Bun.env.HOST ?? '127.0.0.1',
   port,
   fetch(request, server) {
     const remoteAddress = server.requestIP(request)?.address ?? 'unknown';

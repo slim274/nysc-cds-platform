@@ -47,25 +47,54 @@ flowchart TB
   API -->|"REDIS_URL<br/>localhost:6379"| Redis
 ```
 
-### Important Docker and runtime detail
+### Runtime and container topology
 
-- `docker-compose.yml` defines **two infrastructure services: PostgreSQL 17 Alpine and Redis 7.4 Alpine**. Docker Compose does not start the SvelteKit frontend or Hono API.
-- The database container is published on `127.0.0.1:5432`, allowing the local API to connect through `DATABASE_URL`.
-- The named volumes `nysc-postgres-data` and `nysc-redis-data` retain their respective service data across container restarts and normal `docker compose down` operations.
-- The Redis container is published to the host on `127.0.0.1:6379`; the API connects using the password-protected `REDIS_URL` in the root `.env`.
-- The API runs locally through `bun run dev:api` on port `3001`.
-- The frontend runs locally through `bun run dev:web`. Vite forwards requests beginning with `/api` to `http://localhost:3001` and strips the `/api` prefix.
-- Full application containerization and production deployment topology are separate work; this diagram does not imply that the web and API services are already Dockerized.
+The repository supports two run modes:
+
+- **Local development:** Docker Compose runs PostgreSQL and Redis; the SvelteKit frontend and Hono API run directly through Bun for hot reload.
+- **Containerised application profile:** `docker compose --profile app up --build -d` adds the API, web server and Nginx reverse proxy. Nginx is published on `APP_PORT` (8080 by default).
+
+The containerised request flow is:
+
+```mermaid
+flowchart TB
+  Browser["Browser"]
+  Nginx["Nginx reverse proxy"]
+  Web["SvelteKit 3 / Svelte 5<br/>Bun server"]
+  API["Hono API<br/>Bun runtime"]
+  PG[("PostgreSQL 17")]
+  Redis[("Redis 7.4")]
+  Photos[("Persistent photo volume")]
+  Docs[("Persistent document volume")]
+  Browser -->|"Web routes"| Nginx
+  Browser -->|"/api/*"| Nginx
+  Nginx -->|"/"| Web
+  Nginx -->|"/api/*; strips /api prefix"| API
+  API --> PG
+  API --> Redis
+  API --> Photos
+  API --> Docs
+```
+
+- API and web containers are private to the Compose network; Nginx is the application entry point. The API listens on `3001` and SvelteKit on `3000`.
+- Nginx forwards `/api/*` requests to Hono and removes the `/api` prefix, matching the existing Vite development proxy.
+- PostgreSQL and Redis retain loopback-only host ports (`127.0.0.1:5432` and `127.0.0.1:6379`) for local database tools and development processes.
+- PostgreSQL, Redis, Corps Member photos and submitted documents use named Docker volumes. Photo/document volumes are local Docker storage, not a substitute for encrypted object storage in a multi-host production deployment.
+- The API trusts forwarded client-address headers only behind Nginx, which overwrites `X-Forwarded-For` rather than preserving a client-supplied value.
+- The Compose application profile is HTTP-only by default. Keep HSTS and secure cookies disabled for local HTTP; enable them when a trusted HTTPS/TLS endpoint is configured.
+- This is a containerised deployment baseline, not a claim that production operations are complete. Public deployment still requires TLS, managed secrets, backup/restore procedures, monitoring and an appropriate persistent storage strategy.
 
 ### Repository layout
 
 | Path | Contents |
 |---|---|
-| `apps/web` | SvelteKit application, role-based pages and shared UI components |
-| `apps/api` | Hono API entry point, route modules, middleware and application services |
+| `apps/web` | SvelteKit application, role-based pages, shared UI components and web Dockerfile |
+| `apps/api` | Hono API entry point, route modules, middleware, application services and API Dockerfile |
 | `packages/database` | Drizzle client, PostgreSQL schema, migrations and development seed |
-| `docker-compose.yml` | Local PostgreSQL and Redis containers with persistent volumes |
-| `.env.example` | Environment-variable template for local development and optional providers |
+| `infrastructure/nginx/nginx.conf` | Reverse-proxy routing for the containerised web and API services |
+| `docker-compose.yml` | PostgreSQL, Redis and optional `app` profile (API, web and Nginx) |
+| `.dockerignore` | Excludes local secrets, dependencies, build artefacts and private local uploads |
+| `.env.example` | Environment-variable template for development and the Compose application profile |
 
 The API is a modular monolith. The browser presents the interface, but the API remains responsible for authentication, authorization, data validation and business rules. Protected operations must enforce role and resource scope on the server; hiding a button in the browser is not an authorization check.
 
@@ -393,6 +422,33 @@ bun run dev:web
 
 Vite proxies requests under `/api` to `http://localhost:3001`. The API connects to PostgreSQL using `DATABASE_URL`.
 
+### Run the full containerised application
+
+After configuring `.env` and applying the database migrations, start the application profile:
+
+```bash
+docker compose --profile app up --build -d
+docker compose --profile app ps
+```
+
+Open `http://localhost:8080` (or the port configured by `APP_PORT`). Inspect logs with:
+
+```bash
+docker compose --profile app logs -f api web nginx
+```
+
+Stop containers without deleting persistent data:
+
+```bash
+docker compose --profile app down
+```
+
+The existing local development commands remain available. Compose overrides API database and Redis URLs with internal Docker hostnames; host-side URLs remain available to Drizzle migrations and Bun processes running directly on your machine. Use URL-safe hexadecimal values for DB and Redis passwords (for example, `openssl rand -hex 32`) because Compose builds internal connection URLs from those values.
+
+The Compose application profile is HTTP-only. Keep `COOKIE_SECURE=false` and `HSTS_ENABLED=false` until a trusted HTTPS/TLS endpoint is configured. The API trusts forwarding headers only inside this profile; local Bun development continues to use direct socket addresses.
+
+Database migrations and seeding are run from the repository using the commands above. The API runtime image intentionally excludes development-only migration tooling.
+
 ### Checks
 
 ```bash
@@ -416,4 +472,4 @@ Do not use `docker compose down -v` unless you intentionally want to delete the 
 2. Complete integration testing for attendance submission/review, document review/resubmission, Coordinator handovers and group-scoped authorization.
 3. Configure and verify provider-backed email/SMS delivery and secure persistent upload storage.
 4. Complete password recovery and production-grade operational controls, including database backups, monitoring and restore tests.
-5. Design and validate the production deployment topology. Decide whether the web application and API should be containerized alongside PostgreSQL; the present Docker Compose configuration only runs the database.
+5. Harden the container deployment for public traffic: TLS, managed secrets, persistent encrypted uploads, automated database backups, restore testing, monitoring and recovery procedures.

@@ -11,7 +11,7 @@ import {
 } from '@nysc/database';
 
 import { hashToken } from '../utils/token';
-import { SESSION_COOKIE } from '../services/session.service';
+import { SESSION_COOKIE, isSessionCookieSecure } from '../services/session.service';
 
 export type AuthRole = {
   code: string;
@@ -73,7 +73,7 @@ export const requireAuth = createMiddleware<AuthEnv>(
       if (!session) {
         deleteCookie(c, SESSION_COOKIE, {
           path: '/',
-          secure: Bun.env.NODE_ENV === 'production',
+          secure: isSessionCookieSecure(),
           sameSite: 'Lax'
         });
 

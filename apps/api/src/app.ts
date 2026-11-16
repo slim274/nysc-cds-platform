@@ -77,7 +77,7 @@ const app = new Hono<ApiEnv>();
 // Apply headers and request correlation before routing. HSTS is enabled only
 // behind HTTPS in production so local HTTP development is not pinned to HTTPS.
 app.use('*', secureHeaders({
-  strictTransportSecurity: Bun.env.NODE_ENV === 'production'
+  strictTransportSecurity: Bun.env.NODE_ENV === 'production' && Bun.env.HSTS_ENABLED !== 'false'
     ? 'max-age=15552000; includeSubDomains'
     : false
 }));
