@@ -17,3 +17,10 @@
 | Frontend login interface | In Progress |
 | LGI dashboard | Pending |
 
+## Optional infrastructure monitoring
+
+Prometheus and Grafana configuration is available under [infrastructure/monitoring](infrastructure/monitoring/README.md). The monitoring stack is opt-in and can be started with:
+
+```bash
+docker compose --profile monitoring up -d
+```
