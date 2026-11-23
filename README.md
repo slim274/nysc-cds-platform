@@ -149,6 +149,14 @@ Responsive acceptance checks:
 
 The following describes functional areas present in the current development branch. Production readiness still depends on provider configuration, deployment, security review and end-to-end testing.
 
+## User guides and operations documentation
+
+- [User Guide Index](docs/user-guide/README.md) — sign-in and workflows for LGI Administrators, CDS Coordinators, CDS Presidents, Corps Members and CLO officers.
+- [Document Verification Workflow](docs/document-verification.md) — Manual, AI Auto and AI-assisted review behaviour.
+- [Monitoring notes](docs/monitoring/README.md) — Prometheus/Grafana screenshots and the monitoring configuration still missing from the tracked Compose stack.
+- [Screenshot asset manifest](docs/assets/screenshots/README.md) — image paths used by the guides. Download and extract the documentation screenshot archive when preparing a local documentation checkout.
+
+
 | Workspace / area | Implemented functionality |
 |---|---|
 | LGI administration | Manage service years, batches, streams, Corps Member records, CDS groups, membership, Coordinator accounts and group assignments. |
