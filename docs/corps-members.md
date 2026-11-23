@@ -130,6 +130,19 @@ The challenge token is intended for the OTP onboarding stage. Do not treat it as
 
 
 
+## Identity verification attempt limits and LGI lock clearance
+
+Failed identity checks are tracked against the matching, unregistered `preloaded` Corps Member record. The State Code identifies the record; Date of Birth and Call-up Number must both match it.
+
+- The first two incorrect checks are rejected.
+- The third incorrect check starts a five-minute cooldown. Attempts made during that cooldown do not consume the next attempt group.
+- After the cooldown, three further incorrect checks (the fourth, fifth and sixth failed checks overall) permanently lock self-service registration.
+- A correct identity check clears the failed-attempt count, provided the member is not already permanently locked.
+- A permanently locked member must visit the assigned LGI with NYSC identification documents. Only an authenticated LGI administrator assigned to the member's LGA can clear the lock from the Corps Member directory after in-person verification.
+- Clearing the lock resets the failed-attempt count and cooldown and records the LGI user and clearance timestamp.
+
+A separate IP-address rate limit remains active to reduce automated attempts. A State Code that does not identify an existing Preloaded record cannot be attached to a specific member lock; those requests remain covered by the connection-level rate limit.
+
 ## OTP contact verification and Corps Member registration
 
 The onboarding web route is `/register/corps-member`. It guides a Corps Member through identity matching, contact OTP and password setup.
