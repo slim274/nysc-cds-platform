@@ -404,7 +404,19 @@
             <div class="exception-list">
               {#each exceptions as submission (submission.id)}
                 <article class="exception-row">
-                  <div><strong>{submission.lastName}, {submission.firstName} {submission.middleName ?? ''}</strong><span>{submission.stateCode} · {submission.requirementName}</span><small>{submission.fileName} · {new Date(submission.submittedAt).toLocaleString()}</small><p>{submission.reason ?? 'The verification service needs further review.'}</p></div>
+                  <div><strong>{submission.lastName}, {submission.firstName} {submission.middleName ?? ''}</strong><span>{submission.stateCode} · {submission.requirementName}</span>
+                    <span class="review-source">
+                      {#if submission.verificationMode === 'manual'}
+                        Manual verification
+                      {:else if submission.verificationMode === 'ai_assisted'}
+                        AI-assisted · LGI approval required
+                      {:else if submission.status === 'needs_resubmission' && submission.verificationProvider === 'openai-responses'}
+                        AI Auto flagged this document · LGI override available
+                      {:else}
+                        AI Auto · manual review required
+                      {/if}
+                    </span>
+                    <small>{submission.fileName} · {new Date(submission.submittedAt).toLocaleString()}</small><p>{submission.reason ?? 'The verification service needs further review.'}</p></div>
                   <div class="exception-actions"><span>{submission.confidence === null ? 'No confidence score' : `Confidence: ${submission.confidence}%`}</span><div><button class="view-button" type="button" onclick={() => void openSubmissionFile(submission.id)}>View document</button><button class="approve-button" type="button" onclick={() => void resolveException(submission, 'verified')} disabled={reviewingId === submission.id}>{reviewingId === submission.id ? 'Saving…' : 'Mark verified'}</button><button class="reject-button" type="button" onclick={() => void resolveException(submission, 'needs_resubmission')} disabled={reviewingId === submission.id}>Request resubmission</button></div></div>
                 </article>
               {/each}
@@ -576,4 +588,5 @@
   .modal-layer{position:fixed;inset:0;z-index:70;display:grid;place-items:center;overflow-y:auto;padding:20px}.scrim{position:fixed;inset:0;border:0;background:#071b10a8}.modal{position:relative;width:min(100%,620px);max-height:92vh;overflow-y:auto;padding:23px;border-radius:12px;background:#fff;box-shadow:0 22px 70px #071e1250}.modal-header{display:flex;justify-content:space-between;gap:14px;padding-bottom:15px;border-bottom:1px solid #edf1ed;margin-bottom:14px}.modal-header h2{margin:7px 0 4px;font-size:17px}.modal-header p{margin:0;color:#819087;font-size:10px}.close{width:32px;height:32px;border:1px solid #e0e8e1;border-radius:7px;background:#fff;color:#44554a;font-size:20px;cursor:pointer}.requirement-form{display:grid;gap:12px}.requirement-form>label:not(.check-line){display:grid;gap:6px;color:#56685c;font-size:9px;font-weight:700}.requirement-form input:not([type=checkbox]),.requirement-form textarea{width:100%;min-height:38px;padding:9px 11px;border:1px solid #dce5de;border-radius:7px;background:#fff;color:#26392d;font-size:10px}.requirement-form textarea{resize:vertical}.requirement-form fieldset{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #e6ede7;border-radius:8px;padding:10px}.requirement-form legend{color:#56685c;font-size:9px;font-weight:700}.check-line{display:flex;align-items:center;gap:8px;color:#56685c;font-size:9px}.check-line input{accent-color:#0a6841}.info-note{padding:10px;border-radius:7px;background:#f0f6f1;color:#52705d;font-size:9px;line-height:1.5}.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:13px;border-top:1px solid #edf1ed}
   @media(max-width:950px){.requirement-row,.exception-row{align-items:flex-start;flex-direction:column}.reference-area,.exception-actions{width:100%;justify-items:start;justify-content:flex-start}.exception-actions>div{flex-wrap:wrap}}
   @media(max-width:760px){.menu-button{width:39px;height:39px;display:grid;place-content:center;gap:5px;border:1px solid #e1e9e2;border-radius:8px;background:#fff}.menu-button span{width:17px;height:2px;background:#0a5c37}.topbar{min-height:68px;padding:10px 14px}.account>div:last-child{display:none}.page-content{padding:20px 14px}.intro{align-items:flex-start;flex-direction:column;padding:21px}.intro>.primary-button{width:100%}.stats{grid-template-columns:1fr}.panel{padding:14px}.modal-layer{padding:10px}.modal{max-height:96vh;padding:17px}.modal-actions{flex-direction:column-reverse}.modal-actions button{width:100%}}
+  .review-source { display: inline-flex; align-items: center; width: fit-content; margin-top: 7px; padding: 5px 8px; border: 1px solid #d9e7df; border-radius: 999px; background: #f3f8f5; color: #315d46; font-size: 10px; font-weight: 750; }
 </style>
