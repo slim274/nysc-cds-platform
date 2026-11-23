@@ -301,7 +301,9 @@ lgiDocumentRoutes.post('/document-submissions/:submissionId/decision', async (c)
     return c.json({
       success: true,
       message: validation.data.decision === 'verified'
-        ? 'Exception reviewed. The system will run CDS course matching when all mandatory documents are verified.'
+        ? data.matchingPending
+          ? 'Document marked verified. Automatic CDS matching could not complete and needs a separate retry.'
+          : 'Document marked verified. CDS matching will proceed when all mandatory documents are verified.'
         : 'Document returned for resubmission.',
       data
     });
