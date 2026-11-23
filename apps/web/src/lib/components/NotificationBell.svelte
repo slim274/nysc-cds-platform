@@ -169,6 +169,18 @@
         }
       }
 
+      const isCorpsMemberAnnouncements = window.location.pathname.startsWith('/corps-member/announcements');
+      if (isCorpsMemberAnnouncements) {
+        const isMobileMemberAnnouncements = window.matchMedia('(max-width: 760px)').matches;
+        const memberAnnouncementsTarget = isMobileMemberAnnouncements
+          ? document.querySelector<HTMLElement>('.corps-member-header-controls')
+          : document.querySelector<HTMLElement>('.corps-member-header-nav');
+        if (memberAnnouncementsTarget) {
+          if (node.parentElement !== memberAnnouncementsTarget) memberAnnouncementsTarget.appendChild(node);
+          return;
+        }
+      }
+
       const isPresidentWorkspace = window.location.pathname.startsWith('/cds-president');
       if (isPresidentWorkspace) {
         const isMobilePresident = window.matchMedia('(max-width: 850px)').matches;
@@ -256,7 +268,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if enabled}
-  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} class:member-header={page.url.pathname === '/corps-member'} class:president-header={page.url.pathname.startsWith('/cds-president')} class:coordinator-header={page.url.pathname.startsWith('/coordinator')} use:portalToOverlay>
+  <div class="notification-bell" class:clo-header={page.url.pathname.startsWith('/clo')} class:member-header={page.url.pathname.startsWith('/corps-member')} class:president-header={page.url.pathname.startsWith('/cds-president')} class:coordinator-header={page.url.pathname.startsWith('/coordinator')} use:portalToOverlay>
     {#if page.url.pathname.startsWith('/lgi')}
       <div class="lgi-mobile-identity" aria-label="LGI Administrator" title="LGI Administrator">LG</div>
     {/if}
