@@ -274,11 +274,33 @@
     errorMessage = '';
     noticeMessage = '';
     try {
-      await decideLgiDocumentManualReview(submission.id, decision, reason.trim());
-      noticeMessage = decision === 'verified'
-        ? 'Exception reviewed. The system will run matching once all mandatory documents are verified.'
-        : 'Document returned for resubmission.';
-      await loadLists();
+      const result = await decideLgiDocumentManualReview(submission.id, decision, reason.trim());
+
+      // The API confirms the database decision. Remove this row immediately
+      // so a stale list refresh cannot make a saved decision look like a no-op.
+      exceptions = exceptions.filter((item) => item.id !== submission.id);
+
+      if (decision === 'verified') {
+        if (result.matchingPending) {
+          noticeMessage = 'Document approved and removed from the review queue. Automatic CDS matching needs a separate retry.';
+        } else if (result.matching?.assigned && result.matching.groupName) {
+          noticeMessage = `Document approved. The Corps Member has been matched to ${result.matching.groupName}.`;
+        } else if (result.matching?.reason === 'documents_incomplete') {
+          noticeMessage = 'Document approved. The remaining mandatory documents must also be verified before CDS matching.';
+        } else {
+          noticeMessage = 'Document approved and removed from the review queue. CDS placement will be checked after all mandatory documents are verified.';
+        }
+      } else {
+        noticeMessage = 'Document returned to the Corps Member for resubmission.';
+      }
+
+      try {
+        await loadLists();
+      } catch (refreshError) {
+        errorMessage = refreshError instanceof Error
+          ? `The decision was saved, but the review queue could not refresh: ${refreshError.message}`
+          : 'The decision was saved, but the review queue could not refresh. Reload this page.';
+      }
     } catch (error) {
       errorMessage = error instanceof ApiError || error instanceof Error ? error.message : 'Unable to save the exception decision.';
     } finally {
