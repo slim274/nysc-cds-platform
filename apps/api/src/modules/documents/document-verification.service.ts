@@ -946,6 +946,7 @@ export async function listDocumentSubmissions(
       fileName: corpsMemberDocumentSubmissions.originalFileName,
       mimeType: corpsMemberDocumentSubmissions.mimeType,
       status: corpsMemberDocumentSubmissions.status,
+      verificationProvider: corpsMemberDocumentSubmissions.verificationProvider,
       confidence: corpsMemberDocumentSubmissions.verificationConfidence,
       reason: corpsMemberDocumentSubmissions.verificationReason,
       submittedAt: corpsMemberDocumentSubmissions.submittedAt
