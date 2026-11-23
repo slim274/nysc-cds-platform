@@ -1,9 +1,15 @@
 # Screenshot Assets
 
-The screenshot package for this documentation set is provided separately as `nysc-cds-documentation-screenshots.zip`. Extract the archive at the repository root. It contains the folder structure referenced by the user guides:
+The user-guide screenshots are committed in this repository under `docs/assets/screenshots/`. No separate archive extraction is required when cloning or pulling the documentation branch.
 
-`docs/assets/screenshots/{authentication,lgi,coordinator,president,corps-member,monitoring}/`
+The folder contains 22 optimized JPEG screenshots captured from the local development environment on 17 and 23 November 2026:
 
-The archive includes 22 optimized JPEG screenshots captured from the local development environment on 17 and 23 November 2026. Selected demo record and account details have been blurred. Screens with browser password-manager overlays or confusing transient errors were excluded.
+- `authentication/` — sign-in and Corps Member onboarding.
+- `lgi/` — member management, CDS groups, document requirements and review, attendance and analytics.
+- `corps-member/` — member dashboard, document checklist and announcements.
+- `president/` — mobile President dashboard, meeting attendance and announcement submission.
+- `monitoring/` — Grafana dashboards, metrics explorer and Prometheus target health.
 
-After extracting, review the files before committing them. Keep screenshots limited to demo data; do not commit real Corps Member documents, contact details, credentials, activation tokens, OTPs or other personal data.
+Selected demo record and account details have been blurred. Screens with browser password-manager overlays or confusing transient errors were excluded.
+
+Keep screenshots limited to demo data. Do not commit real Corps Member documents, contact details, credentials, activation tokens, OTPs or other personal data. When replacing a screenshot, use a current application screen and update any linked guide if the page or workflow has changed.
