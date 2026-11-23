@@ -163,7 +163,8 @@ export async function sendCorpsMemberOtp(
     const [member] = await tx
       .select({
         email: corpsMembers.email,
-        phone: corpsMembers.phone
+        phone: corpsMembers.phone,
+        profileStatus: corpsMembers.profileStatus
       })
       .from(corpsMembers)
       .where(and(
@@ -172,7 +173,7 @@ export async function sendCorpsMemberOtp(
       ))
       .limit(1);
 
-    if (!member) return null;
+    if (!member || member.profileStatus !== 'preloaded') return null;
 
     const destination = channel === 'email' ? member.email : member.phone;
     if (!destination?.trim()) return null;
@@ -376,7 +377,7 @@ export async function registerCorpsMemberAccount(
       .for('update')
       .limit(1);
 
-    if (!member || member.userId || member.profileStatus === 'rejected') {
+    if (!member || member.userId || member.profileStatus !== 'preloaded') {
       throw new Error('REGISTRATION_MEMBER_UNAVAILABLE');
     }
 
