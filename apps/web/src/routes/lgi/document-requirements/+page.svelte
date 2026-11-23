@@ -397,9 +397,9 @@
         </section>
 
         <section class="panel exceptions-panel">
-          <div class="panel-heading"><div><h2>Documents awaiting LGI review</h2><p>Manual-only submissions, AI-assisted submissions, uncertain AI results and AI service failures appear here. AI + LGI Approval documents always require a human decision.</p></div><span class="queue-badge">{exceptions.length} awaiting review</span></div>
+          <div class="panel-heading"><div><h2>Documents awaiting LGI review</h2><p>Manual-only submissions, AI-assisted submissions, uncertain or unavailable AI results, and AI Auto results that need resubmission appear here for LGI review. The LGI can manually approve or request resubmission regardless of whether the requirement was configured for manual or AI verification. High-confidence AI Auto approvals remain automatically verified.</p></div><span class="queue-badge">{exceptions.length} awaiting review</span></div>
           {#if exceptions.length === 0}
-            <div class="empty compact"><h3>No documents awaiting review</h3><p>Manual-only submissions, AI-assisted checks and any uncertain or unavailable AI results will appear here.</p></div>
+            <div class="empty compact"><h3>No documents awaiting review</h3><p>Manual-only submissions, AI-assisted checks, uncertain or unavailable AI results, and AI Auto rejections awaiting an LGI decision will appear here.</p></div>
           {:else}
             <div class="exception-list">
               {#each exceptions as submission (submission.id)}
