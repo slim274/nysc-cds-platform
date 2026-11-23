@@ -756,15 +756,32 @@ export async function listLgiDocumentSubmissions(
   return response.data;
 }
 
+export interface LgiDocumentReviewDecisionResult {
+  status: 'verified' | 'needs_resubmission';
+  matchingPending: boolean;
+  matching: {
+    assigned: boolean;
+    groupId?: string;
+    groupCode?: string;
+    groupName?: string;
+    reason?: string;
+  } | null;
+}
+
 export async function decideLgiDocumentManualReview(
   submissionId: string,
   decision: 'verified' | 'needs_resubmission',
   reason: string
-): Promise<void> {
-  await request(`/lgi/document-submissions/${encodeURIComponent(submissionId)}/decision`, {
+): Promise<LgiDocumentReviewDecisionResult> {
+  const response = await request<{
+    success: boolean;
+    message: string;
+    data: LgiDocumentReviewDecisionResult;
+  }>(`/lgi/document-submissions/${encodeURIComponent(submissionId)}/decision`, {
     method: 'POST',
     body: JSON.stringify({ decision, reason })
   });
+  return response.data;
 }
 
 export async function downloadLgiDocumentSubmission(submissionId: string): Promise<Blob> {
