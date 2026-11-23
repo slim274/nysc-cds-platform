@@ -19,13 +19,17 @@ Required columns:
 - `batchCode`
 - `streamCode`
 
+Conditional onboarding columns:
+
+- `callUpNumber` — required when `profileStatus` is `preloaded` (the default).
+- `dateOfBirth` (YYYY-MM-DD) — required when `profileStatus` is `preloaded`.
+- At least one of `email` or `phone` — required when `profileStatus` is `preloaded`.
+
 Optional columns:
 
-- `callUpNumber`
 - `email`
 - `phone`
 - `middleName`
-- `dateOfBirth` (YYYY-MM-DD)
 - `gender`
 - `institutionName`
 - `courseName`
@@ -37,7 +41,9 @@ The LGA must match an active LGA assigned to the importing LGI. Batch and stream
 
 State codes are normalised to uppercase. A row with a state code that already exists within the LGI's assigned LGA scope updates that member record; otherwise a new member is created. A state code already belonging to a different LGA outside the LGI's scope is rejected. Duplicate state codes or call-up numbers in the uploaded file, unknown references, invalid dates and database uniqueness conflicts cause the complete transaction to roll back.
 
-The API reports created, updated and total processed counts. Email and phone are optional CSV fields. Contact details are stored as supplied by the LGI and are not considered verified until the member completes an OTP challenge during account onboarding. The import does not include photos; photographs are uploaded through the member record form.
+The API reports created, updated and total processed counts. A row whose status is omitted defaults to `preloaded`; such a row must include a call-up number, a real past date of birth and at least one contact method (email or phone). Rows explicitly marked `draft`, `submitted`, `approved` or `rejected` do not use those preloading requirements, but they cannot start self-service registration unless their status is later changed to `preloaded` with the required data.
+
+Contact details are stored as supplied by the LGI and are not considered verified until the member completes an OTP challenge during account onboarding. The import does not include photos; photographs are uploaded through the member record form.
 
 ## CSV export
 
@@ -84,7 +90,7 @@ Request:
 }
 ```
 
-The endpoint normalises State Code and Call-up Number to uppercase and trims whitespace. A record is eligible only when all three values match, its `user_id` is null, and its profile has not been rejected.
+The endpoint normalises State Code and Call-up Number to uppercase and trims whitespace. A record is eligible only when all three values match, its `user_id` is null, and its profile status is exactly `preloaded`. Draft, submitted, approved and rejected records cannot start self-service registration. An LGI must correct a record's identity and contact details before setting its status to `preloaded`.
 
 The endpoint always returns the same successful response shape and generic message for a matching or non-matching identity. It returns a cryptographically random 256-bit challenge token that expires after 10 minutes. The database stores only the token hash. For a non-match, the token is deliberately stored against a null member reference and cannot be used by a subsequent verification step. This prevents the identity endpoint from revealing whether a submitted combination exists in the member directory.
 
@@ -143,6 +149,6 @@ For transactional email, set `OTP_DELIVERY_MODE=provider`, `RESEND_API_KEY` and 
 
 For SMS, set `OTP_DELIVERY_MODE=provider`, `TERMII_API_KEY`, `TERMII_SENDER_ID`, and (when required by the account) `TERMII_BASE_URL`. The SMS adapter uses Termii's `/api/sms/send` endpoint and normalises common Nigerian local-format phone numbers to international format. The Sender ID must be enabled for the Termii account. Do not place provider keys in source control.
 
-The Corps Member record must contain the selected email or phone contact before OTP can be delivered. LGI users should maintain these contact fields in the member record. Phone-based accounts may sign in with their phone number; email-based accounts may sign in with their email address.
+A registration-eligible Corps Member record must be `preloaded`, unlinked to a user account, and contain a State Code, Call-up Number, valid Date of Birth and at least one contact method. The Corps Member record must contain the selected email or phone contact before OTP can be delivered. LGI users should maintain these contact fields in the member record. Phone-based accounts may sign in with their phone number; email-based accounts may sign in with their email address.
 
 The registration endpoint refuses to create a second account for a member who is already linked. The member link, role assignment, and challenge consumption are transactionally coupled to prevent partial registration. Duplicate email/phone values are rejected by the database unique constraints.
