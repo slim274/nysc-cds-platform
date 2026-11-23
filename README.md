@@ -106,7 +106,7 @@ The API is a modular monolith. The browser presents the interface, but the API r
 | CDS Coordinator | Manages only assigned CDS groups, member rosters, President designations, WhatsApp group settings, CDS meetings, attendance review and Coordinator announcements. |
 | CDS President | Works only with group(s) attached to an active President assignment; coordinates the group, records attendance and submits eligible announcements for review. |
 | Corps Member | Uses one personal account to manage their member portal, view NYSC/CDS allocation and contacts, submit required documents, join the assigned WhatsApp group and view approved attendance. |
-| Corps Liaison Officer (CLO) | Reviews Corps Member document submissions across all LGAs when the CLO account is enabled; CLO account management remains assigned to selected LGI administrators. |
+| Corps Liaison Officer (CLO) | Views document submissions across all LGAs and makes human verification/resubmission decisions on items awaiting manual review; CLO account management remains assigned to selected LGI administrators. |
 
 Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission. LGI administrators manage LGA operational records only within their assigned LGA(s). The shared academic course catalogue is centrally managed from the LGI module and is used across LGAs.
 
@@ -162,7 +162,7 @@ The following describes functional areas present in the current development bran
 | LGI administration | Manage service years, batches, streams, Corps Member records, CDS groups, membership, Coordinator accounts and group assignments. |
 | Shared course catalogue | Manage course categories, canonical course names and aliases; import course data from CSV; use the searchable catalogue when mapping courses to CDS groups. |
 | Coordinator management | Invite and manage Coordinators, transfer group responsibility, maintain handover records and review successor acknowledgements. |
-| CLO management | Create/manage CLO access and configured LGI management assignments; review submissions across the platform. Document requirements are created, edited and published by LGI administrators. |
+| CLO management | Create/manage CLO access and configured LGI management assignments; review items awaiting human decision across the platform. Document requirements are created, edited and published by LGI administrators. |
 | Coordinator workspace | View assigned CDS groups and members; designate or replace a President from existing group members; manage the group's WhatsApp invite link and optional WhatsApp assistant. |
 | CDS President workspace | View assigned group(s) and member roster; open meeting registers, mark members present/absent/late/excused and submit the completed register. |
 | Attendance management | Coordinators schedule CDS meetings, inspect submitted registers, approve attendance or return it for correction with review notes. Returned registers can be corrected and resubmitted. LGI attendance reporting is read-only. |
