@@ -15,18 +15,35 @@ import {
 } from '@nysc/database';
 
 import { generateSecureToken, hashToken } from '../utils/token';
+import {
+  getNextRegistrationFailureTransition,
+  getCooldownSeconds
+} from './registration-lockout.policy';
 
 const CHALLENGE_TTL_SECONDS = 10 * 60;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_BLOCK_MS = 15 * 60 * 1000;
 const IP_MAX_ATTEMPTS = 20;
-const IDENTITY_MAX_ATTEMPTS = 5;
 const CLEANUP_AFTER_MS = 24 * 60 * 60 * 1000;
 
 export class IdentityVerificationRateLimitError extends Error {
-  constructor(public readonly retryAfterSeconds: number) {
-    super('Too many verification attempts. Try again later.');
+  constructor(
+    public readonly retryAfterSeconds: number,
+    public readonly reason: 'address' | 'member-cooldown' = 'address'
+  ) {
+    super(
+      reason === 'member-cooldown'
+        ? 'You have used all three identity attempts. Please wait five minutes before trying again.'
+        : 'Too many verification attempts from this connection. Try again later.'
+    );
     this.name = 'IdentityVerificationRateLimitError';
+  }
+}
+
+export class IdentityVerificationLockedError extends Error {
+  constructor() {
+    super('Your self-service registration has been locked after six unsuccessful identity checks. Visit your assigned LGI with your NYSC identification documents for in-person verification.');
+    this.name = 'IdentityVerificationLockedError';
   }
 }
 
@@ -120,52 +137,123 @@ export async function initiateCorpsMemberIdentityVerification(
 ): Promise<{ challengeToken: string; expiresInSeconds: number } | null> {
   const now = new Date();
 
-  // HMAC prevents offline guessing of low-entropy identity details if the
-  // rate-limit table is exposed. Raw identifiers and IP addresses are never stored.
-  const identityKey = hashRateLimitKey(
-    `corps-member-verification:identity:${input.stateCode}:${input.dateOfBirth}:${input.callUpNumber}`
-  );
+  // Keep a separate connection-level limit for malformed/unknown State Codes
+  // and for requests that do not resolve to a local Corps Member record.
   const addressKey = hashRateLimitKey(
     `corps-member-verification:address:${clientAddress}`
   );
+  const addressBlockedUntil = await consumeRateLimit(
+    addressKey,
+    IP_MAX_ATTEMPTS,
+    now
+  );
 
-  const [addressBlockedUntil, identityBlockedUntil] = await Promise.all([
-    consumeRateLimit(addressKey, IP_MAX_ATTEMPTS, now),
-    consumeRateLimit(identityKey, IDENTITY_MAX_ATTEMPTS, now)
-  ]);
-
-  const blockedUntil = [addressBlockedUntil, identityBlockedUntil]
-    .filter((value): value is Date => value !== null)
-    .sort((a, b) => b.getTime() - a.getTime())[0];
-
-  if (blockedUntil) {
+  if (addressBlockedUntil) {
     throw new IdentityVerificationRateLimitError(
-      Math.max(1, Math.ceil((blockedUntil.getTime() - now.getTime()) / 1000))
+      Math.max(1, Math.ceil((addressBlockedUntil.getTime() - now.getTime()) / 1000)),
+      'address'
     );
   }
 
   await cleanupExpiredVerificationState(now);
 
-  const [member] = await db
-    .select({ id: corpsMembers.id })
-    .from(corpsMembers)
-    .where(and(
-      eq(corpsMembers.stateCode, input.stateCode),
-      eq(corpsMembers.dateOfBirth, input.dateOfBirth),
-      sql`upper(trim(coalesce(${corpsMembers.callUpNumber}, ''))) = ${input.callUpNumber}`,
-      isNull(corpsMembers.userId),
-      eq(corpsMembers.profileStatus, 'preloaded')
-    ))
-    .limit(1);
+  const verification = await db.transaction(async (tx) => {
+    // Lock the record while checking/updating its failed-attempt state so
+    // concurrent requests cannot skip the cooldown or permanent-lock steps.
+    const [member] = await tx
+      .select({
+        id: corpsMembers.id,
+        userId: corpsMembers.userId,
+        profileStatus: corpsMembers.profileStatus,
+        dateOfBirth: corpsMembers.dateOfBirth,
+        callUpNumber: corpsMembers.callUpNumber,
+        registrationFailedAttempts: corpsMembers.registrationFailedAttempts,
+        registrationCooldownUntil: corpsMembers.registrationCooldownUntil,
+        registrationLockedAt: corpsMembers.registrationLockedAt
+      })
+      .from(corpsMembers)
+      .where(eq(corpsMembers.stateCode, input.stateCode))
+      .for('update')
+      .limit(1);
 
-  // Do not issue a challenge when the submitted identity does not match an
-  // eligible, unlinked Preloaded record. The caller must receive a clear
-  // verification failure and remain on the identity step.
-  if (!member) return null;
+    if (!member || member.userId || member.profileStatus !== 'preloaded') {
+      return { kind: 'invalid' as const };
+    }
+
+    if (member.registrationLockedAt) {
+      return { kind: 'locked' as const };
+    }
+
+    if (member.registrationCooldownUntil && member.registrationCooldownUntil > now) {
+      return {
+        kind: 'cooldown' as const,
+        retryAfterSeconds: getCooldownSeconds(member.registrationCooldownUntil, now)
+      };
+    }
+
+    const identityMatches =
+      member.dateOfBirth === input.dateOfBirth &&
+      (member.callUpNumber ?? '').trim().toUpperCase() === input.callUpNumber;
+
+    if (!identityMatches) {
+      const transition = getNextRegistrationFailureTransition(
+        member.registrationFailedAttempts,
+        now
+      );
+
+      await tx.update(corpsMembers)
+        .set({
+          registrationFailedAttempts: transition.failedAttempts,
+          registrationCooldownUntil: transition.cooldownUntil,
+          registrationLockedAt: transition.lockedAt,
+          updatedAt: now
+        })
+        .where(eq(corpsMembers.id, member.id));
+
+      if (transition.kind === 'cooldown') {
+        return {
+          kind: 'cooldown' as const,
+          retryAfterSeconds: getCooldownSeconds(transition.cooldownUntil, now)
+        };
+      }
+
+      if (transition.kind === 'locked') {
+        return { kind: 'locked' as const };
+      }
+
+      return { kind: 'invalid' as const };
+    }
+
+    // A successful identity check resets any previous failed attempts.
+    if (member.registrationFailedAttempts > 0 || member.registrationCooldownUntil) {
+      await tx.update(corpsMembers)
+        .set({
+          registrationFailedAttempts: 0,
+          registrationCooldownUntil: null,
+          updatedAt: now
+        })
+        .where(eq(corpsMembers.id, member.id));
+    }
+
+    return { kind: 'matched' as const, memberId: member.id };
+  });
+
+  if (verification.kind === 'locked') {
+    throw new IdentityVerificationLockedError();
+  }
+
+  if (verification.kind === 'cooldown') {
+    throw new IdentityVerificationRateLimitError(
+      verification.retryAfterSeconds,
+      'member-cooldown'
+    );
+  }
+
+  if (verification.kind === 'invalid') return null;
 
   const challengeToken = generateSecureToken();
   await db.insert(corpsMemberVerificationChallenges).values({
-    corpsMemberId: member.id,
+    corpsMemberId: verification.memberId,
     tokenHash: hashToken(challengeToken),
     expiresAt: new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000)
   });
