@@ -658,6 +658,7 @@ export interface LgiDocumentSubmission {
   fileName: string;
   mimeType: string;
   status: DocumentVerificationStatus;
+  verificationProvider: string | null;
   confidence: number | null;
   reason: string | null;
   submittedAt: string;
