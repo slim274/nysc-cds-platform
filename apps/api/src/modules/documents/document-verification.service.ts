@@ -6,7 +6,8 @@ import {
   asc,
   desc,
   eq,
-  inArray
+  inArray,
+  or
 } from 'drizzle-orm';
 
 import {
@@ -915,7 +916,19 @@ export async function listDocumentSubmissions(
 ) {
   assertLgaScope(lgaIds);
   const filters = [inArray(corpsMembers.lgaId, lgaIds)];
-  if (status) filters.push(eq(corpsMemberDocumentSubmissions.status, status));
+  if (status === 'manual_review') {
+    // Include manual-only and AI-assisted submissions, plus AI Auto
+    // rejections that the LGI must be able to manually review.
+    filters.push(or(
+      eq(corpsMemberDocumentSubmissions.status, 'manual_review'),
+      and(
+        eq(corpsMemberDocumentSubmissions.status, 'needs_resubmission'),
+        eq(corpsMemberDocumentSubmissions.verificationProvider, 'openai-responses')
+      )
+    )!);
+  } else if (status) {
+    filters.push(eq(corpsMemberDocumentSubmissions.status, status));
+  }
 
   return db
     .select({
@@ -1014,6 +1027,7 @@ export async function decideDocumentManualReview(
         id: corpsMemberDocumentSubmissions.id,
         corpsMemberId: corpsMemberDocumentSubmissions.corpsMemberId,
         status: corpsMemberDocumentSubmissions.status,
+        verificationProvider: corpsMemberDocumentSubmissions.verificationProvider,
         verificationResult: corpsMemberDocumentSubmissions.verificationResult
       })
       .from(corpsMemberDocumentSubmissions)
@@ -1032,11 +1046,18 @@ export async function decideDocumentManualReview(
         'DOCUMENT_SUBMISSION_NOT_FOUND'
       );
     }
-    if (submission.status !== 'manual_review') {
+    const canLgiReview =
+      submission.status === 'manual_review' ||
+      (
+        submission.status === 'needs_resubmission' &&
+        submission.verificationProvider === 'openai-responses'
+      );
+
+    if (!canLgiReview) {
       throw new DocumentWorkflowError(
-        'This document is no longer awaiting manual review. Refresh the page and check its current status.',
+        'This document is not awaiting an LGI decision. Refresh the page and check its current status.',
         409,
-        'DOCUMENT_NOT_IN_MANUAL_REVIEW'
+        'DOCUMENT_NOT_AWAITING_LGI_REVIEW'
       );
     }
 
@@ -1060,7 +1081,13 @@ export async function decideDocumentManualReview(
       })
       .where(and(
         eq(corpsMemberDocumentSubmissions.id, submission.id),
-        eq(corpsMemberDocumentSubmissions.status, 'manual_review')
+        or(
+          eq(corpsMemberDocumentSubmissions.status, 'manual_review'),
+          and(
+            eq(corpsMemberDocumentSubmissions.status, 'needs_resubmission'),
+            eq(corpsMemberDocumentSubmissions.verificationProvider, 'openai-responses')
+          )
+        )
       ))
       .returning({
         id: corpsMemberDocumentSubmissions.id,
