@@ -10,6 +10,7 @@
     listCorpsMembers,
     createCorpsMember,
     updateCorpsMember,
+    clearCorpsMemberRegistrationLock,
     importCorpsMemberCsv,
     downloadCorpsMembersCsv,
     uploadCorpsMemberPhoto,
@@ -33,6 +34,7 @@
   let saving = $state(false);
   let importing = $state(false);
   let exporting = $state(false);
+  let clearingRegistrationLockId = $state<string | null>(null);
   let selectedPhotoFile = $state<File | null>(null);
   let photoPreviewUrl = $state('');
   let signingOut = $state(false);
@@ -413,6 +415,30 @@
     return status.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  async function clearRegistrationLock(member: CorpsMemberRecord) {
+    const confirmed = confirm(
+      `Confirm that you have verified ${fullName(member)} (${member.stateCode}) in person using official NYSC identification documents. This will restore self-service registration access.`
+    );
+    if (!confirmed) return;
+
+    clearingRegistrationLockId = member.id;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      await clearCorpsMemberRegistrationLock(member.id);
+      noticeMessage = `Registration lock cleared for ${fullName(member)} after LGI verification.`;
+      await loadMembers(pagination.page);
+    } catch (error) {
+      errorMessage = error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'Unable to clear the registration lock.';
+    } finally {
+      clearingRegistrationLockId = null;
+    }
+  }
+
   function streamLabel(stream: CorpsMemberReferenceData['streams'][number]) {
     const available = stream.isActive && stream.batchIsActive && stream.serviceYearIsActive;
     return `${stream.serviceYear} · ${stream.batchName} · ${stream.name}${available ? '' : ' (historical / inactive)'}`;
@@ -498,7 +524,17 @@
                       <td>{member.serviceYear} · {member.batchCode} · {member.streamCode}</td>
                       <td>{member.institutionName || '—'}<small>{member.courseName || ''}</small></td>
                       <td><span class:approved={member.profileStatus === 'approved'} class:rejected={member.profileStatus === 'rejected'} class="status">{statusLabel(member.profileStatus)}</span></td>
-                      <td><button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit</button></td>
+                      <td>
+                        <div class="member-actions">
+                          <button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit</button>
+                          {#if member.registrationLockedAt}
+                            <span class="status rejected">Registration locked</span>
+                            <button class="unlock-button" type="button" disabled={clearingRegistrationLockId === member.id} onclick={() => void clearRegistrationLock(member)}>
+                              {clearingRegistrationLockId === member.id ? 'Clearing...' : 'Clear lock'}
+                            </button>
+                          {/if}
+                        </div>
+                      </td>
                     </tr>
                   {/each}
                 </tbody>
@@ -513,6 +549,12 @@
                   {#if member.email}<small>{member.email}</small>{/if}
                   {#if member.phone}<small>{member.phone}</small>{/if}
                   <small>{member.lgaName}</small>
+                  {#if member.registrationLockedAt}
+                    <div class="registration-lock-alert">Self-service registration is locked. Verify the member's NYSC identity in person before clearing this lock.</div>
+                    <button class="unlock-button" type="button" disabled={clearingRegistrationLockId === member.id} onclick={() => void clearRegistrationLock(member)}>
+                      {clearingRegistrationLockId === member.id ? 'Clearing...' : 'Clear registration lock'}
+                    </button>
+                  {/if}
                   <button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit record →</button>
                 </article>
               {/each}
@@ -727,4 +769,8 @@
   }
   .historical-stream-note { color: #9a5a20; font-size: 9px; font-weight: 500; line-height: 1.5; }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
+  .member-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-width: 150px; }
+  .unlock-button { min-height: 32px; padding: 7px 10px; border: 1px solid #e8c8c5; border-radius: 7px; background: #fff4f2; color: #9d3028; font-size: 9px; font-weight: 800; cursor: pointer; }
+  .unlock-button:disabled { opacity: .55; cursor: wait; }
+  .registration-lock-alert { padding: 9px 10px; border: 1px solid #f0d0cc; border-radius: 8px; background: #fff4f2; color: #92372f; font-size: 9px; line-height: 1.55; }
 </style>
