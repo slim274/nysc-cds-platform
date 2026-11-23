@@ -1235,6 +1235,11 @@ export interface CorpsMemberRecord {
   institutionName: string | null;
   courseName: string | null;
   profileStatus: CorpsProfileStatus;
+  registrationFailedAttempts: number;
+  registrationCooldownUntil: string | null;
+  registrationLockedAt: string | null;
+  registrationLockClearedAt: string | null;
+  registrationLockClearedByUserId: string | null;
   hasPassportPhoto: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1259,6 +1264,11 @@ export interface CorpsMemberDetail {
   qualification: string | null;
   graduationYear: number | null;
   profileStatus: CorpsProfileStatus;
+  registrationFailedAttempts: number;
+  registrationCooldownUntil: string | null;
+  registrationLockedAt: string | null;
+  registrationLockClearedAt: string | null;
+  registrationLockClearedByUserId: string | null;
   hasPassportPhoto: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1394,6 +1404,13 @@ export async function updateCorpsMember(memberId: string, input: Partial<CorpsMe
 export async function getCorpsMember(memberId: string): Promise<CorpsMemberDetail> {
   const response = await request<{ success: boolean; data: CorpsMemberDetail }>(`/lgi/corps-members/${encodeURIComponent(memberId)}`);
   return response.data;
+}
+
+export async function clearCorpsMemberRegistrationLock(memberId: string): Promise<void> {
+  await request(
+    `/lgi/corps-members/${encodeURIComponent(memberId)}/clear-registration-lock`,
+    { method: 'POST' }
+  );
 }
 
 export async function importCorpsMemberCsv(csv: string): Promise<{
