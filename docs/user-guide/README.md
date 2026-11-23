@@ -34,6 +34,6 @@ This guide set explains the workflows available in the current development appli
 
 ## Screenshot note
 
-Screenshots are stored under `docs/assets/screenshots/`. They are captured from the local development environment with demo data. Some record values are blurred. A screenshot illustrates a page layout at the time of capture; it is not proof that a service is currently running or that a particular account has production access.
+The companion archive `nysc-cds-documentation-screenshots.zip` contains the JPEGs used by the image links in these guides. Extract it at the repository root to populate `docs/assets/screenshots/`. The images were captured from the local development environment with demo data; selected record values have been blurred. A screenshot illustrates a page layout at the time of capture; it is not proof that a service is currently running or that a particular account has production access.
 
 The current set does not include every page. Sections without an image describe the implemented route and workflow based on the application code.
