@@ -105,4 +105,3 @@ Enter the token displayed by the LGI screen and set the coordinator password. Tr
 - Add an audited resend-invitation action and a secure coordinator self-service activation/reset experience.
 - Complete integration tests for cross-LGA access denial, assignment collisions, transfer atomicity, successor-only handover acceptance, disable/session revocation, reactivation and assignment-history retention.
 - Complete browser acceptance tests for the current Coordinator dashboard, group scope, WhatsApp settings, course mapping, meetings/attendance review, announcements, monthly clearance and handover acceptance.
-- Complete transactional email delivery and secure resend/activation workflows before production use.
