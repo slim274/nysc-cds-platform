@@ -21,7 +21,7 @@ This guide set explains the workflows available in the current development appli
 | CDS Coordinator | `/coordinator` | Operate assigned CDS groups, manage President designations and WhatsApp settings, schedule meetings, review attendance and manage group communications. |
 | CDS President | `/cds-president` | View assigned group information, record attendance and submit announcements for Coordinator approval. |
 | Corps Member | `/corps-member` | View NYSC/CDS information, submit documents, join the assigned WhatsApp group, read announcements and view approved attendance. |
-| CLO | `/clo/documents` | Review Corps Member document submissions across the platform, within enabled CLO access. |
+| CLO | `/clo/documents` | Review Corps Member document submissions across all LGAs when the CLO account is enabled. |
 
 ## Related technical documentation
 
@@ -34,6 +34,6 @@ This guide set explains the workflows available in the current development appli
 
 ## Screenshot note
 
-The companion archive `nysc-cds-documentation-screenshots.zip` contains the JPEGs used by the image links in these guides. Extract it at the repository root to populate `docs/assets/screenshots/`. The images were captured from the local development environment with demo data; selected record values have been blurred. A screenshot illustrates a page layout at the time of capture; it is not proof that a service is currently running or that a particular account has production access.
+The JPEGs used by the image links in these guides are committed under `docs/assets/screenshots/` in this repository. They are available after cloning or pulling the branch; no separate extraction step is needed. The images were captured from the local development environment with demo data; selected record values have been blurred. A screenshot illustrates a page layout at the time of capture; it is not proof that a service is currently running or that a particular account has production access.
 
 The current set does not include every page. Sections without an image describe the implemented route and workflow based on the application code.
