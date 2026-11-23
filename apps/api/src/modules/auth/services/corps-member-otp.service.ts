@@ -333,13 +333,20 @@ export async function registerCorpsMemberAccount(
       corpsMemberOtpChallenges,
       eq(corpsMemberOtpChallenges.verificationChallengeId, corpsMemberVerificationChallenges.id)
     )
+    .innerJoin(
+      corpsMembers,
+      eq(corpsMembers.id, corpsMemberVerificationChallenges.corpsMemberId)
+    )
     .where(and(
       eq(corpsMemberVerificationChallenges.tokenHash, tokenHash),
       isNull(corpsMemberVerificationChallenges.consumedAt),
       gt(corpsMemberVerificationChallenges.expiresAt, now),
       isNull(corpsMemberOtpChallenges.consumedAt),
       gt(corpsMemberOtpChallenges.expiresAt, now),
-      isNotNull(corpsMemberOtpChallenges.verifiedAt)
+      isNotNull(corpsMemberOtpChallenges.verifiedAt),
+      isNull(corpsMembers.userId),
+      isNull(corpsMembers.registrationLockedAt),
+      eq(corpsMembers.profileStatus, 'preloaded')
     ))
     .limit(1);
 
