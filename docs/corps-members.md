@@ -118,7 +118,7 @@ For any non-match or ineligible record, the API responds with HTTP 400:
 
 The failure message is deliberately identical across incorrect identity details, already-registered records and records whose status is not `preloaded`. The endpoint necessarily reveals whether the complete three-field combination is eligible, because the user must know whether to proceed; persistent rate limiting is therefore enforced as described below.
 
-Persistent throttling is enforced in PostgreSQL: up to five attempts per identity combination and 20 attempts per client address in a rolling 15-minute window, followed by a 15-minute block. The rate-limit table stores HMAC digests rather than raw identity values or IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
+A separate connection-level throttle is enforced in PostgreSQL: up to 20 requests per client address in a rolling 15-minute window, followed by a 15-minute block. Failed checks for a known Preloaded member use the member-specific three-attempt cooldown and six-attempt LGI lockout policy below. The rate-limit table stores HMAC digests rather than raw IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
 
 ```bash
 openssl rand -hex 32
