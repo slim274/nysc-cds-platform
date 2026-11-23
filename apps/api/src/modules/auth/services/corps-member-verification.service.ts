@@ -1,6 +1,8 @@
 import { createHmac } from 'node:crypto';
 import {
+  and,
   eq,
+  isNull,
   lt,
   sql
 } from 'drizzle-orm';
@@ -9,10 +11,12 @@ import {
   db,
   corpsMembers,
   corpsMemberVerificationChallenges,
-  corpsMemberVerificationRateLimits
+  corpsMemberVerificationRateLimits,
+  corpsMemberRegistrationAttempts
 } from '@nysc/database';
 
 import { generateSecureToken, hashToken } from '../utils/token';
+import { hashRegistrationStateCode } from '../utils/identity-hash';
 import {
   getNextRegistrationFailureTransition,
   getCooldownSeconds
@@ -66,7 +70,12 @@ async function cleanupExpiredVerificationState(now: Date): Promise<void> {
       db.delete(corpsMemberVerificationChallenges)
         .where(lt(corpsMemberVerificationChallenges.expiresAt, olderThan)),
       db.delete(corpsMemberVerificationRateLimits)
-        .where(lt(corpsMemberVerificationRateLimits.updatedAt, olderThan))
+        .where(lt(corpsMemberVerificationRateLimits.updatedAt, olderThan)),
+      db.delete(corpsMemberRegistrationAttempts)
+        .where(and(
+          isNull(corpsMemberRegistrationAttempts.lockedAt),
+          lt(corpsMemberRegistrationAttempts.updatedAt, olderThan)
+        ))
     ]);
   } catch (error) {
     lastCleanupAt = 0;
@@ -134,9 +143,10 @@ export async function initiateCorpsMemberIdentityVerification(
   clientAddress: string
 ): Promise<{ challengeToken: string; expiresInSeconds: number } | null> {
   const now = new Date();
+  const normalizedStateCode = input.stateCode.trim().toUpperCase();
+  const stateCodeHash = hashRegistrationStateCode(normalizedStateCode);
 
-  // Keep a separate connection-level limit for malformed/unknown State Codes
-  // and for requests that do not resolve to a local Corps Member record.
+  // Retain a separate connection-level throttle against high-volume requests.
   const addressKey = hashRateLimitKey(
     `corps-member-verification:address:${clientAddress}`
   );
@@ -156,8 +166,41 @@ export async function initiateCorpsMemberIdentityVerification(
   await cleanupExpiredVerificationState(now);
 
   const verification = await db.transaction(async (tx) => {
-    // Lock the record while checking/updating its failed-attempt state so
-    // concurrent requests cannot skip the cooldown or permanent-lock steps.
+    // The attempt bucket is keyed by normalized State Code, not by the
+    // complete three-field combination. Wrong DOB/Call-up values and even
+    // unknown State Codes therefore cannot bypass the 3 + 3 attempt policy.
+    await tx.insert(corpsMemberRegistrationAttempts).values({
+      stateCodeHash,
+      failedAttempts: 0,
+      cooldownUntil: null,
+      lockedAt: null,
+      updatedAt: now
+    }).onConflictDoNothing({
+      target: corpsMemberRegistrationAttempts.stateCodeHash
+    });
+
+    const [attemptState] = await tx
+      .select()
+      .from(corpsMemberRegistrationAttempts)
+      .where(eq(corpsMemberRegistrationAttempts.stateCodeHash, stateCodeHash))
+      .for('update')
+      .limit(1);
+
+    if (!attemptState) throw new Error('REGISTRATION_ATTEMPT_STATE_UNAVAILABLE');
+
+    if (attemptState.lockedAt) {
+      return { kind: 'locked' as const };
+    }
+
+    if (attemptState.cooldownUntil && attemptState.cooldownUntil > now) {
+      return {
+        kind: 'cooldown' as const,
+        retryAfterSeconds: getCooldownSeconds(attemptState.cooldownUntil, now)
+      };
+    }
+
+    // Normalize case and surrounding spaces so a valid State Code is still
+    // associated with its LGI-preloaded record.
     const [member] = await tx
       .select({
         id: corpsMembers.id,
@@ -170,43 +213,49 @@ export async function initiateCorpsMemberIdentityVerification(
         registrationLockedAt: corpsMembers.registrationLockedAt
       })
       .from(corpsMembers)
-      .where(eq(corpsMembers.stateCode, input.stateCode))
+      .where(sql`upper(trim(${corpsMembers.stateCode})) = ${normalizedStateCode}`)
       .for('update')
       .limit(1);
 
-    if (!member || member.userId || member.profileStatus !== 'preloaded') {
-      return { kind: 'invalid' as const };
-    }
-
-    if (member.registrationLockedAt) {
+    if (member?.registrationLockedAt) {
       return { kind: 'locked' as const };
     }
 
-    if (member.registrationCooldownUntil && member.registrationCooldownUntil > now) {
-      return {
-        kind: 'cooldown' as const,
-        retryAfterSeconds: getCooldownSeconds(member.registrationCooldownUntil, now)
-      };
-    }
-
-    const identityMatches =
+    const identityMatches = Boolean(
+      member &&
+      !member.userId &&
+      member.profileStatus === 'preloaded' &&
       member.dateOfBirth === input.dateOfBirth &&
-      (member.callUpNumber ?? '').trim().toUpperCase() === input.callUpNumber;
+      (member.callUpNumber ?? '').trim().toUpperCase() === input.callUpNumber.trim().toUpperCase()
+    );
 
     if (!identityMatches) {
       const transition = getNextRegistrationFailureTransition(
-        member.registrationFailedAttempts,
+        attemptState.failedAttempts,
         now
       );
 
-      await tx.update(corpsMembers)
+      await tx.update(corpsMemberRegistrationAttempts)
         .set({
-          registrationFailedAttempts: transition.failedAttempts,
-          registrationCooldownUntil: transition.cooldownUntil,
-          registrationLockedAt: transition.lockedAt,
+          failedAttempts: transition.failedAttempts,
+          cooldownUntil: transition.cooldownUntil,
+          lockedAt: transition.lockedAt,
           updatedAt: now
         })
-        .where(eq(corpsMembers.id, member.id));
+        .where(eq(corpsMemberRegistrationAttempts.stateCodeHash, stateCodeHash));
+
+      // Mirror the durable lockout on an existing eligible member so the
+      // assigned LGI sees it in the Corps Member directory.
+      if (member && !member.userId && member.profileStatus === 'preloaded') {
+        await tx.update(corpsMembers)
+          .set({
+            registrationFailedAttempts: transition.failedAttempts,
+            registrationCooldownUntil: transition.cooldownUntil,
+            registrationLockedAt: transition.lockedAt,
+            updatedAt: now
+          })
+          .where(eq(corpsMembers.id, member.id));
+      }
 
       if (transition.kind === 'cooldown') {
         return {
@@ -222,8 +271,16 @@ export async function initiateCorpsMemberIdentityVerification(
       return { kind: 'invalid' as const };
     }
 
-    // A successful identity check resets any previous failed attempts.
-    if (member.registrationFailedAttempts > 0 || member.registrationCooldownUntil) {
+    // A valid check clears the failed attempts for this State Code.
+    await tx.update(corpsMemberRegistrationAttempts)
+      .set({
+        failedAttempts: 0,
+        cooldownUntil: null,
+        updatedAt: now
+      })
+      .where(eq(corpsMemberRegistrationAttempts.stateCodeHash, stateCodeHash));
+
+    if (member && (member.registrationFailedAttempts > 0 || member.registrationCooldownUntil)) {
       await tx.update(corpsMembers)
         .set({
           registrationFailedAttempts: 0,
@@ -233,7 +290,7 @@ export async function initiateCorpsMemberIdentityVerification(
         .where(eq(corpsMembers.id, member.id));
     }
 
-    return { kind: 'matched' as const, memberId: member.id };
+    return { kind: 'matched' as const, memberId: member!.id };
   });
 
   if (verification.kind === 'locked') {
