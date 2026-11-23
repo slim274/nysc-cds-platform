@@ -267,6 +267,20 @@
   async function saveMember(event: SubmitEvent) {
     event.preventDefault();
     formError = '';
+    if (form.profileStatus === 'preloaded') {
+      if (!form.callUpNumber.trim()) {
+        formError = 'Call-up number is required for preloaded records.';
+        return;
+      }
+      if (!form.dateOfBirth) {
+        formError = 'Date of birth is required for preloaded records.';
+        return;
+      }
+      if (!form.email.trim() && !form.phone.trim()) {
+        formError = 'Enter at least one contact method: email address or phone number.';
+        return;
+      }
+    }
     saving = true;
     try {
       const input = buildInput();
@@ -524,20 +538,20 @@
         <div class="form-section-title">NYSC identification</div>
         <div class="form-grid">
           <label><span>State code *</span><input bind:value={form.stateCode} required maxlength="50" placeholder="e.g. AB/26A/001" /></label>
-          <label><span>Call-up number</span><input bind:value={form.callUpNumber} maxlength="100" /></label>
+          <label><span>Call-up number{form.profileStatus === 'preloaded' ? ' *' : ''}</span><input bind:value={form.callUpNumber} required={form.profileStatus === 'preloaded'} maxlength="100" /></label>
           <label><span>First name *</span><input bind:value={form.firstName} required maxlength="100" /></label>
           <label><span>Middle name</span><input bind:value={form.middleName} maxlength="100" /></label>
           <label><span>Last name *</span><input bind:value={form.lastName} required maxlength="100" /></label>
-          <label><span>Date of birth</span><input type="date" bind:value={form.dateOfBirth} /></label>
+          <label><span>Date of birth{form.profileStatus === 'preloaded' ? ' *' : ''}</span><input type="date" bind:value={form.dateOfBirth} required={form.profileStatus === 'preloaded'} max={new Date().toISOString().slice(0, 10)} /></label>
           <label><span>Gender</span><select bind:value={form.gender}><option value="">Not specified</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other</option></select></label>
         </div>
 
         <div class="form-section-title">Contact details</div>
         <div class="form-grid">
-          <label><span>Email address</span><input type="email" bind:value={form.email} maxlength="320" autocomplete="email" placeholder="member@example.com" /></label>
-          <label><span>Phone number</span><input type="tel" bind:value={form.phone} maxlength="30" autocomplete="tel" placeholder="+234 801 234 5678" /></label>
+          <label><span>Email address{form.profileStatus === 'preloaded' && !form.phone.trim() ? ' *' : ''}</span><input type="email" bind:value={form.email} required={form.profileStatus === 'preloaded' && !form.phone.trim()} maxlength="320" autocomplete="email" placeholder="member@example.com" /></label>
+          <label><span>Phone number{form.profileStatus === 'preloaded' && !form.email.trim() ? ' *' : ''}</span><input type="tel" bind:value={form.phone} required={form.profileStatus === 'preloaded' && !form.email.trim()} maxlength="30" autocomplete="tel" placeholder="+234 801 234 5678" /></label>
         </div>
-        <p class="contact-note">These details are managed by the LGI and will be used for OTP verification during account onboarding. Contact ownership is not verified yet.</p>
+        <p class="contact-note">Preloaded records require a date of birth, call-up number and at least one contact method. Email or phone ownership is verified by OTP during account onboarding.</p>
 
         <div class="form-section-title">Deployment details</div>
         <div class="form-grid">
