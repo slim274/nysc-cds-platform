@@ -92,9 +92,9 @@ Request:
 
 The endpoint normalises State Code and Call-up Number to uppercase and trims whitespace. A record is eligible only when all three values match, its `user_id` is null, and its profile status is exactly `preloaded`. Draft, submitted, approved and rejected records cannot start self-service registration. An LGI must correct a record's identity and contact details before setting its status to `preloaded`.
 
-The endpoint always returns the same successful response shape and generic message for a matching or non-matching identity. It returns a cryptographically random 256-bit challenge token that expires after 10 minutes. The database stores only the token hash. For a non-match, the token is deliberately stored against a null member reference and cannot be used by a subsequent verification step. This prevents the identity endpoint from revealing whether a submitted combination exists in the member directory.
+The endpoint returns a challenge token only when all three supplied values match an eligible, unlinked `preloaded` record. The token is cryptographically random, expires after 10 minutes, and only its hash is stored in the database. If the values do not match, the member is already linked to an account, or the profile is not `preloaded`, the API returns the same generic HTTP 400 message and does not create a challenge. This means the registration page advances to OTP only after a real preloaded record has matched.
 
-Example response:
+Example successful response:
 
 ```json
 {
@@ -106,6 +106,17 @@ Example response:
   }
 }
 ```
+
+For any non-match or ineligible record, the API responds with HTTP 400:
+
+```json
+{
+  "success": false,
+  "message": "We could not verify these details. Check the State Code, Date of Birth and Call-up Number with your LGI."
+}
+```
+
+The failure message is deliberately identical across incorrect identity details, already-registered records and records whose status is not `preloaded`. The endpoint necessarily reveals whether the complete three-field combination is eligible, because the user must know whether to proceed; persistent rate limiting is therefore enforced as described below.
 
 Persistent throttling is enforced in PostgreSQL: up to five attempts per identity combination and 20 attempts per client address in a rolling 15-minute window, followed by a 15-minute block. The rate-limit table stores HMAC digests rather than raw identity values or IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
 
