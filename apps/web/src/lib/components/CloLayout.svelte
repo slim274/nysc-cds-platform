@@ -38,7 +38,7 @@
       <span>▣</span> Document Handling
     </a>
     <div class="sidebar-note">
-      <strong>Assigned access</strong>
+      <strong>Review access</strong>
       <p>You can review document submissions across all LGAs. Document requirements are managed by LGI administrators.</p>
     </div>
     <div class="sidebar-footer">
