@@ -118,7 +118,7 @@ For any non-match or ineligible record, the API responds with HTTP 400:
 
 The failure message is deliberately identical across incorrect identity details, already-registered records and records whose status is not `preloaded`. The endpoint necessarily reveals whether the complete three-field combination is eligible, because the user must know whether to proceed; persistent rate limiting is therefore enforced as described below.
 
-A separate connection-level throttle is enforced in PostgreSQL: up to 20 requests per client address in a rolling 15-minute window, followed by a 15-minute block. Failed checks for a known Preloaded member use the member-specific three-attempt cooldown and six-attempt LGI lockout policy below. The rate-limit table stores HMAC digests rather than raw IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
+A separate connection-level throttle is enforced in PostgreSQL: up to 20 requests per client address in a rolling 15-minute window, followed by a 15-minute block. In addition, repeated attempts using the same normalized State Code follow the three-attempt cooldown and six-attempt LGI lockout policy below, whether or not that State Code is found in the preloaded directory. A State Code that does not identify a member has no Corps Member record for the LGI to unlock; the applicant should confirm the correct State Code with the LGI. The rate-limit tables store HMAC digests rather than raw State Codes or IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
 
 ```bash
 openssl rand -hex 32
@@ -132,7 +132,7 @@ The challenge token is intended for the OTP onboarding stage. Do not treat it as
 
 ## Identity verification attempt limits and LGI lock clearance
 
-Failed identity checks are tracked against the matching, unregistered `preloaded` Corps Member record. The State Code identifies the record; Date of Birth and Call-up Number must both match it.
+Failed identity checks are tracked against the normalized State Code, even when the submitted code does not match a preloaded record. The platform stores only an HMAC of the normalized State Code, never the raw submitted value. When the State Code identifies an unregistered `preloaded` Corps Member record, the attempt state is also mirrored onto that member record so the assigned LGI can see and clear a permanent lock. Date of Birth and Call-up Number must both match that record to proceed.
 
 - The first two incorrect checks are rejected.
 - The third incorrect check starts a five-minute cooldown. Attempts made during that cooldown do not consume the next attempt group.
