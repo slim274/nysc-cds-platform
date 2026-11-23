@@ -99,7 +99,7 @@ Example successful response:
 ```json
 {
   "success": true,
-  "message": "If the details match an eligible corps member record, you can continue verification.",
+  "message": "Identity verified. You can continue to contact verification.",
   "data": {
     "challengeToken": "<opaque-64-character-token>",
     "expiresInSeconds": 600
