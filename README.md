@@ -106,7 +106,7 @@ The API is a modular monolith. The browser presents the interface, but the API r
 | CDS Coordinator | Manages only assigned CDS groups, member rosters, President designations, WhatsApp group settings, CDS meetings, attendance review and Coordinator announcements. |
 | CDS President | Works only with group(s) attached to an active President assignment; coordinates the group, records attendance and submits eligible announcements for review. |
 | Corps Member | Uses one personal account to manage their member portal, view NYSC/CDS allocation and contacts, submit required documents, join the assigned WhatsApp group and view approved attendance. |
-| Corps Liaison Officer (CLO) | Reviews Corps Member document submissions and records verification or resubmission decisions within configured document-review access. |
+| Corps Liaison Officer (CLO) | Reviews Corps Member document submissions across all LGAs when the CLO account is enabled; CLO account management remains assigned to selected LGI administrators. |
 
 Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission. LGI administrators manage LGA operational records only within their assigned LGA(s). The shared academic course catalogue is centrally managed from the LGI module and is used across LGAs.
 
@@ -154,7 +154,7 @@ The following describes functional areas present in the current development bran
 - [User Guide Index](docs/user-guide/README.md) — sign-in and workflows for LGI Administrators, CDS Coordinators, CDS Presidents, Corps Members and CLO officers.
 - [Document Verification Workflow](docs/document-verification.md) — Manual, AI Auto and AI-assisted review behaviour.
 - [Monitoring notes](docs/monitoring/README.md) — Prometheus/Grafana screenshots and the monitoring configuration still missing from the tracked Compose stack.
-- [Screenshot asset manifest](docs/assets/screenshots/README.md) — image paths used by the guides. Download and extract the documentation screenshot archive when preparing a local documentation checkout.
+- [Screenshot asset manifest](docs/assets/screenshots/README.md) — 22 JPEG screenshots tracked in the repository under `docs/assets/screenshots/`.
 
 
 | Workspace / area | Implemented functionality |
@@ -162,16 +162,16 @@ The following describes functional areas present in the current development bran
 | LGI administration | Manage service years, batches, streams, Corps Member records, CDS groups, membership, Coordinator accounts and group assignments. |
 | Shared course catalogue | Manage course categories, canonical course names and aliases; import course data from CSV; use the searchable catalogue when mapping courses to CDS groups. |
 | Coordinator management | Invite and manage Coordinators, transfer group responsibility, maintain handover records and review successor acknowledgements. |
-| CLO management | Create/manage CLO access and configured LGA assignments; publish document requirements and review document-submission workflows. |
+| CLO management | Create/manage CLO access and configured LGI management assignments; review submissions across the platform. Document requirements are created, edited and published by LGI administrators. |
 | Coordinator workspace | View assigned CDS groups and members; designate or replace a President from existing group members; manage the group's WhatsApp invite link and optional WhatsApp assistant. |
 | CDS President workspace | View assigned group(s) and member roster; open meeting registers, mark members present/absent/late/excused and submit the completed register. |
 | Attendance management | Coordinators schedule CDS meetings, inspect submitted registers, approve attendance or return it for correction with review notes. Returned registers can be corrected and resubmitted. LGI attendance reporting is read-only. |
 | Corps Member portal | View NYSC profile details, group assignment, contacts, document checklist, WhatsApp access and approved attendance history. A dual-role member can move to the President workspace without creating a second account. |
-| Document handling | Corps Members submit required documents; authorised reviewers can verify submissions or request resubmission. Manual review is the default document-verification mode. |
- 
-See [Document Verification Workflow](docs/document-verification.md) for Manual, AI Auto and AI-assisted verification behaviour, LGI review and human override rules.
+| Document handling | Corps Members submit required documents; authorized LGI and CLO reviewers can verify submissions or request resubmission. Manual review is the default document-verification mode. |
 | Announcements and notifications | Role-based announcement workflows and a shared notification centre with unread counts and mark-all-read behaviour. |
 | Reports and monthly clearance | LGI attendance analytics/reporting and monthly-clearance workflows, with scoped Coordinator visibility where applicable. |
+
+See [Document Verification Workflow](docs/document-verification.md) for Manual, AI Auto and AI-assisted verification behaviour, LGI review and human override rules.
 
 ### Attendance lifecycle
 
@@ -185,7 +185,7 @@ See [Document Verification Workflow](docs/document-verification.md) for Manual, 
 
 - LGI administrators configure and publish the document requirements used by Corps Members.
 - Corps Members upload the requested documents through their portal.
-- CLO reviewers handle submissions within their configured access and record verification or a reason for resubmission.
+- CLO reviewers can process document submissions across all LGAs. LGI administrators remain responsible for creating and publishing the document requirements.
 - LGI administrators and Coordinators publish announcements to selected groups through their respective workflows. President announcements are subject to Coordinator review before publication.
 - The notification bell provides a shared place for authenticated users to see relevant unread notifications.
 
