@@ -160,6 +160,8 @@ The following describes functional areas present in the current development bran
 | Attendance management | Coordinators schedule CDS meetings, inspect submitted registers, approve attendance or return it for correction with review notes. Returned registers can be corrected and resubmitted. LGI attendance reporting is read-only. |
 | Corps Member portal | View NYSC profile details, group assignment, contacts, document checklist, WhatsApp access and approved attendance history. A dual-role member can move to the President workspace without creating a second account. |
 | Document handling | Corps Members submit required documents; authorised reviewers can verify submissions or request resubmission. Manual review is the default document-verification mode. |
+ 
+See [Document Verification Workflow](docs/document-verification.md) for Manual, AI Auto and AI-assisted verification behaviour, LGI review and human override rules.
 | Announcements and notifications | Role-based announcement workflows and a shared notification centre with unread counts and mark-all-read behaviour. |
 | Reports and monthly clearance | LGI attendance analytics/reporting and monthly-clearance workflows, with scoped Coordinator visibility where applicable. |
 
