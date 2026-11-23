@@ -17,7 +17,8 @@ import {
   batches,
   serviceYears,
   institutions,
-  courses
+  courses,
+  corpsMemberRegistrationAttempts
 } from '@nysc/database';
 
 import type {
@@ -25,6 +26,7 @@ import type {
   UpdateCorpsMemberInput
 } from './corps-members.schema';
 import { getPreloadedMemberFieldIssues } from './corps-members.schema';
+import { hashRegistrationStateCode } from '../auth/utils/identity-hash';
 import {
   getCachedActiveLgaOptions,
   getCachedCohortReferenceOptions,
@@ -344,19 +346,34 @@ export async function clearCorpsMemberRegistrationLock(
   }
 
   const now = new Date();
-  await db.update(corpsMembers)
-    .set({
-      registrationFailedAttempts: 0,
-      registrationCooldownUntil: null,
-      registrationLockedAt: null,
-      registrationLockClearedAt: now,
-      registrationLockClearedByUserId: actorUserId,
-      updatedAt: now
-    })
-    .where(and(
-      eq(corpsMembers.id, memberId),
-      inArray(corpsMembers.lgaId, lgaIds)
-    ));
+  const stateCodeHash = hashRegistrationStateCode(current.stateCode);
+
+  await db.transaction(async (tx) => {
+    // Clear the submitted-State-Code bucket and the member-facing lock mirror
+    // atomically after the assigned LGI confirms in-person identity.
+    await tx.update(corpsMemberRegistrationAttempts)
+      .set({
+        failedAttempts: 0,
+        cooldownUntil: null,
+        lockedAt: null,
+        updatedAt: now
+      })
+      .where(eq(corpsMemberRegistrationAttempts.stateCodeHash, stateCodeHash));
+
+    await tx.update(corpsMembers)
+      .set({
+        registrationFailedAttempts: 0,
+        registrationCooldownUntil: null,
+        registrationLockedAt: null,
+        registrationLockClearedAt: now,
+        registrationLockClearedByUserId: actorUserId,
+        updatedAt: now
+      })
+      .where(and(
+        eq(corpsMembers.id, memberId),
+        inArray(corpsMembers.lgaId, lgaIds)
+      ));
+  });
 
   return getCorpsMember(memberId, lgaIds);
 }
