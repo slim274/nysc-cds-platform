@@ -30,6 +30,9 @@
     event.preventDefault();
     errorMessage = '';
     noticeMessage = '';
+    challengeToken = '';
+    otpRequested = false;
+    code = '';
     submitting = true;
     try {
       const result = await verifyCorpsMemberIdentity({
@@ -40,7 +43,10 @@
       challengeToken = result.challengeToken;
       stage = 2;
     } catch (error) {
-      showError(error, 'Unable to process the identity check. Please try again.');
+      // A failed identity match must leave the user on the identity step.
+      stage = 1;
+      challengeToken = '';
+      showError(error, 'We could not verify these details. Check them with your LGI.');
     } finally {
       submitting = false;
     }
