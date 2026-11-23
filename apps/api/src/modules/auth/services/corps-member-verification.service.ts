@@ -29,10 +29,9 @@ export class IdentityVerificationRateLimitError extends Error {
     public readonly retryAfterSeconds: number,
     public readonly reason: 'address' | 'member-cooldown' = 'address'
   ) {
-    const waitMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
     super(
       reason === 'member-cooldown'
-        ? `You have used all three identity attempts. Please wait ${waitMinutes} minute(s) before trying again.`
+        ? `You have used all three identity attempts. Please wait ${Math.max(1, Math.ceil(retryAfterSeconds / 60))} minute(s) before trying again.`
         : 'Too many verification attempts from this connection. Try again later.'
     );
     this.name = 'IdentityVerificationRateLimitError';
