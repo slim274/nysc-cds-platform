@@ -24,6 +24,7 @@ import type {
   CreateCorpsMemberInput,
   UpdateCorpsMemberInput
 } from './corps-members.schema';
+import { getPreloadedMemberFieldIssues } from './corps-members.schema';
 import {
   getCachedActiveLgaOptions,
   getCachedCohortReferenceOptions,
@@ -357,6 +358,21 @@ export async function createCorpsMember(input: CreateCorpsMemberInput, lgaIds: s
 export async function updateCorpsMember(memberId: string, input: UpdateCorpsMemberInput, lgaIds: string[]) {
   assertLgaScope(lgaIds);
   const current = await getCorpsMember(memberId, lgaIds);
+  const preloadedIssues = getPreloadedMemberFieldIssues({
+    profileStatus: input.profileStatus ?? current.profileStatus,
+    callUpNumber: input.callUpNumber === undefined ? current.callUpNumber : input.callUpNumber,
+    dateOfBirth: input.dateOfBirth === undefined ? current.dateOfBirth : input.dateOfBirth,
+    email: input.email === undefined ? current.email : input.email,
+    phone: input.phone === undefined ? current.phone : input.phone
+  });
+  if (preloadedIssues.length > 0) {
+    throw new CorpsMemberServiceError(
+      preloadedIssues.map((issue) => issue.message).join(' '),
+      400,
+      'PRELOADED_MEMBER_INCOMPLETE'
+    );
+  }
+
   const nextLgaId = input.lgaId ?? current.lgaId;
   const nextStreamId = input.streamId ?? current.streamId;
   await validateReferences({
