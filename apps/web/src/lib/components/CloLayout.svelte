@@ -39,7 +39,7 @@
     </a>
     <div class="sidebar-note">
       <strong>Assigned access</strong>
-      <p>You can review documents for your assigned LGA(s). Document requirements are managed by the LGI.</p>
+      <p>You can review document submissions across all LGAs. Document requirements are managed by LGI administrators.</p>
     </div>
     <div class="sidebar-footer">
       <div><span class="dot"></span>CLO access active</div>
