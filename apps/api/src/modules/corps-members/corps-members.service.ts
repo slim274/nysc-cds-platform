@@ -241,6 +241,11 @@ export async function listCorpsMembers(
     institutionName: institutions.name,
     courseName: courses.name,
     profileStatus: corpsMembers.profileStatus,
+    registrationFailedAttempts: corpsMembers.registrationFailedAttempts,
+    registrationCooldownUntil: corpsMembers.registrationCooldownUntil,
+    registrationLockedAt: corpsMembers.registrationLockedAt,
+    registrationLockClearedAt: corpsMembers.registrationLockClearedAt,
+    registrationLockClearedByUserId: corpsMembers.registrationLockClearedByUserId,
     passportObjectKey: corpsMembers.passportObjectKey,
     createdAt: corpsMembers.createdAt,
     updatedAt: corpsMembers.updatedAt
@@ -294,6 +299,11 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
     qualification: corpsMembers.qualification,
     graduationYear: corpsMembers.graduationYear,
     profileStatus: corpsMembers.profileStatus,
+    registrationFailedAttempts: corpsMembers.registrationFailedAttempts,
+    registrationCooldownUntil: corpsMembers.registrationCooldownUntil,
+    registrationLockedAt: corpsMembers.registrationLockedAt,
+    registrationLockClearedAt: corpsMembers.registrationLockClearedAt,
+    registrationLockClearedByUserId: corpsMembers.registrationLockClearedByUserId,
     passportObjectKey: corpsMembers.passportObjectKey,
     createdAt: corpsMembers.createdAt,
     updatedAt: corpsMembers.updatedAt
@@ -307,6 +317,48 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
   }
   const { passportObjectKey, ...safeMember } = member;
   return { ...safeMember, hasPassportPhoto: Boolean(passportObjectKey) };
+}
+
+export async function clearCorpsMemberRegistrationLock(
+  memberId: string,
+  lgaIds: string[],
+  actorUserId: string
+) {
+  assertLgaScope(lgaIds);
+  const current = await getCorpsMember(memberId, lgaIds);
+
+  if (!current.registrationLockedAt) {
+    throw new CorpsMemberServiceError(
+      'This Corps Member does not have a permanent registration lock.',
+      409,
+      'REGISTRATION_LOCK_NOT_ACTIVE'
+    );
+  }
+
+  if (current.userId || current.profileStatus !== 'preloaded') {
+    throw new CorpsMemberServiceError(
+      'Only an unregistered Preloaded Corps Member can have a registration lock cleared.',
+      409,
+      'REGISTRATION_LOCK_MEMBER_INELIGIBLE'
+    );
+  }
+
+  const now = new Date();
+  await db.update(corpsMembers)
+    .set({
+      registrationFailedAttempts: 0,
+      registrationCooldownUntil: null,
+      registrationLockedAt: null,
+      registrationLockClearedAt: now,
+      registrationLockClearedByUserId: actorUserId,
+      updatedAt: now
+    })
+    .where(and(
+      eq(corpsMembers.id, memberId),
+      inArray(corpsMembers.lgaId, lgaIds)
+    ));
+
+  return getCorpsMember(memberId, lgaIds);
 }
 
 export async function getCorpsMemberPhotoKey(memberId: string, lgaIds: string[]) {
