@@ -164,7 +164,8 @@ export async function sendCorpsMemberOtp(
       .select({
         email: corpsMembers.email,
         phone: corpsMembers.phone,
-        profileStatus: corpsMembers.profileStatus
+        profileStatus: corpsMembers.profileStatus,
+        registrationLockedAt: corpsMembers.registrationLockedAt
       })
       .from(corpsMembers)
       .where(and(
@@ -173,7 +174,7 @@ export async function sendCorpsMemberOtp(
       ))
       .limit(1);
 
-    if (!member || member.profileStatus !== 'preloaded') return null;
+    if (!member || member.profileStatus !== 'preloaded' || member.registrationLockedAt) return null;
 
     const destination = channel === 'email' ? member.email : member.phone;
     if (!destination?.trim()) return null;
@@ -270,6 +271,14 @@ export async function verifyCorpsMemberOtp(
       .limit(1);
 
     if (!challenge?.corpsMemberId) return false;
+
+    const [member] = await tx
+      .select({ registrationLockedAt: corpsMembers.registrationLockedAt })
+      .from(corpsMembers)
+      .where(eq(corpsMembers.id, challenge.corpsMemberId))
+      .limit(1);
+
+    if (!member || member.registrationLockedAt) return false;
 
     const [otp] = await tx
       .select()
@@ -377,7 +386,7 @@ export async function registerCorpsMemberAccount(
       .for('update')
       .limit(1);
 
-    if (!member || member.userId || member.profileStatus !== 'preloaded') {
+    if (!member || member.userId || member.profileStatus !== 'preloaded' || member.registrationLockedAt) {
       throw new Error('REGISTRATION_MEMBER_UNAVAILABLE');
     }
 
