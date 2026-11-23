@@ -117,7 +117,7 @@ export async function initiateCorpsMemberIdentityVerification(
     callUpNumber: string;
   },
   clientAddress: string
-): Promise<{ challengeToken: string; expiresInSeconds: number }> {
+): Promise<{ challengeToken: string; expiresInSeconds: number } | null> {
   const now = new Date();
 
   // HMAC prevents offline guessing of low-entropy identity details if the
@@ -158,12 +158,14 @@ export async function initiateCorpsMemberIdentityVerification(
     ))
     .limit(1);
 
-  // Always persist a fresh token row and return the same response shape.
-  // A null member reference is an intentionally unusable challenge, preventing
-  // callers from discovering which identifier combinations match records.
+  // Do not issue a challenge when the submitted identity does not match an
+  // eligible, unlinked Preloaded record. The caller must receive a clear
+  // verification failure and remain on the identity step.
+  if (!member) return null;
+
   const challengeToken = generateSecureToken();
   await db.insert(corpsMemberVerificationChallenges).values({
-    corpsMemberId: member?.id ?? null,
+    corpsMemberId: member.id,
     tokenHash: hashToken(challengeToken),
     expiresAt: new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000)
   });
