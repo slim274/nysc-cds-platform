@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
+import { canViewOwnReviewSubmission } from './announcement-visibility.policy';
 
 import {
   db,
@@ -204,10 +205,20 @@ export async function listCdsAnnouncements(
     ))
     .innerJoin(cdsGroups, eq(cdsAnnouncementGroups.cdsGroupId, cdsGroups.id))
     .innerJoin(lgas, eq(cdsGroups.lgaId, lgas.id))
-    .where(or(
-      and(inArray(cdsAnnouncementGroups.cdsGroupId, groupIds), visibleStatusCondition),
-      eq(cdsAnnouncements.createdByUserId, userId)
-    ))
+    .where(
+      canViewOwnReviewSubmission(roleCode)
+        ? or(
+          and(inArray(cdsAnnouncementGroups.cdsGroupId, groupIds), visibleStatusCondition),
+          and(
+            inArray(cdsAnnouncementGroups.cdsGroupId, groupIds),
+            eq(cdsAnnouncements.createdByUserId, userId)
+          )
+        )
+        : and(
+          inArray(cdsAnnouncementGroups.cdsGroupId, groupIds),
+          visibleStatusCondition
+        )
+    )
     .orderBy(desc(cdsAnnouncements.createdAt), asc(cdsGroups.name))
     .limit(500);
 
