@@ -78,6 +78,15 @@
     }
   }
 
+  function changeIdentityDetails() {
+    stage = 1;
+    challengeToken = '';
+    otpRequested = false;
+    code = '';
+    errorMessage = '';
+    noticeMessage = '';
+  }
+
   async function requestOtp() {
     errorMessage = '';
     noticeMessage = '';
@@ -206,6 +215,9 @@
       <button class="secondary" type="button" onclick={requestOtp} disabled={submitting}>
         {submitting ? 'Requesting code…' : otpRequested ? 'Resend code' : 'Send verification code'}
       </button>
+      <button class="back-button" type="button" onclick={changeIdentityDetails} disabled={submitting}>
+        Use different identity details
+      </button>
 
       {#if otpRequested}
         <form onsubmit={confirmOtp}>
@@ -259,6 +271,7 @@
   input:focus,select:focus { outline: none; border-color: #0a8050; box-shadow: 0 0 0 3px rgba(10,128,80,.09); }
   button { width: 100%; min-height: 49px; margin-top: 22px; border: 0; border-radius: 8px; background: #0a5c37; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
   button.secondary { margin-top: 12px; background: #e8f3ec; color: #0a5c37; }
+  button.back-button { min-height: 38px; margin: 12px 0 0; background: transparent; color: #0a5c37; text-decoration: underline; }
   button:disabled { opacity: .6; cursor: not-allowed; }
   small { color: #718078; display: block; margin-top: 6px; font-size: 11px; }
   .alert { border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.5; margin: 16px 0; }
