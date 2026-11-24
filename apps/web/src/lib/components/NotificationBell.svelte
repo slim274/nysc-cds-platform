@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
   import {
     listNotifications,
@@ -20,7 +20,17 @@
   let mutationCount = 0;
   let refreshGeneration = 0;
   let refreshPending = false;
+  let repositionNotificationBell: (() => void) | null = null;
   const REFRESH_INTERVAL_MS = 5000;
+
+  // The layout persists during client-side navigation. Re-run header placement
+  // after SvelteKit completes navigation so asynchronously rendered workspace
+  // headers (including the President mobile controls) receive the bell.
+  afterNavigate(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => repositionNotificationBell?.());
+    });
+  });
 
   async function refresh() {
     // Don't let a polling response overwrite a newer read/unread action.
@@ -215,6 +225,7 @@
       }
     }
 
+    repositionNotificationBell = placeNotificationBell;
     placeNotificationBell();
 
     // The app layout persists during client-side navigation. Observe route
@@ -227,6 +238,9 @@
       destroy() {
         observer.disconnect();
         window.removeEventListener('resize', placeNotificationBell);
+        if (repositionNotificationBell === placeNotificationBell) {
+          repositionNotificationBell = null;
+        }
         node.remove();
       }
     };
