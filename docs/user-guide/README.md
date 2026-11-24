@@ -25,6 +25,8 @@ This guide set explains the workflows available in the current development appli
 
 ## Related technical documentation
 
+- [Five-role acceptance test runbook](../testing/five-role-acceptance.md) — a QA setup and test sequence for all five workspaces.
+
 - [Corps Member import, export, profile photos and onboarding](../corps-members.md)
 - [Document verification modes and LGI review](../document-verification.md)
 - [Coordinator account lifecycle and handovers](../coordinator-management.md)
