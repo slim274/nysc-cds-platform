@@ -70,7 +70,9 @@
       const matchesStatus = statusFilter === 'all' ||
         (statusFilter === 'manual_review'
           ? canCloReviewSubmission(submission)
-          : submission.status === statusFilter);
+          : statusFilter === 'needs_resubmission'
+            ? submission.status === 'needs_resubmission' && !canCloReviewSubmission(submission)
+            : submission.status === statusFilter);
       const submissionLgaKey = `${submission.lgaName}::${submission.stateName}`;
       const matchesLga = lgaFilter === 'all' || submissionLgaKey === lgaFilter;
       const matchesSearch = !term || [
@@ -95,7 +97,9 @@
         const member = documents[0];
         const verifiedCount = documents.filter((document) => document.status === 'verified').length;
         const awaitingReviewCount = documents.filter(canCloReviewSubmission).length;
-        const resubmissionCount = documents.filter((document) => document.status === 'needs_resubmission').length;
+        const resubmissionCount = documents.filter((document) =>
+          document.status === 'needs_resubmission' && !canCloReviewSubmission(document)
+        ).length;
         const pendingCount = documents.filter((document) => document.status === 'pending_verification').length;
 
         return {
@@ -295,10 +299,10 @@
         <label class="status-filter"><span>Document status</span>
           <select bind:value={statusFilter}>
             <option value="all">All statuses</option>
-            <option value="manual_review">Awaiting review</option>
+            <option value="manual_review">Awaiting human review</option>
             <option value="pending_verification">Pending verification</option>
             <option value="verified">Verified</option>
-            <option value="needs_resubmission">Resubmission required</option>
+            <option value="needs_resubmission">Resubmission requested</option>
           </select>
         </label>
         <label class="lga-filter"><span>LGA / State</span>
