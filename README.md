@@ -341,7 +341,7 @@ The platform uses a **rule-based, constraint-aware greedy allocation process wit
 
 ### 1. Rule-based eligibility filtering
 
-Before an automatic assignment is considered, the system checks the Corps Member and the available CDS groups against explicit business rules:
+Before an automatic assignment is considered, the system checks the Corps Member and the available CDS groups against explicit business rules. These rules govern new automatic placements after document verification is enabled. Active memberships backfilled for existing members before this gate was introduced are preserved; they are not removed or revalidated retroactively:
 
 - The Corps Member record must exist, must not have a rejected profile and must have an academic course recorded.
 - The LGA must have active document requirements, including at least one active mandatory requirement. The latest submission for every active mandatory requirement must have a `verified` status.
