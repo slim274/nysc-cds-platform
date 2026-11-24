@@ -52,6 +52,14 @@
     })).values()].sort((a, b) => a.label.localeCompare(b.label))
   );
 
+  function canCloReviewSubmission(submission: LgiDocumentSubmission): boolean {
+    return submission.status === 'manual_review' ||
+      (
+        submission.status === 'needs_resubmission' &&
+        submission.verificationProvider === 'openai-responses'
+      );
+  }
+
   // Apply the active filters first, then group matching submissions by their
   // stable Corps Member ID so each person's documents stay together.
   const visibleMemberGroups = $derived.by(() => {
@@ -59,7 +67,10 @@
     const grouped = new Map<string, LgiDocumentSubmission[]>();
 
     for (const submission of submissions) {
-      const matchesStatus = statusFilter === 'all' || submission.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' ||
+        (statusFilter === 'manual_review'
+          ? canCloReviewSubmission(submission)
+          : submission.status === statusFilter);
       const submissionLgaKey = `${submission.lgaName}::${submission.stateName}`;
       const matchesLga = lgaFilter === 'all' || submissionLgaKey === lgaFilter;
       const matchesSearch = !term || [
@@ -83,7 +94,7 @@
       .map(([memberId, documents]): MemberSubmissionGroup => {
         const member = documents[0];
         const verifiedCount = documents.filter((document) => document.status === 'verified').length;
-        const awaitingReviewCount = documents.filter((document) => document.status === 'manual_review').length;
+        const awaitingReviewCount = documents.filter(canCloReviewSubmission).length;
         const resubmissionCount = documents.filter((document) => document.status === 'needs_resubmission').length;
         const pendingCount = documents.filter((document) => document.status === 'pending_verification').length;
 
@@ -185,10 +196,26 @@
     errorMessage = '';
     noticeMessage = '';
     try {
-      await decideCloDocumentSubmission(submission.id, decision, reason.trim());
-      noticeMessage = decision === 'verified'
-        ? 'Document verified. The platform will continue CDS matching when all mandatory documents are verified.'
-        : 'Document returned to the Corps Member for resubmission.';
+      const result = await decideCloDocumentSubmission(submission.id, decision, reason.trim());
+      if (decision === 'verified') {
+        if (result.matchingPending) {
+          noticeMessage = 'Document approved, but automatic CDS matching could not complete. The matching issue needs a separate retry.';
+        } else if (result.matching?.assigned && result.matching.groupName) {
+          noticeMessage = `Document approved. The Corps Member has been matched to ${result.matching.groupName}.`;
+        } else if (result.matching?.reason === 'documents_incomplete') {
+          noticeMessage = 'Document approved. The remaining mandatory documents must also be verified before CDS matching.';
+        } else if (result.matching?.reason === 'documents_not_configured') {
+          noticeMessage = 'Document approved, but no active document requirements are configured for this LGA.';
+        } else if (result.matching?.reason === 'all_eligible_groups_full') {
+          noticeMessage = 'Document approved, but all eligible CDS groups are full. LGI follow-up is required.';
+        } else if (result.matching?.reason === 'no_eligible_group') {
+          noticeMessage = 'Document approved, but no active CDS group currently accepts this Corps Member’s course.';
+        } else {
+          noticeMessage = 'Document approved. Check the Corps Member record for the CDS placement outcome.';
+        }
+      } else {
+        noticeMessage = 'Document returned to the Corps Member for resubmission.';
+      }
       submissions = await listCloDocumentSubmissions();
     } catch (error) {
       errorMessage = error instanceof ApiError || error instanceof Error
@@ -199,10 +226,11 @@
     }
   }
 
-  function statusLabel(status: string) {
-    if (status === 'verified') return 'Verified';
-    if (status === 'needs_resubmission') return 'Resubmission required';
-    if (status === 'manual_review') return 'Awaiting review';
+  function statusLabel(submission: LgiDocumentSubmission) {
+    if (submission.status === 'verified') return 'Verified';
+    if (canCloReviewSubmission(submission) && submission.status === 'needs_resubmission') return 'AI Auto flagged · review available';
+    if (submission.status === 'needs_resubmission') return 'Resubmission required';
+    if (submission.status === 'manual_review') return 'Awaiting review';
     return 'Pending verification';
   }
 
@@ -331,16 +359,16 @@
                         <span
                           class="document-status"
                           class:status-verified={submission.status === 'verified'}
-                          class:status-review={submission.status === 'manual_review'}
-                          class:status-return={submission.status === 'needs_resubmission'}
+                          class:status-review={canCloReviewSubmission(submission)}
+                          class:status-return={submission.status === 'needs_resubmission' && !canCloReviewSubmission(submission)}
                           class:status-pending={submission.status === 'pending_verification'}
-                        >{statusLabel(submission.status)}</span>
+                        >{statusLabel(submission)}</span>
                         {#if submission.confidence !== null}<small>Confidence: {submission.confidence}%</small>{/if}
                         {#if submission.reason}<p>{submission.reason}</p>{/if}
                       </div>
                       <div class="document-actions">
                         <button class="view-button" type="button" onclick={() => void openSubmissionFile(submission)} disabled={fileLoadingId === submission.id}>{fileLoadingId === submission.id ? 'Opening…' : 'View document'}</button>
-                        {#if submission.status === 'manual_review'}
+                        {#if canCloReviewSubmission(submission)}
                           <button class="approve-button" type="button" onclick={() => void reviewSubmission(submission, 'verified')} disabled={savingId === submission.id}>{savingId === submission.id ? 'Saving…' : 'Mark verified'}</button>
                           <button class="return-button" type="button" onclick={() => void reviewSubmission(submission, 'needs_resubmission')} disabled={savingId === submission.id}>Request resubmission</button>
                         {:else}
@@ -356,7 +384,7 @@
         </div>
       {/if}
     </section>
-    <div class="permission-note"><strong>Platform-wide document access.</strong> You can view document submissions from Corps Members across all LGAs. You can approve or request resubmission only for records awaiting manual review. Only LGI Administrators can create, change, publish or remove document requirements and manage CLO accounts.</div>
+    <div class="permission-note"><strong>Platform-wide document access.</strong> You can view document submissions from Corps Members across all LGAs. You can approve or request resubmission for manual-review items and AI Auto rejections explicitly awaiting a human decision. Only LGI Administrators can create, change, publish or remove document requirements and manage CLO accounts.</div>
   </CloLayout>
 {/if}
 
