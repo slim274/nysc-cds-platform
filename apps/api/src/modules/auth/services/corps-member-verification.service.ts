@@ -141,7 +141,7 @@ export async function initiateCorpsMemberIdentityVerification(
     callUpNumber: string;
   },
   clientAddress: string
-): Promise<{ challengeToken: string; expiresInSeconds: number } | null> {
+): Promise<{ challengeToken: string; expiresInSeconds: number }> {
   const now = new Date();
   const normalizedStateCode = input.stateCode.trim().toUpperCase();
   const stateCodeHash = hashRegistrationStateCode(normalizedStateCode);
@@ -304,11 +304,13 @@ export async function initiateCorpsMemberIdentityVerification(
     );
   }
 
-  if (verification.kind === 'invalid') return null;
-
+  // Preserve the same public response for matching and non-matching
+  // identities. A challenge with a null member reference is deliberately
+  // unusable by the OTP/account-creation steps, preventing identity
+  // enumeration through differences in HTTP status or response shape.
   const challengeToken = generateSecureToken();
   await db.insert(corpsMemberVerificationChallenges).values({
-    corpsMemberId: verification.memberId,
+    corpsMemberId: verification.kind === 'matched' ? verification.memberId : null,
     tokenHash: hashToken(challengeToken),
     expiresAt: new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000)
   });
