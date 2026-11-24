@@ -53,7 +53,7 @@ jobs:
 
           ready=0
           for attempt in $(seq 1 30); do
-            if docker exec "$container" pg_isready -U postgres -d nysc_migration_test >/dev/null 2>&1; then
+            if docker exec "$container" pg_isready -h 127.0.0.1 -U postgres -d nysc_migration_test >/dev/null 2>&1; then
               ready=1
               break
             fi
@@ -70,7 +70,7 @@ jobs:
           docker cp packages/database/drizzle/tests/0011_preserves_existing_memberships.sql \
             "$container":/tmp/migration-test/0011_preserves_existing_memberships.sql
           docker exec "$container" psql -v ON_ERROR_STOP=1 \
-            -U postgres -d nysc_migration_test \
+            -h 127.0.0.1 -U postgres -d nysc_migration_test \
             -f /tmp/migration-test/0011_preserves_existing_memberships.sql
 
       - name: Typecheck API
