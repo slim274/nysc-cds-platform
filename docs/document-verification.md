@@ -36,7 +36,9 @@ An LGI or authorized CLO reviewer can:
 
 The human decision is recorded with the reviewer identity, reviewer role and timestamp. A decision made by a CLO is recorded as a CLO review; a decision made by an LGI is recorded as an LGI review. Either human decision replaces the AI Auto outcome as the final document status.
 
-The approval is saved separately from automatic CDS matching. A matching failure must not undo a saved LGI document decision. CDS matching proceeds only after all active mandatory document requirements have a verified latest submission.
+The approval is saved separately from automatic CDS matching. A matching failure must not undo a saved human document decision. New automatic CDS placements proceed only after all active mandatory document requirements have a verified latest submission.
+
+Active CDS memberships created for existing members before document-gated matching was introduced are preserved. The database migration does not remove or retroactively revalidate those allocations; the document gate applies to future automatic placements.
 
 ## 4. AI Auto and human approval are distinct
 
