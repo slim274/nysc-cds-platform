@@ -13,12 +13,18 @@ import {
   institutions,
   courses
 } from '../schema/academics';
+import {
+  courseAliases
+} from '../schema/course-aliases';
 
 import {
   users,
-  roles,
-  userRoleAssignments
+  roles
 } from '../schema/identity';
+
+import {
+  userRoleAssignments
+} from '../schema/user-role-assignments';
 
 import { corpsMembers } from '../schema/corps-members';
 
@@ -108,8 +114,37 @@ async function assignRole(
   });
 }
 
+
+async function removeLegacyPlatformAdminDemoAccount() {
+  // Remove the separate Platform Administrator demo account introduced by
+  // an earlier development seed. User-owned sessions, tokens and role
+  // assignments are removed through their foreign-key cascade rules.
+  await db
+    .delete(users)
+    .where(eq(users.email, 'platform.admin@example.test'));
+
+  const [legacyRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.code, 'PLATFORM_ADMIN'))
+    .limit(1);
+
+  if (legacyRole) {
+    const [remainingAssignment] = await db
+      .select({ id: userRoleAssignments.id })
+      .from(userRoleAssignments)
+      .where(eq(userRoleAssignments.roleId, legacyRole.id))
+      .limit(1);
+
+    if (!remainingAssignment) {
+      await db.delete(roles).where(eq(roles.id, legacyRole.id));
+    }
+  }
+}
+
 async function main() {
   console.log('Starting NYSC database seeding...\n');
+  await removeLegacyPlatformAdminDemoAccount();
 
   // 1. Create Demo LGA
   let [lga] = await db
@@ -261,7 +296,39 @@ async function main() {
       name: 'Agricultural Science',
       normalizedName: 'AGRICULTURAL SCIENCE',
       disciplineCategory: 'AGRICULTURE'
-    }
+    },
+    { name: 'Accounting', normalizedName: 'ACCOUNTING', disciplineCategory: 'MANAGEMENT_SCIENCES' },
+    { name: 'Business Administration', normalizedName: 'BUSINESS ADMINISTRATION', disciplineCategory: 'MANAGEMENT_SCIENCES' },
+    { name: 'Economics', normalizedName: 'ECONOMICS', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Political Science', normalizedName: 'POLITICAL SCIENCE', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Sociology', normalizedName: 'SOCIOLOGY', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Psychology', normalizedName: 'PSYCHOLOGY', disciplineCategory: 'SOCIAL_SCIENCES' },
+    { name: 'Mass Communication', normalizedName: 'MASS COMMUNICATION', disciplineCategory: 'ARTS_HUMANITIES' },
+    { name: 'English Language', normalizedName: 'ENGLISH LANGUAGE', disciplineCategory: 'ARTS_HUMANITIES' },
+    { name: 'History and International Studies', normalizedName: 'HISTORY AND INTERNATIONAL STUDIES', disciplineCategory: 'ARTS_HUMANITIES' },
+    { name: 'Biochemistry', normalizedName: 'BIOCHEMISTRY', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Microbiology', normalizedName: 'MICROBIOLOGY', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Chemistry', normalizedName: 'CHEMISTRY', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Physics', normalizedName: 'PHYSICS', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Mathematics', normalizedName: 'MATHEMATICS', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Statistics', normalizedName: 'STATISTICS', disciplineCategory: 'NATURAL_SCIENCES' },
+    { name: 'Civil Engineering', normalizedName: 'CIVIL ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Electrical and Electronics Engineering', normalizedName: 'ELECTRICAL AND ELECTRONICS ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Mechanical Engineering', normalizedName: 'MECHANICAL ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Chemical Engineering', normalizedName: 'CHEMICAL ENGINEERING', disciplineCategory: 'ENGINEERING' },
+    { name: 'Architecture', normalizedName: 'ARCHITECTURE', disciplineCategory: 'BUILT_ENVIRONMENT' },
+    { name: 'Quantity Surveying', normalizedName: 'QUANTITY SURVEYING', disciplineCategory: 'BUILT_ENVIRONMENT' },
+    { name: 'Urban and Regional Planning', normalizedName: 'URBAN AND REGIONAL PLANNING', disciplineCategory: 'BUILT_ENVIRONMENT' },
+    { name: 'Environmental Management', normalizedName: 'ENVIRONMENTAL MANAGEMENT', disciplineCategory: 'ENVIRONMENTAL_SCIENCES' },
+    { name: 'Geography', normalizedName: 'GEOGRAPHY', disciplineCategory: 'ENVIRONMENTAL_SCIENCES' },
+    { name: 'Education and Biology', normalizedName: 'EDUCATION AND BIOLOGY', disciplineCategory: 'EDUCATION' },
+    { name: 'Educational Management', normalizedName: 'EDUCATIONAL MANAGEMENT', disciplineCategory: 'EDUCATION' },
+    { name: 'Pharmacy', normalizedName: 'PHARMACY', disciplineCategory: 'PHARMACEUTICAL_SCIENCES' },
+    { name: 'Medical Laboratory Science', normalizedName: 'MEDICAL LABORATORY SCIENCE', disciplineCategory: 'HEALTH' },
+    { name: 'Public Health', normalizedName: 'PUBLIC HEALTH', disciplineCategory: 'HEALTH' },
+    { name: 'Physiotherapy', normalizedName: 'PHYSIOTHERAPY', disciplineCategory: 'HEALTH' },
+    { name: 'Veterinary Medicine', normalizedName: 'VETERINARY MEDICINE', disciplineCategory: 'VETERINARY_MEDICINE' },
+    { name: 'Computer Engineering', normalizedName: 'COMPUTER ENGINEERING', disciplineCategory: 'ENGINEERING' }
   ];
 
   const courseIds: Record<string, string> = {};
@@ -300,6 +367,46 @@ async function main() {
     console.log(`✓ Course: ${course.name}`);
   }
 
+  // 6b. Add common course-name aliases to the shared catalogue.
+  const aliasData: Record<string, string[]> = {
+    'COMPUTER SCIENCE': ['Computing', 'Computer Studies'],
+    'SOFTWARE ENGINEERING': ['Software Development'],
+    'AGRICULTURAL SCIENCE': ['Agriculture', 'Agricultural Sciences'],
+    'ACCOUNTING': ['Accountancy'],
+    'BUSINESS ADMINISTRATION': ['Business Management'],
+    'MASS COMMUNICATION': ['Mass Communications'],
+    'ELECTRICAL AND ELECTRONICS ENGINEERING': ['Electrical Engineering'],
+    'MEDICAL LABORATORY SCIENCE': ['Medical Laboratory Technology']
+  };
+
+  for (const [canonicalName, aliases] of Object.entries(aliasData)) {
+    const courseId = courseIds[canonicalName];
+    if (!courseId) continue;
+
+    for (const alias of aliases) {
+      const normalizedName = alias
+        .normalize('NFKC')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLocaleUpperCase('en');
+
+      const [existingAlias] = await db
+        .select({ id: courseAliases.id })
+        .from(courseAliases)
+        .where(eq(courseAliases.normalizedName, normalizedName))
+        .limit(1);
+
+      if (existingAlias) continue;
+
+      await db.insert(courseAliases).values({
+        courseId,
+        name: alias,
+        normalizedName
+      });
+    }
+  }
+
   // 7. Create system roles
   const lgiRole = await getRole(
     'LGI_ADMIN',
@@ -317,6 +424,12 @@ async function main() {
     'CDS_PRESIDENT',
     'CDS President',
     'Records attendance for assigned CDS groups'
+  );
+
+  await getRole(
+    'CLO',
+    'Corps Liaison Officer',
+    'Manages document submissions and verification within assigned LGA(s); cannot configure document requirements'
   );
 
   await getRole(
@@ -344,7 +457,7 @@ async function main() {
 
   await assignRole(presidentUserId, presidentRole, lga.id);
 
-  console.log('✓ Administrative test accounts created/found');
+  console.log('✓ LGI, Coordinator and President test accounts created/found');
 
   // 9. Five synthetic corps members
   const members = [
@@ -354,7 +467,10 @@ async function main() {
       firstName: 'Amina',
       lastName: 'Bello',
       gender: 'Female',
-      course: 'COMPUTER SCIENCE'
+      course: 'COMPUTER SCIENCE',
+      dateOfBirth: '2000-04-12',
+      email: 'amina.bello@example.test',
+      phone: '+2348010000001'
     },
     {
       stateCode: 'DEMO/26A/002',
@@ -362,7 +478,10 @@ async function main() {
       firstName: 'David',
       lastName: 'Okoro',
       gender: 'Male',
-      course: 'SOFTWARE ENGINEERING'
+      course: 'SOFTWARE ENGINEERING',
+      dateOfBirth: '1999-09-30',
+      email: 'david.okoro@example.test',
+      phone: '+2348010000002'
     },
     {
       stateCode: 'DEMO/26A/003',
@@ -370,7 +489,10 @@ async function main() {
       firstName: 'Fatima',
       lastName: 'Ibrahim',
       gender: 'Female',
-      course: 'NURSING'
+      course: 'NURSING',
+      dateOfBirth: '2001-02-18',
+      email: 'fatima.ibrahim@example.test',
+      phone: '+2348010000003'
     },
     {
       stateCode: 'DEMO/26A/004',
@@ -378,7 +500,10 @@ async function main() {
       firstName: 'Peter',
       lastName: 'Adeyemi',
       gender: 'Male',
-      course: 'LAW'
+      course: 'LAW',
+      dateOfBirth: '1998-06-21',
+      email: 'peter.adeyemi@example.test',
+      phone: '+2348010000004'
     },
     {
       stateCode: 'DEMO/26A/005',
@@ -386,18 +511,39 @@ async function main() {
       firstName: 'Grace',
       lastName: 'Nwosu',
       gender: 'Female',
-      course: 'AGRICULTURAL SCIENCE'
+      course: 'AGRICULTURAL SCIENCE',
+      dateOfBirth: '2000-12-05',
+      email: 'grace.nwosu@example.test',
+      phone: '+2348010000005'
     }
   ];
 
   for (const member of members) {
     const [existing] = await db
-      .select({ id: corpsMembers.id })
+      .select({
+        id: corpsMembers.id,
+        userId: corpsMembers.userId,
+        dateOfBirth: corpsMembers.dateOfBirth,
+        email: corpsMembers.email,
+        phone: corpsMembers.phone
+      })
       .from(corpsMembers)
       .where(eq(corpsMembers.stateCode, member.stateCode))
       .limit(1);
 
     if (existing) {
+      // Keep linked/member-maintained records untouched. For unlinked demo
+      // records, fill only missing onboarding fields from the demo fixture.
+      if (!existing.userId) {
+        await db.update(corpsMembers)
+          .set({
+            dateOfBirth: existing.dateOfBirth ?? member.dateOfBirth,
+            email: existing.email ?? member.email,
+            phone: existing.phone ?? member.phone,
+            updatedAt: new Date()
+          })
+          .where(eq(corpsMembers.id, existing.id));
+      }
       console.log(`↻ Member already exists: ${member.stateCode}`);
       continue;
     }
@@ -405,6 +551,9 @@ async function main() {
     await db.insert(corpsMembers).values({
       stateCode: member.stateCode,
       callUpNumber: member.callUpNumber,
+      email: member.email,
+      phone: member.phone,
+      dateOfBirth: member.dateOfBirth,
       firstName: member.firstName,
       lastName: member.lastName,
       gender: member.gender,
@@ -424,7 +573,8 @@ async function main() {
   console.log('====================================');
   console.log('LGA: Demo LGA');
   console.log('Cohort: 2026 / Batch A / Stream I');
-  console.log('Administrative accounts: 3');
+  console.log('Administrative accounts: 4');
+  console.log(`Course catalogue starter records: ${courseData.length}`);
   console.log('Corps members: 5');
   console.log('====================================');
 }

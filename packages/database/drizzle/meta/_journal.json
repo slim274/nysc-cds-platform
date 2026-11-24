@@ -15,6 +15,174 @@
       "when": 1794230212284,
       "tag": "0001_amused_zuras",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794241421415,
+      "tag": "0002_premium_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794244382646,
+      "tag": "0003_lonely_blink",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794297685579,
+      "tag": "0004_cds_group_handovers",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794299577816,
+      "tag": "0005_handover_standby_restore",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794310000000,
+      "tag": "0006_add_corps_member_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794318887202,
+      "tag": "0007_corps_member_identity_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794321000000,
+      "tag": "0008_corps_member_otp_registration",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794325000000,
+      "tag": "0009_cds_member_declines",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794326000000,
+      "tag": "0010_backfill_existing_cds_group_assignments",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794327000000,
+      "tag": "0011_corps_member_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794391200000,
+      "tag": "0012_document_requirement_verification_modes",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794393900000,
+      "tag": "0013_cds_course_mapping_overrides",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0014_cds_group_leadership",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794401000000,
+      "tag": "0015_cds_group_leadership_end_actor",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794410000000,
+      "tag": "0016_cds_group_whatsapp",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794415000000,
+      "tag": "0017_cds_attendance_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794500000000,
+      "tag": "0018_cds_announcements",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794501000000,
+      "tag": "0019_user_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794502000000,
+      "tag": "0020_monthly_clearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794503000000,
+      "tag": "0021_monthly_clearance_actor_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794504000000,
+      "tag": "0022_add_clo_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794573918334,
+      "tag": "0023_api_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795428600000,
+      "tag": "0024_corps_member_registration_lockout",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795430700000,
+      "tag": "0025_state_code_registration_attempts",
+      "breakpoints": true
     }
   ]
 }

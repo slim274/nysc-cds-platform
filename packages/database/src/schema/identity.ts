@@ -31,6 +31,10 @@ export const users = pgTable(
       withTimezone: true
     }),
 
+    phoneVerifiedAt: timestamp('phone_verified_at', {
+      withTimezone: true
+    }),
+
     lastLoginAt: timestamp('last_login_at', {
       withTimezone: true
     }),
@@ -66,40 +70,6 @@ export const roles = pgTable(
   },
   (table) => [
     uniqueIndex('roles_code_unique').on(table.code)
-  ]
-);
-
-export const userRoleAssignments = pgTable(
-  'user_role_assignments',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, {
-        onDelete: 'cascade'
-      }),
-
-    roleId: uuid('role_id')
-      .notNull()
-      .references(() => roles.id, {
-        onDelete: 'restrict'
-      }),
-
-    lgaId: uuid('lga_id')
-      .references(() => lgas.id, {
-        onDelete: 'restrict'
-      }),
-
-    isActive: boolean('is_active').notNull().default(true),
-
-    createdAt: timestamp('created_at', {
-      withTimezone: true
-    }).notNull().defaultNow()
-  },
-  (table) => [
-    index('user_roles_user_idx').on(table.userId),
-    index('user_roles_lga_idx').on(table.lgaId)
   ]
 );
 

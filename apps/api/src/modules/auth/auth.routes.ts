@@ -8,7 +8,11 @@ import {
 
 import {
   activateAccountSchema,
-  loginSchema
+  loginSchema,
+  verifyCorpsMemberIdentitySchema,
+  sendCorpsMemberOtpSchema,
+  verifyCorpsMemberOtpSchema,
+  registerCorpsMemberSchema
 } from './schemas/auth.schema';
 
 import {
@@ -17,11 +21,24 @@ import {
 } from './services/auth.service';
 
 import {
+  initiateCorpsMemberIdentityVerification,
+  IdentityVerificationRateLimitError,
+  IdentityVerificationLockedError
+} from './services/corps-member-verification.service';
+
+import {
   createSession,
   revokeSession,
   SESSION_COOKIE,
-  SESSION_TTL_SECONDS
+  SESSION_TTL_SECONDS,
+  isSessionCookieSecure
 } from './services/session.service';
+
+import {
+  sendCorpsMemberOtp,
+  verifyCorpsMemberOtp,
+  registerCorpsMemberAccount
+} from './services/corps-member-otp.service';
 
 import {
   requireAuth,
@@ -29,7 +46,23 @@ import {
   type AuthEnv
 } from './middleware/auth.middleware';
 
+import {
+  assertLoginAllowed,
+  clearFailedLoginBucket,
+  LoginRateLimitError,
+  recordFailedLogin
+} from './services/login-rate-limit.service';
+
 const authRoutes = new Hono<AuthEnv>();
+
+function getPostgresErrorCode(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    if ('code' in current && typeof current.code === 'string') return current.code;
+    current = 'cause' in current ? current.cause : null;
+  }
+  return null;
+}
 
 // Account activation
 authRoutes.post('/activate', async (c) => {
@@ -69,6 +102,182 @@ authRoutes.post('/activate', async (c) => {
   }
 });
 
+// Public identity check used before the later OTP onboarding step.
+authRoutes.post('/verify-corps-member', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = verifyCorpsMemberIdentitySchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({
+      success: false,
+      message: 'Enter a valid State Code, Date of Birth and Call-up Number.'
+    }, 400);
+  }
+
+  // The API entry point injects this header from Bun's socket information.
+  // Never trust a client-supplied forwarded-IP header directly.
+  const clientAddress = c.req.header('x-nysc-client-address') ?? 'unknown';
+
+  try {
+    const result = await initiateCorpsMemberIdentityVerification(
+      validation.data,
+      clientAddress
+    );
+
+    return c.json({
+      success: true,
+      message: 'If the identity details match an eligible Corps Member record, you can continue to contact verification.',
+      data: result
+    });
+  } catch (error) {
+    if (error instanceof IdentityVerificationLockedError) {
+      return c.json({
+        success: false,
+        code: 'REGISTRATION_REQUIRES_LGI_VERIFICATION',
+        message: error.message
+      }, 423);
+    }
+
+    if (error instanceof IdentityVerificationRateLimitError) {
+      c.header('Retry-After', String(error.retryAfterSeconds));
+      return c.json({
+        success: false,
+        code: error.reason === 'member-cooldown'
+          ? 'REGISTRATION_COOLDOWN'
+          : 'IDENTITY_ADDRESS_RATE_LIMITED',
+        message: error.message
+      }, 429);
+    }
+
+    console.error('Corps member identity verification failed:', error);
+    return c.json({
+      success: false,
+      message: 'Unable to process identity verification.'
+    }, 500);
+  }
+});
+
+// Send (or safely resend) a one-time code to the contact already on the matched member record.
+authRoutes.post('/send-corps-member-otp', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = sendCorpsMemberOtpSchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({ success: false, message: 'Invalid OTP request.' }, 400);
+  }
+
+  try {
+    await sendCorpsMemberOtp(validation.data.challengeToken, validation.data.channel);
+    return c.json({
+      success: true,
+      message: 'If the identity details matched an eligible record with the selected contact method, a verification code has been sent.'
+    }, 202);
+  } catch (error) {
+    // Keep the public response indistinguishable for matched and non-matched challenges.
+    console.error('Corps member OTP request failed:', error);
+    return c.json({
+      success: true,
+      message: 'If the identity details matched an eligible record with the selected contact method, a verification code has been sent.'
+    }, 202);
+  }
+});
+
+// Verify the one-time code. The identity challenge remains the registration credential.
+authRoutes.post('/verify-corps-member-otp', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = verifyCorpsMemberOtpSchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({ success: false, message: 'Enter the six-digit verification code.' }, 400);
+  }
+
+  try {
+    const verified = await verifyCorpsMemberOtp(
+      validation.data.challengeToken,
+      validation.data.code
+    );
+
+    if (!verified) {
+      return c.json({
+        success: false,
+        message: 'The verification code is invalid, expired, or unavailable.'
+      }, 400);
+    }
+
+    return c.json({
+      success: true,
+      message: 'Contact verification completed. You can now create your account.'
+    });
+  } catch (error) {
+    console.error('Corps member OTP verification failed:', error);
+    return c.json({ success: false, message: 'Unable to verify the code.' }, 503);
+  }
+});
+
+// Create the account and link it to the existing corps member record atomically.
+authRoutes.post('/register-corps-member', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const validation = registerCorpsMemberSchema.safeParse(body);
+
+  if (!validation.success) {
+    return c.json({
+      success: false,
+      message: 'Choose a password containing at least 12 characters.'
+    }, 400);
+  }
+
+  try {
+    const user = await registerCorpsMemberAccount(
+      validation.data.challengeToken,
+      validation.data.password
+    );
+
+    const session = await createSession(user.id, c.req.header('user-agent'));
+
+    setCookie(c, SESSION_COOKIE, session.token, {
+      httpOnly: true,
+      secure: isSessionCookieSecure(),
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: SESSION_TTL_SECONDS,
+      expires: session.expiresAt
+    });
+
+    return c.json({
+      success: true,
+      message: 'Your Corps Member account has been created.',
+      user,
+      expiresAt: session.expiresAt.toISOString()
+    }, 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const code = getPostgresErrorCode(error) ?? '';
+
+    if (code === '23505') {
+      return c.json({
+        success: false,
+        message: 'The registered email address or phone number is already associated with an account. Contact your LGI.'
+      }, 409);
+    }
+
+    if (message.startsWith('REGISTRATION_')) {
+      const conflict = message === 'REGISTRATION_MEMBER_UNAVAILABLE';
+      return c.json({
+        success: false,
+        message: conflict
+          ? 'This Corps Member record is no longer available for registration.'
+          : 'Registration cannot continue. Check your verification code and registered contact details.'
+      }, conflict ? 409 : 400);
+    }
+
+    console.error('Corps member account registration failed:', error);
+    return c.json({
+      success: false,
+      message: 'Unable to create the Corps Member account.'
+    }, 500);
+  }
+});
+
 // Login
 authRoutes.post('/login', async (c) => {
   const body = await c.req.json().catch(() => null);
@@ -82,15 +291,42 @@ authRoutes.post('/login', async (c) => {
     }, 400);
   }
 
+  const clientAddress = c.req.header('x-nysc-client-address') ?? 'unknown';
+
   try {
+    await assertLoginAllowed(validation.data.identifier, clientAddress);
+
     const user = await authenticateUser(validation.data);
 
     if (!user) {
+      const retryAfterSeconds = await recordFailedLogin(
+        validation.data.identifier,
+        clientAddress
+      );
+
+      if (retryAfterSeconds) {
+        c.header('Retry-After', String(retryAfterSeconds));
+        return c.json({
+          success: false,
+          message: 'Too many login attempts. Try again later.'
+        }, 429);
+      }
+
       return c.json({
         success: false,
         message: 'Invalid email or password.'
       }, 401);
     }
+
+    // Reset this identifier/IP failure bucket after successful authentication.
+    // A cleanup failure must not prevent a legitimate login.
+    await clearFailedLoginBucket(validation.data.identifier, clientAddress)
+      .catch((error) => console.warn(JSON.stringify({
+        level: 'warn',
+        event: 'auth.login_rate_limit_reset_failed',
+        requestId: c.get('requestId'),
+        errorName: error instanceof Error ? error.name : 'UnknownError'
+      })));
 
     const session = await createSession(
       user.id,
@@ -99,7 +335,7 @@ authRoutes.post('/login', async (c) => {
 
     setCookie(c, SESSION_COOKIE, session.token, {
       httpOnly: true,
-      secure: Bun.env.NODE_ENV === 'production',
+      secure: isSessionCookieSecure(),
       sameSite: 'Lax',
       path: '/',
       maxAge: SESSION_TTL_SECONDS,
@@ -114,12 +350,25 @@ authRoutes.post('/login', async (c) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    if (error instanceof LoginRateLimitError) {
+      c.header('Retry-After', String(error.retryAfterSeconds));
+      return c.json({
+        success: false,
+        message: 'Too many login attempts. Try again later.'
+      }, 429);
+    }
+
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'auth.login_failed_to_process',
+      requestId: c.get('requestId'),
+      errorName: error instanceof Error ? error.name : 'UnknownError'
+    }));
 
     return c.json({
       success: false,
-      message: 'Unable to process login.'
-    }, 500);
+      message: 'Unable to process login at this time.'
+    }, 503);
   }
 });
 
@@ -134,7 +383,7 @@ authRoutes.post('/logout', async (c) => {
 
     deleteCookie(c, SESSION_COOKIE, {
       path: '/',
-      secure: Bun.env.NODE_ENV === 'production',
+      secure: isSessionCookieSecure(),
       sameSite: 'Lax'
     });
 

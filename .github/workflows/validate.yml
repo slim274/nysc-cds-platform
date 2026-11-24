@@ -1,0 +1,144 @@
+name: Validate NYSC CDS Platform
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+      - "feat/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      REDIS_URL: redis://127.0.0.1:6379/0
+      API_RATE_LIMIT_PEPPER: ci-test-only-rate-limit-pepper-with-more-than-32-bytes
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Compile database seed
+        run: bun build packages/database/src/seed/index.ts --outdir /tmp/nysc-cds-seed-check --target=bun
+
+      - name: Verify document migration preserves existing CDS memberships
+        run: |
+          set -euo pipefail
+          container=nysc-migration-smoke
+          docker run --detach --name "$container" \
+            --env POSTGRES_PASSWORD=postgres \
+            --env POSTGRES_DB=nysc_migration_test \
+            postgres:17-alpine
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            if docker exec "$container" pg_isready -h 127.0.0.1 -U postgres -d nysc_migration_test >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker logs "$container"
+            exit 1
+          fi
+
+          docker exec "$container" mkdir -p /tmp/migration-test
+          docker cp packages/database/drizzle/0011_corps_member_documents.sql \
+            "$container":/tmp/migration-test/0011_corps_member_documents.sql
+          docker cp packages/database/drizzle/tests/0011_preserves_existing_memberships.sql \
+            "$container":/tmp/migration-test/0011_preserves_existing_memberships.sql
+          docker exec "$container" psql -v ON_ERROR_STOP=1 \
+            -h 127.0.0.1 -U postgres -d nysc_migration_test \
+            -f /tmp/migration-test/0011_preserves_existing_memberships.sql
+
+      - name: Apply the complete Drizzle migration chain to PostgreSQL 17
+        run: |
+          set -euo pipefail
+          container=nysc-full-migration-chain
+          docker run --detach --name "$container" \
+            --publish 127.0.0.1:5433:5432 \
+            --env POSTGRES_USER=nysc_migration \
+            --env POSTGRES_PASSWORD=nysc_migration_test \
+            --env POSTGRES_DB=nysc_full_migration \
+            postgres:17-alpine
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 45); do
+            if docker exec "$container" pg_isready -h 127.0.0.1 \
+              -U nysc_migration -d nysc_full_migration >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker logs "$container"
+            exit 1
+          fi
+
+          DATABASE_URL=postgresql://nysc_migration:nysc_migration_test@127.0.0.1:5433/nysc_full_migration \
+            bun run --filter @nysc/database db:migrate
+
+          applied=$(docker exec "$container" psql -h 127.0.0.1 \
+            -U nysc_migration -d nysc_full_migration -Atc \
+            'SELECT count(*) FROM drizzle.__drizzle_migrations')
+          echo "Applied Drizzle migrations: $applied"
+          test "$applied" -eq 26
+
+      - name: Typecheck API
+        run: bun run --filter @nysc/api typecheck
+
+      - name: Run API unit tests
+        run: bun run --filter @nysc/api test
+
+      - name: Check Svelte components
+        run: bun run --filter @nysc/web check
+
+      - name: Build frontend
+        run: cd apps/web && bun run --bun build
+
+      - name: Validate Docker Compose application and monitoring profiles
+        run: |
+          cp .env.example .env
+          docker compose --profile app config --quiet
+          docker compose --profile monitoring config --quiet
+
+      - name: Validate Grafana dashboard JSON
+        run: python -m json.tool infrastructure/monitoring/grafana/dashboards/nysc-overview.json > /dev/null
+
+      - name: Validate Nginx configuration
+        run: |
+          docker run --rm \
+            --add-host web:127.0.0.1 \
+            --add-host api:127.0.0.1 \
+            -v "$PWD/infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:stable-alpine nginx -t
+
+      - name: Build API container image
+        run: docker build --file apps/api/Dockerfile --tag nysc-cds-api:ci .
+
+      - name: Build web container image
+        run: docker build --file apps/web/Dockerfile --tag nysc-cds-web:ci .

@@ -15,6 +15,20 @@ export const SESSION_COOKIE = 'nysc_session';
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
 /**
+ * Production cookies remain Secure by default. COOKIE_SECURE explicitly
+ * overrides that default for an HTTP-only local reverse-proxy deployment.
+ */
+export function isSessionCookieSecure(
+  nodeEnv: string | undefined = Bun.env.NODE_ENV,
+  cookieSecure: string | undefined = Bun.env.COOKIE_SECURE
+): boolean {
+  const override = cookieSecure?.trim().toLowerCase();
+  if (override === 'true') return true;
+  if (override === 'false') return false;
+  return nodeEnv === 'production';
+}
+
+/**
  * Create a new authenticated session.
  *
  * The raw token is returned only once for the browser cookie.

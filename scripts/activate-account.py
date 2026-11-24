@@ -1,20 +1,25 @@
 import json
 import getpass
 import re
+import sys
 import urllib.request
 import urllib.error
 
-EMAIL = "lgi.demo@example.test"
+EMAIL = (sys.argv[1].strip().lower() if len(sys.argv) > 1 else "")
 API_URL = "http://localhost:3001/auth/activate"
 
-token = getpass.getpass("Paste LGI activation token: ").strip()
+if not EMAIL:
+    print("Usage: python3 scripts/activate-account.py <account-email>")
+    raise SystemExit(1)
+
+token = getpass.getpass("Paste activation token: ").strip()
 
 if not re.fullmatch(r"[0-9a-fA-F]{64}", token):
     print("Invalid token. Expected 64 hexadecimal characters.")
     raise SystemExit(1)
 
-password = getpass.getpass("Create LGI password (minimum 12 characters): ")
-confirm = getpass.getpass("Confirm LGI password: ")
+password = getpass.getpass("Create account password (minimum 12 characters): ")
+confirm = getpass.getpass("Confirm account password: ")
 
 if len(password) < 12 or len(password) > 128:
     print("Password must contain 12–128 characters.")

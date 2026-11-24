@@ -11,22 +11,24 @@ import {
 } from '@nysc/database';
 
 import { hashToken } from '../utils/token';
-import { SESSION_COOKIE } from '../services/session.service';
+import { SESSION_COOKIE, isSessionCookieSecure } from '../services/session.service';
 
 export type AuthRole = {
   code: string;
   name: string;
   lgaId: string | null;
+  cdsGroupId: string | null;
 };
 
 export type AuthEnv = {
   Variables: {
     authUser: {
       id: string;
-      email: string;
+      email: string | null;
     };
     authSessionId: string;
     authRoles: AuthRole[];
+    requestId: string;
   };
 };
 
@@ -68,10 +70,10 @@ export const requireAuth = createMiddleware<AuthEnv>(
         )
         .limit(1);
 
-      if (!session || !session.email) {
+      if (!session) {
         deleteCookie(c, SESSION_COOKIE, {
           path: '/',
-          secure: Bun.env.NODE_ENV === 'production',
+          secure: isSessionCookieSecure(),
           sameSite: 'Lax'
         });
 
@@ -86,7 +88,8 @@ export const requireAuth = createMiddleware<AuthEnv>(
         .select({
           code: roles.code,
           name: roles.name,
-          lgaId: userRoleAssignments.lgaId
+          lgaId: userRoleAssignments.lgaId,
+          cdsGroupId: userRoleAssignments.cdsGroupId
         })
         .from(userRoleAssignments)
         .innerJoin(

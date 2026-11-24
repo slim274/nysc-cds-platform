@@ -2,13 +2,15 @@ import {
   and,
   eq,
   gt,
-  isNull
+  isNull,
+  or
 } from 'drizzle-orm';
 
 import {
   db,
   users,
-  authTokens
+  authTokens,
+  corpsMembers
 } from '@nysc/database';
 
 import {
@@ -117,17 +119,23 @@ export async function activateAccount(
  */
 export async function authenticateUser(
   input: LoginInput
-): Promise<{ id: string; email: string } | null> {
+): Promise<{ id: string; email: string | null } | null> {
 
+  const identifier = input.identifier.trim();
   const [user] = await db
     .select({
       id: users.id,
       email: users.email,
       passwordHash: users.passwordHash,
-      status: users.status
+      status: users.status,
+      emailVerifiedAt: users.emailVerifiedAt,
+      phoneVerifiedAt: users.phoneVerifiedAt
     })
     .from(users)
-    .where(eq(users.email, input.email))
+    .where(or(
+      eq(users.email, identifier.toLowerCase()),
+      eq(users.phone, identifier)
+    ))
     .limit(1);
 
   if (
@@ -138,12 +146,26 @@ export async function authenticateUser(
     return null;
   }
 
+  // Corps Member accounts can only use the contact channel they verified.
+  // Existing LGI/coordinator accounts retain their pre-existing login behaviour.
+  const [linkedMember] = await db
+    .select({ id: corpsMembers.id })
+    .from(corpsMembers)
+    .where(eq(corpsMembers.userId, user.id))
+    .limit(1);
+
+  if (linkedMember) {
+    const emailLogin = identifier.includes('@');
+    if (emailLogin && !user.emailVerifiedAt) return null;
+    if (!emailLogin && !user.phoneVerifiedAt) return null;
+  }
+
   const passwordIsValid = await verifyPassword(
     input.password,
     user.passwordHash
   );
 
-  if (!passwordIsValid || !user.email) {
+  if (!passwordIsValid) {
     return null;
   }
 

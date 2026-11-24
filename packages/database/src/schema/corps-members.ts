@@ -33,6 +33,10 @@ export const corpsMembers = pgTable(
       length: 100
     }),
 
+    email: varchar('email', { length: 320 }),
+
+    phone: varchar('phone', { length: 30 }),
+
     firstName: varchar('first_name', {
       length: 100
     }).notNull(),
@@ -82,6 +86,25 @@ export const corpsMembers = pgTable(
     profileStatus: corpsProfileStatusEnum('profile_status')
       .notNull()
       .default('preloaded'),
+
+    registrationFailedAttempts: integer('registration_failed_attempts')
+      .notNull()
+      .default(0),
+
+    registrationCooldownUntil: timestamp('registration_cooldown_until', {
+      withTimezone: true
+    }),
+
+    registrationLockedAt: timestamp('registration_locked_at', {
+      withTimezone: true
+    }),
+
+    registrationLockClearedAt: timestamp('registration_lock_cleared_at', {
+      withTimezone: true
+    }),
+
+    registrationLockClearedByUserId: uuid('registration_lock_cleared_by_user_id')
+      .references(() => users.id, { onDelete: 'set null' }),
 
     createdByUserId: uuid('created_by_user_id')
       .references(() => users.id, {
