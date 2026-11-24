@@ -757,7 +757,7 @@ export async function listLgiDocumentSubmissions(
   return response.data;
 }
 
-export interface LgiDocumentReviewDecisionResult {
+export interface DocumentReviewDecisionResult {
   status: 'verified' | 'needs_resubmission';
   matchingPending: boolean;
   matching: {
@@ -773,11 +773,11 @@ export async function decideLgiDocumentManualReview(
   submissionId: string,
   decision: 'verified' | 'needs_resubmission',
   reason: string
-): Promise<LgiDocumentReviewDecisionResult> {
+): Promise<DocumentReviewDecisionResult> {
   const response = await request<{
     success: boolean;
     message: string;
-    data: LgiDocumentReviewDecisionResult;
+    data: DocumentReviewDecisionResult;
   }>(`/lgi/document-submissions/${encodeURIComponent(submissionId)}/decision`, {
     method: 'POST',
     body: JSON.stringify({ decision, reason })
@@ -2061,9 +2061,14 @@ export async function decideCloDocumentSubmission(
   submissionId: string,
   decision: 'verified' | 'needs_resubmission',
   reason: string
-): Promise<void> {
-  await request(`/clo/documents/submissions/${encodeURIComponent(submissionId)}/decision`, {
+): Promise<DocumentReviewDecisionResult> {
+  const response = await request<{
+    success: boolean;
+    message: string;
+    data: DocumentReviewDecisionResult;
+  }>(`/clo/documents/submissions/${encodeURIComponent(submissionId)}/decision`, {
     method: 'POST',
     body: JSON.stringify({ decision, reason })
   });
+  return response.data;
 }
