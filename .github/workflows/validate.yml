@@ -73,6 +73,41 @@ jobs:
             -h 127.0.0.1 -U postgres -d nysc_migration_test \
             -f /tmp/migration-test/0011_preserves_existing_memberships.sql
 
+      - name: Apply the complete Drizzle migration chain to PostgreSQL 17
+        run: |
+          set -euo pipefail
+          container=nysc-full-migration-chain
+          docker run --detach --name "$container" \
+            --publish 127.0.0.1:5433:5432 \
+            --env POSTGRES_USER=nysc_migration \
+            --env POSTGRES_PASSWORD=nysc_migration_test \
+            --env POSTGRES_DB=nysc_full_migration \
+            postgres:17-alpine
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 45); do
+            if docker exec "$container" pg_isready -h 127.0.0.1 \
+              -U nysc_migration -d nysc_full_migration >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker logs "$container"
+            exit 1
+          fi
+
+          DATABASE_URL=postgresql://nysc_migration:nysc_migration_test@127.0.0.1:5433/nysc_full_migration \
+            bun run --filter @nysc/database db:migrate
+
+          applied=$(docker exec "$container" psql -h 127.0.0.1 \
+            -U nysc_migration -d nysc_full_migration -Atc \
+            'SELECT count(*) FROM public.__drizzle_migrations')
+          echo "Applied Drizzle migrations: $applied"
+          test "$applied" -eq 26
+
       - name: Typecheck API
         run: bun run --filter @nysc/api typecheck
 
