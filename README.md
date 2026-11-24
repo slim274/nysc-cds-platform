@@ -156,6 +156,7 @@ The following describes functional areas present in the current development bran
 - [Document Verification Workflow](docs/document-verification.md) — Manual, AI Auto and AI-assisted review behaviour.
 - [Monitoring guide](docs/monitoring/README.md) — optional Prometheus/Grafana setup, target-health checks and dashboard screenshots.
 - [Screenshot asset manifest](docs/assets/screenshots/README.md) — 22 JPEG screenshots tracked in the repository under `docs/assets/screenshots/`.
+- [Five-role acceptance test runbook](docs/testing/five-role-acceptance.md) — local QA setup, role-by-role scenarios and backend authorization checks.
 
 
 | Workspace / area | Implemented functionality |
