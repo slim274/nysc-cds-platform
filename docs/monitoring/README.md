@@ -5,15 +5,10 @@ This guide describes the optional local monitoring stack provided by the Docker 
 ## Start the monitoring stack
 
 1. Ensure the repository root has a `.env` file. Keep the existing PostgreSQL values (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DATABASE_URL`) unchanged. Add a unique `GRAFANA_ADMIN_PASSWORD` and, optionally, `GRAFANA_ADMIN_USER`.
-2. Start the API on the host in a separate terminal so the Blackbox probes can reach it:
+2. Start the API Compose service and monitoring profile:
 
    ```bash
-   bun run dev:api
-   ```
-
-3. Start PostgreSQL, Redis and the monitoring profile:
-
-   ```bash
+   docker compose --profile app up -d api
    docker compose --profile monitoring up -d
    ```
 
@@ -27,7 +22,7 @@ This guide describes the optional local monitoring stack provided by the Docker 
 
 Grafana uses `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from `.env`. Change the example password before starting the monitoring profile. Grafana and Prometheus ports are bound to `127.0.0.1`, so this Compose configuration does not publish them to the LAN.
 
-The API health probe targets use `host.docker.internal:3001`. They will show DOWN while the host API process is stopped. The current probes cover HTTP availability and database health; they are not application request-count or latency instrumentation.
+The API health probe targets use `api:3001` on the shared Compose network. They will show DOWN while the API container is stopped. The current probes cover HTTP availability and database health; they are not application request-count or latency instrumentation. Container CPU and memory panels are filtered to `container_label_com_docker_compose_project="nysc-cds-platform"`, excluding unrelated Docker projects on the same host.
 
 ## Stop monitoring
 
@@ -83,7 +78,7 @@ Check that a metric is present before adding it to a dashboard panel. An absent 
 ## Operational limitations and follow-up work
 
 - The API is monitored through HTTP probes, not application-level request, latency or error-rate metrics.
-- The current API health probes target host port `3001` and are intended for the local `bun run dev:api` workflow. They do not automatically target the API container in the optional `app` profile.
+- The current API health probes target the API Compose service at `api:3001`; the API container must be running in the shared Compose network for the probes to succeed.
 - No alert rules or alert notification channels are provisioned yet.
 - Production use still requires a reviewed access-control model, managed secrets, retention settings, and monitoring-data backup/restore procedures.
 - Host and container exporters use Linux host mounts. This configuration is intended for a Linux host and may require adjustment on non-Linux Docker environments.
