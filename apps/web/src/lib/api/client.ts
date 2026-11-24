@@ -341,6 +341,24 @@ export async function updateCdsGroup(
   return response.data;
 }
 
+export interface CdsAutomaticMatchExplanation {
+  version: 1;
+  algorithm: 'lowest_utilisation_v1';
+  matchedCourseId: string;
+  matchedCourseName: string | null;
+  eligibleGroupCount: number;
+  availableGroupCount: number;
+  activeMemberCountAtAssignment: number;
+  maxCapacityAtAssignment: number;
+  utilisationPercentAtAssignment: number;
+  selectionCriterion:
+    | 'lowest_utilisation'
+    | 'fewest_active_members'
+    | 'oldest_group'
+    | 'stable_group_id';
+  selectedAt: string;
+}
+
 export interface CdsGroupMember {
   membershipId: string;
   memberId: string;
@@ -351,6 +369,8 @@ export interface CdsGroupMember {
   courseName: string | null;
   profileStatus: string;
   assignedAt: string;
+  source: 'automatic' | 'manual';
+  assignmentExplanation: CdsAutomaticMatchExplanation | null;
   courseMappingOverride: boolean;
   courseMappingOverrideReason: string | null;
 }
@@ -436,6 +456,7 @@ export interface CorpsMemberPortalData {
     whatsappGroupLink: string | null;
     source: 'automatic' | 'manual';
     assignedAt: string;
+    assignmentExplanation: CdsAutomaticMatchExplanation | null;
   } | null;
   coordinator: {
     userId: string;
