@@ -23,15 +23,15 @@ scrape_configs:
     static_configs:
       - targets: ["blackbox-exporter:9115"]
 
-  # The API runs on the host during local development, not in Compose.
+  # The API runs as a Compose service in the app profile.
   - job_name: nysc-api-health
     metrics_path: /probe
     params:
       module: [http_2xx]
     static_configs:
       - targets:
-          - http://host.docker.internal:3001/health
-          - http://host.docker.internal:3001/health/db
+          - http://api:3001/health
+          - http://api:3001/health/db
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
