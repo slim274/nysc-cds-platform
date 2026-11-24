@@ -92,7 +92,8 @@ flowchart TB
 | `apps/api` | Hono API entry point, route modules, middleware, application services and API Dockerfile |
 | `packages/database` | Drizzle client, PostgreSQL schema, migrations and development seed |
 | `infrastructure/nginx/nginx.conf` | Reverse-proxy routing for the containerised web and API services |
-| `docker-compose.yml` | PostgreSQL, Redis and optional `app` profile (API, web and Nginx) |
+| `infrastructure/monitoring` | Prometheus scrape configuration, exporters, Grafana provisioning and infrastructure dashboard |
+| `docker-compose.yml` | PostgreSQL, Redis and optional `app` and `monitoring` profiles |
 | `.dockerignore` | Excludes local secrets, dependencies, build artefacts and private local uploads |
 | `.env.example` | Environment-variable template for development and the Compose application profile |
 
@@ -153,7 +154,7 @@ The following describes functional areas present in the current development bran
 
 - [User Guide Index](docs/user-guide/README.md) — sign-in and workflows for LGI Administrators, CDS Coordinators, CDS Presidents, Corps Members and CLO officers.
 - [Document Verification Workflow](docs/document-verification.md) — Manual, AI Auto and AI-assisted review behaviour.
-- [Monitoring notes](docs/monitoring/README.md) — Prometheus/Grafana screenshots and the monitoring configuration still missing from the tracked Compose stack.
+- [Monitoring guide](docs/monitoring/README.md) — optional Prometheus/Grafana setup, target-health checks and dashboard screenshots.
 - [Screenshot asset manifest](docs/assets/screenshots/README.md) — 22 JPEG screenshots tracked in the repository under `docs/assets/screenshots/`.
 
 
@@ -458,6 +459,30 @@ The existing local development commands remain available. Compose overrides API 
 The Compose application profile is HTTP-only. Keep `COOKIE_SECURE=false` and `HSTS_ENABLED=false` until a trusted HTTPS/TLS endpoint is configured. The API trusts forwarding headers only inside this profile; local Bun development continues to use direct socket addresses.
 
 Database migrations and seeding are run from the repository using the commands above. The API runtime image intentionally excludes development-only migration tooling.
+
+### Optional Prometheus and Grafana monitoring
+
+The optional `monitoring` profile starts Prometheus, Grafana, PostgreSQL Exporter, Node Exporter, cAdvisor and Blackbox Exporter. It does not change the default local development or `app` profile startup.
+
+Set `GRAFANA_ADMIN_PASSWORD` in `.env` to a unique value. For the API health probes, run the API directly on the host in a separate terminal:
+
+```bash
+bun run dev:api
+```
+
+Then start the database and monitoring services:
+
+```bash
+docker compose --profile monitoring up -d
+```
+
+Open Grafana at `http://localhost:3000` and Prometheus at `http://localhost:9090`. Check scrape status at `http://localhost:9090/targets`. The API health probes expect the host API on port `3001`; they show DOWN while that process is stopped. See the [Monitoring Guide](docs/monitoring/README.md) for details and limitations.
+
+To stop only the monitoring services while leaving PostgreSQL and Redis running:
+
+```bash
+docker compose stop prometheus grafana postgres-exporter node-exporter cadvisor blackbox-exporter
+```
 
 ### Checks
 
