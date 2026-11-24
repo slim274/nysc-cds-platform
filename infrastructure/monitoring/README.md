@@ -35,7 +35,7 @@ The API is currently started on the host with `bun run dev:api`, so Prometheus p
    | Grafana | http://localhost:3000 |
    | Prometheus | http://localhost:9090 |
 
-Grafana uses `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from the root `.env` file. For local development only, both default to `admin` if they are not set. Change these credentials before exposing Grafana beyond your machine.
+Grafana uses `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from the root `.env` file. `GRAFANA_ADMIN_USER` defaults to `admin`, but `GRAFANA_ADMIN_PASSWORD` is required when the monitoring profile starts; the Compose configuration deliberately has no default admin password. Use a unique password and do not expose Grafana beyond your machine without an appropriate access-control and TLS setup.
 
 Check Prometheus targets at http://localhost:9090/targets. The dashboard and Prometheus UI are bound to `127.0.0.1`, so they are not published to your LAN by this Compose configuration.
 
