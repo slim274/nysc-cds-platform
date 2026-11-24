@@ -122,7 +122,7 @@
         <h2>Group operations</h2>
         <div class="responsibility-grid">
           <article><span>01</span><div><strong>Member coordination</strong><p>Use your group roster to coordinate participation and raise member issues to your Coordinator.</p></div></article>
-          <article><span>02</span><div><strong>Attendance and activities</strong><p>Attendance recording and CDS activity reporting will be added in the next operational module.</p></div></article>
+          <article><span>02</span><div><strong>Attendance and activities</strong><p>Record attendance for scheduled meetings from the Attendance workspace. Separate CDS activity reporting is not included in this screen yet.</p></div></article>
           <article><span>03</span><div><strong>Announcements</strong><p>President announcements will be submitted for Coordinator approval before they are published to members.</p></div></article>
         </div>
       </section>

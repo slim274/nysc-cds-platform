@@ -47,7 +47,7 @@ Use the transfer action on the specific CDS group assignment when a Coordinator 
 - A partial unique index permits only one pending handover per CDS group. LGI handover history shows pending, accepted and cancelled transfers.
 - The LGI can cancel a pending handover. The incoming assignment is released and the previous Coordinator is restored if their account is still active; otherwise the group is left available for reassignment.
 
-The current coordinator-facing workspace is limited to the handover inbox and acceptance screen at `/coordinator/handovers`; it is not yet the full group-operations workspace.
+The current Coordinator workspace includes the assigned-group dashboard, President designation and history, WhatsApp group settings, meeting and attendance workflows, published document checklist, course mapping, announcements, monthly clearance and the handover inbox at `/coordinator/handovers`. The Coordinator remains limited to the groups actively assigned to their account. See the [Coordinator User Guide](user-guide/coordinator.md) for the user-facing workflow.
 
 ### Disable and reactivate
 
@@ -103,5 +103,5 @@ Enter the token displayed by the LGI screen and set the coordinator password. Tr
 
 - Integrate a transactional email provider and deliver activation invitations to the verified coordinator email address.
 - Add an audited resend-invitation action and a secure coordinator self-service activation/reset experience.
-- Build the remaining coordinator-facing group-operations workspace (group dashboard, plans, schedules, attendance and reporting). Every request must enforce group scope server-side.
-- Add integration tests for cross-LGA access denial, assignment collisions, transfer atomicity, successor-only handover acceptance, disable/session revocation, reactivation and assignment-history retention.
+- Complete integration tests for cross-LGA access denial, assignment collisions, transfer atomicity, successor-only handover acceptance, disable/session revocation, reactivation and assignment-history retention.
+- Complete browser acceptance tests for the current Coordinator dashboard, group scope, WhatsApp settings, course mapping, meetings/attendance review, announcements, monthly clearance and handover acceptance.

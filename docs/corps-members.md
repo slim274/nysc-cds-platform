@@ -19,13 +19,17 @@ Required columns:
 - `batchCode`
 - `streamCode`
 
+Conditional onboarding columns:
+
+- `callUpNumber` — required when `profileStatus` is `preloaded` (the default).
+- `dateOfBirth` (YYYY-MM-DD) — required when `profileStatus` is `preloaded`.
+- At least one of `email` or `phone` — required when `profileStatus` is `preloaded`.
+
 Optional columns:
 
-- `callUpNumber`
 - `email`
 - `phone`
 - `middleName`
-- `dateOfBirth` (YYYY-MM-DD)
 - `gender`
 - `institutionName`
 - `courseName`
@@ -37,7 +41,9 @@ The LGA must match an active LGA assigned to the importing LGI. Batch and stream
 
 State codes are normalised to uppercase. A row with a state code that already exists within the LGI's assigned LGA scope updates that member record; otherwise a new member is created. A state code already belonging to a different LGA outside the LGI's scope is rejected. Duplicate state codes or call-up numbers in the uploaded file, unknown references, invalid dates and database uniqueness conflicts cause the complete transaction to roll back.
 
-The API reports created, updated and total processed counts. Email and phone are optional CSV fields. Contact details are stored as supplied by the LGI and are not considered verified until the member completes an OTP challenge during account onboarding. The import does not include photos; photographs are uploaded through the member record form.
+The API reports created, updated and total processed counts. A row whose status is omitted defaults to `preloaded`; such a row must include a call-up number, a real past date of birth and at least one contact method (email or phone). Rows explicitly marked `draft`, `submitted`, `approved` or `rejected` do not use those preloading requirements, but they cannot start self-service registration unless their status is later changed to `preloaded` with the required data.
+
+Contact details are stored as supplied by the LGI and are not considered verified until the member completes an OTP challenge during account onboarding. The import does not include photos; photographs are uploaded through the member record form.
 
 ## CSV export
 
@@ -84,16 +90,16 @@ Request:
 }
 ```
 
-The endpoint normalises State Code and Call-up Number to uppercase and trims whitespace. A record is eligible only when all three values match, its `user_id` is null, and its profile has not been rejected.
+The endpoint normalises State Code and Call-up Number to uppercase and trims whitespace. A record is eligible only when all three values match, its `user_id` is null, and its profile status is exactly `preloaded`. Draft, submitted, approved and rejected records cannot start self-service registration. An LGI must correct a record's identity and contact details before setting its status to `preloaded`.
 
-The endpoint always returns the same successful response shape and generic message for a matching or non-matching identity. It returns a cryptographically random 256-bit challenge token that expires after 10 minutes. The database stores only the token hash. For a non-match, the token is deliberately stored against a null member reference and cannot be used by a subsequent verification step. This prevents the identity endpoint from revealing whether a submitted combination exists in the member directory.
+The endpoint returns a challenge token only when all three supplied values match an eligible, unlinked `preloaded` record. The token is cryptographically random, expires after 10 minutes, and only its hash is stored in the database. If the values do not match, the member is already linked to an account, or the profile is not `preloaded`, the API returns the same generic HTTP 400 message and does not create a challenge. This means the registration page advances to OTP only after a real preloaded record has matched.
 
-Example response:
+Example successful response:
 
 ```json
 {
   "success": true,
-  "message": "If the details match an eligible corps member record, you can continue verification.",
+  "message": "Identity verified. You can continue to contact verification.",
   "data": {
     "challengeToken": "<opaque-64-character-token>",
     "expiresInSeconds": 600
@@ -101,7 +107,18 @@ Example response:
 }
 ```
 
-Persistent throttling is enforced in PostgreSQL: up to five attempts per identity combination and 20 attempts per client address in a rolling 15-minute window, followed by a 15-minute block. The rate-limit table stores HMAC digests rather than raw identity values or IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
+For any non-match or ineligible record, the API responds with HTTP 400:
+
+```json
+{
+  "success": false,
+  "message": "We could not verify these details. Check the State Code, Date of Birth and Call-up Number with your LGI."
+}
+```
+
+The failure message is deliberately identical across incorrect identity details, already-registered records and records whose status is not `preloaded`. The endpoint necessarily reveals whether the complete three-field combination is eligible, because the user must know whether to proceed; persistent rate limiting is therefore enforced as described below.
+
+A separate connection-level throttle is enforced in PostgreSQL: up to 20 requests per client address in a rolling 15-minute window, followed by a 15-minute block. In addition, repeated attempts using the same normalized State Code follow the three-attempt cooldown and six-attempt LGI lockout policy below, whether or not that State Code is found in the preloaded directory. A State Code that does not identify a member has no Corps Member record for the LGI to unlock; the applicant should confirm the correct State Code with the LGI. The rate-limit tables store HMAC digests rather than raw State Codes or IP addresses. Configure `IDENTITY_VERIFICATION_PEPPER` to a unique secret of at least 32 bytes; generate one with:
 
 ```bash
 openssl rand -hex 32
@@ -112,6 +129,19 @@ Set `TRUST_PROXY_HEADERS=true` only when the API is behind a trusted reverse pro
 The challenge token is intended for the OTP onboarding stage. Do not treat it as proof of verified email/phone ownership or as an authenticated session. Facial/biometric verification is not implemented.
 
 
+
+## Identity verification attempt limits and LGI lock clearance
+
+Failed identity checks are tracked against the normalized State Code, even when the submitted code does not match a preloaded record. The platform stores only an HMAC of the normalized State Code, never the raw submitted value. When the State Code identifies an unregistered `preloaded` Corps Member record, the attempt state is also mirrored onto that member record so the assigned LGI can see and clear a permanent lock. Date of Birth and Call-up Number must both match that record to proceed.
+
+- The first two incorrect checks are rejected.
+- The third incorrect check starts a five-minute cooldown. Attempts made during that cooldown do not consume the next attempt group.
+- After the cooldown, three further incorrect checks (the fourth, fifth and sixth failed checks overall) permanently lock self-service registration.
+- A correct identity check clears the failed-attempt count, provided the member is not already permanently locked.
+- A permanently locked member must visit the assigned LGI with NYSC identification documents. Only an authenticated LGI administrator assigned to the member's LGA can clear the lock from the Corps Member directory after in-person verification.
+- Clearing the lock resets the failed-attempt count and cooldown and records the LGI user and clearance timestamp.
+
+A separate IP-address rate limit remains active to reduce automated attempts. A State Code that does not identify an existing Preloaded record cannot be attached to a specific member lock; those requests remain covered by the connection-level rate limit.
 
 ## OTP contact verification and Corps Member registration
 
@@ -143,6 +173,6 @@ For transactional email, set `OTP_DELIVERY_MODE=provider`, `RESEND_API_KEY` and 
 
 For SMS, set `OTP_DELIVERY_MODE=provider`, `TERMII_API_KEY`, `TERMII_SENDER_ID`, and (when required by the account) `TERMII_BASE_URL`. The SMS adapter uses Termii's `/api/sms/send` endpoint and normalises common Nigerian local-format phone numbers to international format. The Sender ID must be enabled for the Termii account. Do not place provider keys in source control.
 
-The Corps Member record must contain the selected email or phone contact before OTP can be delivered. LGI users should maintain these contact fields in the member record. Phone-based accounts may sign in with their phone number; email-based accounts may sign in with their email address.
+A registration-eligible Corps Member record must be `preloaded`, unlinked to a user account, and contain a State Code, Call-up Number, valid Date of Birth and at least one contact method. The Corps Member record must contain the selected email or phone contact before OTP can be delivered. LGI users should maintain these contact fields in the member record. Phone-based accounts may sign in with their phone number; email-based accounts may sign in with their email address.
 
 The registration endpoint refuses to create a second account for a member who is already linked. The member link, role assignment, and challenge consumption are transactionally coupled to prevent partial registration. Duplicate email/phone values are rejected by the database unique constraints.

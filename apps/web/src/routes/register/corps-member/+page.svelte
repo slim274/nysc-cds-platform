@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import {
     ApiError,
@@ -19,8 +20,27 @@
   let confirmPassword = $state('');
   let otpRequested = $state(false);
   let submitting = $state(false);
+  let registrationLocked = $state(false);
+  let cooldownSecondsRemaining = $state(0);
+  let cooldownTimer: ReturnType<typeof setInterval> | null = null;
   let errorMessage = $state('');
   let noticeMessage = $state('');
+
+  function startIdentityCooldown(seconds: number) {
+    cooldownSecondsRemaining = Math.max(1, seconds);
+    if (cooldownTimer) clearInterval(cooldownTimer);
+    cooldownTimer = setInterval(() => {
+      cooldownSecondsRemaining = Math.max(0, cooldownSecondsRemaining - 1);
+      if (cooldownSecondsRemaining === 0 && cooldownTimer) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+      }
+    }, 1000);
+  }
+
+  onDestroy(() => {
+    if (cooldownTimer) clearInterval(cooldownTimer);
+  });
 
   function showError(error: unknown, fallback: string) {
     errorMessage = error instanceof ApiError ? error.message : fallback;
@@ -30,6 +50,9 @@
     event.preventDefault();
     errorMessage = '';
     noticeMessage = '';
+    challengeToken = '';
+    otpRequested = false;
+    code = '';
     submitting = true;
     try {
       const result = await verifyCorpsMemberIdentity({
@@ -40,7 +63,16 @@
       challengeToken = result.challengeToken;
       stage = 2;
     } catch (error) {
-      showError(error, 'Unable to process the identity check. Please try again.');
+      // A failed identity match must leave the user on the identity step.
+      stage = 1;
+      challengeToken = '';
+      if (error instanceof ApiError && error.status === 423) {
+        registrationLocked = true;
+      }
+      if (error instanceof ApiError && error.status === 429 && error.retryAfterSeconds) {
+        startIdentityCooldown(error.retryAfterSeconds);
+      }
+      showError(error, 'We could not verify these details. Check them with your LGI.');
     } finally {
       submitting = false;
     }
@@ -126,14 +158,20 @@
       <div class:active={stage >= 3} class:current={stage === 3}><span>3</span>Password</div>
     </div>
 
-    {#if errorMessage}
+    {#if errorMessage && !registrationLocked}
       <div class="alert error" role="alert">{errorMessage}</div>
     {/if}
     {#if noticeMessage}
       <div class="alert notice" role="status">{noticeMessage}</div>
     {/if}
 
-    {#if stage === 1}
+    {#if registrationLocked}
+      <section class="locked-panel" role="alert">
+        <h2>In-person LGI verification required</h2>
+        <p>{errorMessage}</p>
+        <p>Take your NYSC identification documents to your assigned Local Government Inspector (LGI). Only the LGI can restore your self-service registration access after verifying your identity.</p>
+      </section>
+    {:else if stage === 1}
       <form onsubmit={submitIdentity}>
         <label for="stateCode">NYSC State Code</label>
         <input id="stateCode" bind:value={stateCode} placeholder="e.g. AB/26A/001" autocomplete="off" required disabled={submitting} />
@@ -144,8 +182,14 @@
         <label for="callUpNumber">Call-up Number</label>
         <input id="callUpNumber" bind:value={callUpNumber} placeholder="Enter your call-up number" autocomplete="off" required disabled={submitting} />
 
-        <button disabled={submitting || !stateCode.trim() || !dateOfBirth || !callUpNumber.trim()}>
-          {submitting ? 'Checking details…' : 'Continue'}
+        <button disabled={submitting || cooldownSecondsRemaining > 0 || !stateCode.trim() || !dateOfBirth || !callUpNumber.trim()}>
+          {#if submitting}
+            Checking details…
+          {:else if cooldownSecondsRemaining > 0}
+            Try again in {Math.floor(cooldownSecondsRemaining / 60)}:{String(cooldownSecondsRemaining % 60).padStart(2, '0')}
+          {:else}
+            Continue
+          {/if}
         </button>
       </form>
     {:else if stage === 2}
@@ -223,4 +267,7 @@
   .stage-copy h2 { margin: 0 0 8px; font-size: 20px; }
   .footer { margin: 28px 0 0; padding-top: 20px; border-top: 1px solid #edf0ed; color: #718078; font-size: 12px; text-align: center; }
   .footer a { color: #0a5c37; font-weight: 700; text-decoration: none; }
+  .locked-panel { padding: 18px; border: 1px solid #efceca; border-radius: 10px; background: #fff3f2; }
+  .locked-panel h2 { margin: 0 0 10px; color: #9d3028; font-size: 18px; }
+  .locked-panel p { margin: 8px 0 0; color: #7e3933; font-size: 13px; line-height: 1.65; }
 </style>

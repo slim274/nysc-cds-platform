@@ -467,7 +467,10 @@ async function main() {
       firstName: 'Amina',
       lastName: 'Bello',
       gender: 'Female',
-      course: 'COMPUTER SCIENCE'
+      course: 'COMPUTER SCIENCE',
+      dateOfBirth: '2000-04-12',
+      email: 'amina.bello@example.test',
+      phone: '+2348010000001'
     },
     {
       stateCode: 'DEMO/26A/002',
@@ -475,7 +478,10 @@ async function main() {
       firstName: 'David',
       lastName: 'Okoro',
       gender: 'Male',
-      course: 'SOFTWARE ENGINEERING'
+      course: 'SOFTWARE ENGINEERING',
+      dateOfBirth: '1999-09-30',
+      email: 'david.okoro@example.test',
+      phone: '+2348010000002'
     },
     {
       stateCode: 'DEMO/26A/003',
@@ -483,7 +489,10 @@ async function main() {
       firstName: 'Fatima',
       lastName: 'Ibrahim',
       gender: 'Female',
-      course: 'NURSING'
+      course: 'NURSING',
+      dateOfBirth: '2001-02-18',
+      email: 'fatima.ibrahim@example.test',
+      phone: '+2348010000003'
     },
     {
       stateCode: 'DEMO/26A/004',
@@ -491,7 +500,10 @@ async function main() {
       firstName: 'Peter',
       lastName: 'Adeyemi',
       gender: 'Male',
-      course: 'LAW'
+      course: 'LAW',
+      dateOfBirth: '1998-06-21',
+      email: 'peter.adeyemi@example.test',
+      phone: '+2348010000004'
     },
     {
       stateCode: 'DEMO/26A/005',
@@ -499,18 +511,39 @@ async function main() {
       firstName: 'Grace',
       lastName: 'Nwosu',
       gender: 'Female',
-      course: 'AGRICULTURAL SCIENCE'
+      course: 'AGRICULTURAL SCIENCE',
+      dateOfBirth: '2000-12-05',
+      email: 'grace.nwosu@example.test',
+      phone: '+2348010000005'
     }
   ];
 
   for (const member of members) {
     const [existing] = await db
-      .select({ id: corpsMembers.id })
+      .select({
+        id: corpsMembers.id,
+        userId: corpsMembers.userId,
+        dateOfBirth: corpsMembers.dateOfBirth,
+        email: corpsMembers.email,
+        phone: corpsMembers.phone
+      })
       .from(corpsMembers)
       .where(eq(corpsMembers.stateCode, member.stateCode))
       .limit(1);
 
     if (existing) {
+      // Keep linked/member-maintained records untouched. For unlinked demo
+      // records, fill only missing onboarding fields from the demo fixture.
+      if (!existing.userId) {
+        await db.update(corpsMembers)
+          .set({
+            dateOfBirth: existing.dateOfBirth ?? member.dateOfBirth,
+            email: existing.email ?? member.email,
+            phone: existing.phone ?? member.phone,
+            updatedAt: new Date()
+          })
+          .where(eq(corpsMembers.id, existing.id));
+      }
       console.log(`↻ Member already exists: ${member.stateCode}`);
       continue;
     }
@@ -518,6 +551,9 @@ async function main() {
     await db.insert(corpsMembers).values({
       stateCode: member.stateCode,
       callUpNumber: member.callUpNumber,
+      email: member.email,
+      phone: member.phone,
+      dateOfBirth: member.dateOfBirth,
       firstName: member.firstName,
       lastName: member.lastName,
       gender: member.gender,

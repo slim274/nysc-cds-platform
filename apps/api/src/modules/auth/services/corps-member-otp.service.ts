@@ -163,7 +163,9 @@ export async function sendCorpsMemberOtp(
     const [member] = await tx
       .select({
         email: corpsMembers.email,
-        phone: corpsMembers.phone
+        phone: corpsMembers.phone,
+        profileStatus: corpsMembers.profileStatus,
+        registrationLockedAt: corpsMembers.registrationLockedAt
       })
       .from(corpsMembers)
       .where(and(
@@ -172,7 +174,7 @@ export async function sendCorpsMemberOtp(
       ))
       .limit(1);
 
-    if (!member) return null;
+    if (!member || member.profileStatus !== 'preloaded' || member.registrationLockedAt) return null;
 
     const destination = channel === 'email' ? member.email : member.phone;
     if (!destination?.trim()) return null;
@@ -270,6 +272,14 @@ export async function verifyCorpsMemberOtp(
 
     if (!challenge?.corpsMemberId) return false;
 
+    const [member] = await tx
+      .select({ registrationLockedAt: corpsMembers.registrationLockedAt })
+      .from(corpsMembers)
+      .where(eq(corpsMembers.id, challenge.corpsMemberId))
+      .limit(1);
+
+    if (!member || member.registrationLockedAt) return false;
+
     const [otp] = await tx
       .select()
       .from(corpsMemberOtpChallenges)
@@ -323,13 +333,20 @@ export async function registerCorpsMemberAccount(
       corpsMemberOtpChallenges,
       eq(corpsMemberOtpChallenges.verificationChallengeId, corpsMemberVerificationChallenges.id)
     )
+    .innerJoin(
+      corpsMembers,
+      eq(corpsMembers.id, corpsMemberVerificationChallenges.corpsMemberId)
+    )
     .where(and(
       eq(corpsMemberVerificationChallenges.tokenHash, tokenHash),
       isNull(corpsMemberVerificationChallenges.consumedAt),
       gt(corpsMemberVerificationChallenges.expiresAt, now),
       isNull(corpsMemberOtpChallenges.consumedAt),
       gt(corpsMemberOtpChallenges.expiresAt, now),
-      isNotNull(corpsMemberOtpChallenges.verifiedAt)
+      isNotNull(corpsMemberOtpChallenges.verifiedAt),
+      isNull(corpsMembers.userId),
+      isNull(corpsMembers.registrationLockedAt),
+      eq(corpsMembers.profileStatus, 'preloaded')
     ))
     .limit(1);
 
@@ -376,7 +393,7 @@ export async function registerCorpsMemberAccount(
       .for('update')
       .limit(1);
 
-    if (!member || member.userId || member.profileStatus === 'rejected') {
+    if (!member || member.userId || member.profileStatus !== 'preloaded' || member.registrationLockedAt) {
       throw new Error('REGISTRATION_MEMBER_UNAVAILABLE');
     }
 

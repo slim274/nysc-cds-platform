@@ -212,7 +212,7 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
 
     const dateOfBirth = optional(get('dateofbirth'));
     if (dateOfBirth) {
-      const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(dateOfBirth);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
       const year = match ? Number(match[1]) : 0;
       const month = match ? Number(match[2]) : 0;
       const day = match ? Number(match[3]) : 0;
@@ -221,7 +221,8 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
         match &&
         parsedDate.getUTCFullYear() === year &&
         parsedDate.getUTCMonth() === month - 1 &&
-        parsedDate.getUTCDate() === day
+        parsedDate.getUTCDate() === day &&
+        dateOfBirth <= new Date().toISOString().slice(0, 10)
       );
       if (!validDate) {
         throw new CorpsMemberImportError(`Line ${line}: date of birth must be a real date in YYYY-MM-DD format.`, 400, 'INVALID_IMPORT_ROW');
@@ -231,6 +232,14 @@ export function parseCorpsMemberCsv(csv: string): CorpsMemberImportRow[] {
     const profileStatus = (optional(get('profilestatus')) ?? 'preloaded').toLowerCase();
     if (!allowedStatuses.has(profileStatus)) {
       throw new CorpsMemberImportError(`Line ${line}: unsupported profile status "${profileStatus}".`, 400, 'INVALID_IMPORT_ROW');
+    }
+    if (profileStatus === 'preloaded') {
+      if (!callUpNumber) {
+        throw new CorpsMemberImportError(`Line ${line}: call-up number is required for preloaded records.`, 400, 'INVALID_IMPORT_ROW');
+      }
+      if (!dateOfBirth) {
+        throw new CorpsMemberImportError(`Line ${line}: date of birth is required for preloaded records.`, 400, 'INVALID_IMPORT_ROW');
+      }
     }
 
     return {
@@ -335,7 +344,9 @@ export async function importCorpsMembers(rows: CorpsMemberImportRow[], lgaIds: s
 
         const [existing] = await tx.select({
           id: corpsMembers.id,
-          lgaId: corpsMembers.lgaId
+          lgaId: corpsMembers.lgaId,
+          email: corpsMembers.email,
+          phone: corpsMembers.phone
         }).from(corpsMembers)
           .where(eq(corpsMembers.stateCode, row.stateCode))
           .for('update')
@@ -346,6 +357,16 @@ export async function importCorpsMembers(rows: CorpsMemberImportRow[], lgaIds: s
             `Line ${row.line}: state code "${row.stateCode}" already exists outside your assigned LGA(s).`,
             409,
             'IMPORT_STATE_CODE_CONFLICT'
+          );
+        }
+
+        const finalEmail = row.email === undefined ? (existing ? existing.email : null) : row.email;
+        const finalPhone = row.phone === undefined ? (existing ? existing.phone : null) : row.phone;
+        if (row.profileStatus === 'preloaded' && !finalEmail && !finalPhone) {
+          throw new CorpsMemberImportError(
+            `Line ${row.line}: provide an email address or phone number for preloaded records.`,
+            400,
+            'INVALID_IMPORT_ROW'
           );
         }
 

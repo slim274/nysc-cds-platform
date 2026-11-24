@@ -17,13 +17,16 @@ import {
   batches,
   serviceYears,
   institutions,
-  courses
+  courses,
+  corpsMemberRegistrationAttempts
 } from '@nysc/database';
 
 import type {
   CreateCorpsMemberInput,
   UpdateCorpsMemberInput
 } from './corps-members.schema';
+import { getPreloadedMemberFieldIssues } from './corps-members.schema';
+import { hashRegistrationStateCode } from '../auth/utils/identity-hash';
 import {
   getCachedActiveLgaOptions,
   getCachedCohortReferenceOptions,
@@ -240,6 +243,11 @@ export async function listCorpsMembers(
     institutionName: institutions.name,
     courseName: courses.name,
     profileStatus: corpsMembers.profileStatus,
+    registrationFailedAttempts: corpsMembers.registrationFailedAttempts,
+    registrationCooldownUntil: corpsMembers.registrationCooldownUntil,
+    registrationLockedAt: corpsMembers.registrationLockedAt,
+    registrationLockClearedAt: corpsMembers.registrationLockClearedAt,
+    registrationLockClearedByUserId: corpsMembers.registrationLockClearedByUserId,
     passportObjectKey: corpsMembers.passportObjectKey,
     createdAt: corpsMembers.createdAt,
     updatedAt: corpsMembers.updatedAt
@@ -293,6 +301,11 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
     qualification: corpsMembers.qualification,
     graduationYear: corpsMembers.graduationYear,
     profileStatus: corpsMembers.profileStatus,
+    registrationFailedAttempts: corpsMembers.registrationFailedAttempts,
+    registrationCooldownUntil: corpsMembers.registrationCooldownUntil,
+    registrationLockedAt: corpsMembers.registrationLockedAt,
+    registrationLockClearedAt: corpsMembers.registrationLockClearedAt,
+    registrationLockClearedByUserId: corpsMembers.registrationLockClearedByUserId,
     passportObjectKey: corpsMembers.passportObjectKey,
     createdAt: corpsMembers.createdAt,
     updatedAt: corpsMembers.updatedAt
@@ -306,6 +319,63 @@ export async function getCorpsMember(memberId: string, lgaIds: string[]) {
   }
   const { passportObjectKey, ...safeMember } = member;
   return { ...safeMember, hasPassportPhoto: Boolean(passportObjectKey) };
+}
+
+export async function clearCorpsMemberRegistrationLock(
+  memberId: string,
+  lgaIds: string[],
+  actorUserId: string
+) {
+  assertLgaScope(lgaIds);
+  const current = await getCorpsMember(memberId, lgaIds);
+
+  if (!current.registrationLockedAt) {
+    throw new CorpsMemberServiceError(
+      'This Corps Member does not have a permanent registration lock.',
+      409,
+      'REGISTRATION_LOCK_NOT_ACTIVE'
+    );
+  }
+
+  if (current.userId || current.profileStatus !== 'preloaded') {
+    throw new CorpsMemberServiceError(
+      'Only an unregistered Preloaded Corps Member can have a registration lock cleared.',
+      409,
+      'REGISTRATION_LOCK_MEMBER_INELIGIBLE'
+    );
+  }
+
+  const now = new Date();
+  const stateCodeHash = hashRegistrationStateCode(current.stateCode);
+
+  await db.transaction(async (tx) => {
+    // Clear the submitted-State-Code bucket and the member-facing lock mirror
+    // atomically after the assigned LGI confirms in-person identity.
+    await tx.update(corpsMemberRegistrationAttempts)
+      .set({
+        failedAttempts: 0,
+        cooldownUntil: null,
+        lockedAt: null,
+        updatedAt: now
+      })
+      .where(eq(corpsMemberRegistrationAttempts.stateCodeHash, stateCodeHash));
+
+    await tx.update(corpsMembers)
+      .set({
+        registrationFailedAttempts: 0,
+        registrationCooldownUntil: null,
+        registrationLockedAt: null,
+        registrationLockClearedAt: now,
+        registrationLockClearedByUserId: actorUserId,
+        updatedAt: now
+      })
+      .where(and(
+        eq(corpsMembers.id, memberId),
+        inArray(corpsMembers.lgaId, lgaIds)
+      ));
+  });
+
+  return getCorpsMember(memberId, lgaIds);
 }
 
 export async function getCorpsMemberPhotoKey(memberId: string, lgaIds: string[]) {
@@ -357,6 +427,21 @@ export async function createCorpsMember(input: CreateCorpsMemberInput, lgaIds: s
 export async function updateCorpsMember(memberId: string, input: UpdateCorpsMemberInput, lgaIds: string[]) {
   assertLgaScope(lgaIds);
   const current = await getCorpsMember(memberId, lgaIds);
+  const preloadedIssues = getPreloadedMemberFieldIssues({
+    profileStatus: input.profileStatus ?? current.profileStatus,
+    callUpNumber: input.callUpNumber === undefined ? current.callUpNumber : input.callUpNumber,
+    dateOfBirth: input.dateOfBirth === undefined ? current.dateOfBirth : input.dateOfBirth,
+    email: input.email === undefined ? current.email : input.email,
+    phone: input.phone === undefined ? current.phone : input.phone
+  });
+  if (preloadedIssues.length > 0) {
+    throw new CorpsMemberServiceError(
+      preloadedIssues.map((issue) => issue.message).join(' '),
+      400,
+      'PRELOADED_MEMBER_INCOMPLETE'
+    );
+  }
+
   const nextLgaId = input.lgaId ?? current.lgaId;
   const nextStreamId = input.streamId ?? current.streamId;
   await validateReferences({

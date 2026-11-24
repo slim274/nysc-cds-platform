@@ -49,3 +49,22 @@ export const corpsMemberVerificationRateLimits = pgTable(
     index('corps_member_verification_rate_limits_updated_idx').on(table.updatedAt)
   ]
 );
+
+/**
+ * State-Code-scoped registration attempt state. Only an HMAC of the
+ * normalized State Code is stored, so unknown as well as preloaded codes
+ * receive the same attempt/cooldown/lockout policy without storing raw IDs.
+ */
+export const corpsMemberRegistrationAttempts = pgTable(
+  'corps_member_registration_attempts',
+  {
+    stateCodeHash: varchar('state_code_hash', { length: 64 }).primaryKey(),
+    failedAttempts: integer('failed_attempts').notNull().default(0),
+    cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index('corps_member_registration_attempts_updated_idx').on(table.updatedAt)
+  ]
+);

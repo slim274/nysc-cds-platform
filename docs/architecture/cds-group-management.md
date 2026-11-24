@@ -1,5 +1,7 @@
 # CDS Group Management: Data Model and API Design
 
+> **Document status:** This is an early design-stage architecture note. Some sections below describe proposed or planned work as it stood when the design was written; they are not a definitive statement of the current application's feature status. For current user-facing behaviour, use the [User Guide Index](../user-guide/README.md), [Coordinator Management](../coordinator-management.md) and [Course Catalogue](../course-catalogue.md) documents.
+
 ## Purpose
 
 Define the data model and service boundaries for LGI-managed CDS groups, coordinator assignments, corps-member allocation and group-scoped CDS President permissions. This is the first backend feature after the authentication and responsive-dashboard milestones.

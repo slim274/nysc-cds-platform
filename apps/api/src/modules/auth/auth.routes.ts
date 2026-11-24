@@ -22,7 +22,8 @@ import {
 
 import {
   initiateCorpsMemberIdentityVerification,
-  IdentityVerificationRateLimitError
+  IdentityVerificationRateLimitError,
+  IdentityVerificationLockedError
 } from './services/corps-member-verification.service';
 
 import {
@@ -123,17 +124,35 @@ authRoutes.post('/verify-corps-member', async (c) => {
       clientAddress
     );
 
+    if (!result) {
+      return c.json({
+        success: false,
+        message: 'We could not verify these details. Check the State Code, Date of Birth and Call-up Number with your LGI.'
+      }, 400);
+    }
+
     return c.json({
       success: true,
-      message: 'If the details match an eligible corps member record, you can continue verification.',
+      message: 'Identity verified. You can continue to contact verification.',
       data: result
     });
   } catch (error) {
+    if (error instanceof IdentityVerificationLockedError) {
+      return c.json({
+        success: false,
+        code: 'REGISTRATION_REQUIRES_LGI_VERIFICATION',
+        message: error.message
+      }, 423);
+    }
+
     if (error instanceof IdentityVerificationRateLimitError) {
       c.header('Retry-After', String(error.retryAfterSeconds));
       return c.json({
         success: false,
-        message: 'Too many verification attempts. Try again later.'
+        code: error.reason === 'member-cooldown'
+          ? 'REGISTRATION_COOLDOWN'
+          : 'IDENTITY_ADDRESS_RATE_LIMITED',
+        message: error.message
       }, 429);
     }
 

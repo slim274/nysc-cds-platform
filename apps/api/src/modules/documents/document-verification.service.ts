@@ -6,7 +6,8 @@ import {
   asc,
   desc,
   eq,
-  inArray
+  inArray,
+  or
 } from 'drizzle-orm';
 
 import {
@@ -915,7 +916,19 @@ export async function listDocumentSubmissions(
 ) {
   assertLgaScope(lgaIds);
   const filters = [inArray(corpsMembers.lgaId, lgaIds)];
-  if (status) filters.push(eq(corpsMemberDocumentSubmissions.status, status));
+  if (status === 'manual_review') {
+    // Include manual-only and AI-assisted submissions, plus AI Auto
+    // rejections that the LGI must be able to manually review.
+    filters.push(or(
+      eq(corpsMemberDocumentSubmissions.status, 'manual_review'),
+      and(
+        eq(corpsMemberDocumentSubmissions.status, 'needs_resubmission'),
+        eq(corpsMemberDocumentSubmissions.verificationProvider, 'openai-responses')
+      )
+    )!);
+  } else if (status) {
+    filters.push(eq(corpsMemberDocumentSubmissions.status, status));
+  }
 
   return db
     .select({
@@ -933,6 +946,7 @@ export async function listDocumentSubmissions(
       fileName: corpsMemberDocumentSubmissions.originalFileName,
       mimeType: corpsMemberDocumentSubmissions.mimeType,
       status: corpsMemberDocumentSubmissions.status,
+      verificationProvider: corpsMemberDocumentSubmissions.verificationProvider,
       confidence: corpsMemberDocumentSubmissions.verificationConfidence,
       reason: corpsMemberDocumentSubmissions.verificationReason,
       submittedAt: corpsMemberDocumentSubmissions.submittedAt
@@ -1005,12 +1019,16 @@ export async function decideDocumentManualReview(
   actorRole: 'LGI_ADMIN' | 'CLO' = 'LGI_ADMIN'
 ) {
   assertLgaScope(lgaIds);
-  return db.transaction(async (tx) => {
+
+  // Persist the human review decision first. Do not couple the approval write
+  // to CDS placement: a matching error must never roll back an LGI's decision.
+  const reviewed = await db.transaction(async (tx) => {
     const [submission] = await tx
       .select({
         id: corpsMemberDocumentSubmissions.id,
         corpsMemberId: corpsMemberDocumentSubmissions.corpsMemberId,
         status: corpsMemberDocumentSubmissions.status,
+        verificationProvider: corpsMemberDocumentSubmissions.verificationProvider,
         verificationResult: corpsMemberDocumentSubmissions.verificationResult
       })
       .from(corpsMemberDocumentSubmissions)
@@ -1021,13 +1039,31 @@ export async function decideDocumentManualReview(
       ))
       .for('update')
       .limit(1);
-    if (!submission) throw new DocumentWorkflowError('Document submission not found.', 404, 'DOCUMENT_SUBMISSION_NOT_FOUND');
-    if (submission.status !== 'manual_review') {
-      throw new DocumentWorkflowError('Only submissions in manual review can receive an exception decision.', 409, 'DOCUMENT_NOT_IN_MANUAL_REVIEW');
+
+    if (!submission) {
+      throw new DocumentWorkflowError(
+        'Document submission not found in your assigned LGA(s).',
+        404,
+        'DOCUMENT_SUBMISSION_NOT_FOUND'
+      );
+    }
+    const canLgiReview =
+      submission.status === 'manual_review' ||
+      (
+        submission.status === 'needs_resubmission' &&
+        submission.verificationProvider === 'openai-responses'
+      );
+
+    if (!canLgiReview) {
+      throw new DocumentWorkflowError(
+        'This document is not awaiting an LGI decision. Refresh the page and check its current status.',
+        409,
+        'DOCUMENT_NOT_AWAITING_LGI_REVIEW'
+      );
     }
 
     const now = new Date();
-    await tx.update(corpsMemberDocumentSubmissions)
+    const updateResult = await tx.update(corpsMemberDocumentSubmissions)
       .set({
         status: decision,
         verificationProvider: actorRole === 'CLO' ? 'clo_document_review' : 'lgi_exception_review',
@@ -1037,21 +1073,77 @@ export async function decideDocumentManualReview(
           review: {
             reviewedByUserId: actorUserId,
             reviewedByRole: actorRole,
-            reviewedAt: now.toISOString()
+            reviewedAt: now.toISOString(),
+            decision
           }
         },
         verifiedAt: decision === 'verified' ? now : null,
         updatedAt: now
       })
-      .where(eq(corpsMemberDocumentSubmissions.id, submission.id));
+      .where(and(
+        eq(corpsMemberDocumentSubmissions.id, submission.id),
+        or(
+          eq(corpsMemberDocumentSubmissions.status, 'manual_review'),
+          and(
+            eq(corpsMemberDocumentSubmissions.status, 'needs_resubmission'),
+            eq(corpsMemberDocumentSubmissions.verificationProvider, 'openai-responses')
+          )
+        )
+      ))
+      .returning({
+        id: corpsMemberDocumentSubmissions.id,
+        status: corpsMemberDocumentSubmissions.status
+      });
 
-    if (decision === 'verified') {
-      await assignCorpsMemberAfterDocumentVerification(tx, submission.corpsMemberId);
-    } else {
+    if (updateResult.length !== 1 || updateResult[0]?.status !== decision) {
+      throw new DocumentWorkflowError(
+        'The document review decision could not be saved. Refresh the queue and try again.',
+        409,
+        'DOCUMENT_REVIEW_UPDATE_FAILED'
+      );
+    }
+
+    if (decision === 'needs_resubmission') {
       await tx.update(corpsMembers)
         .set({ profileStatus: 'submitted', updatedAt: now })
         .where(eq(corpsMembers.id, submission.corpsMemberId));
     }
-    return { status: decision, reviewedByUserId: actorUserId, reviewedByRole: actorRole };
+
+    return {
+      submissionId: submission.id,
+      corpsMemberId: submission.corpsMemberId,
+      status: decision,
+      reviewedByUserId: actorUserId,
+      reviewedByRole: actorRole
+    };
   });
+
+  let matching: Awaited<ReturnType<typeof assignCorpsMemberAfterDocumentVerification>> | null = null;
+  let matchingPending = false;
+
+  if (decision === 'verified') {
+    try {
+      matching = await db.transaction((tx) =>
+        assignCorpsMemberAfterDocumentVerification(tx, reviewed.corpsMemberId)
+      );
+    } catch (error) {
+      // The verified status is already committed. Keep it, report the
+      // downstream matching issue separately, and avoid reverting the LGI's
+      // document decision.
+      matchingPending = true;
+      console.error('CDS matching failed after document review approval:', {
+        submissionId,
+        error: error instanceof Error ? error.message : 'Unknown matching error'
+      });
+    }
+  }
+
+  return {
+    status: decision,
+    submissionId: reviewed.submissionId,
+    reviewedByUserId: reviewed.reviewedByUserId,
+    reviewedByRole: reviewed.reviewedByRole,
+    matching,
+    matchingPending
+  };
 }

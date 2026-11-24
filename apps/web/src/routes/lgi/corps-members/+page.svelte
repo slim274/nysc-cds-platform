@@ -10,6 +10,7 @@
     listCorpsMembers,
     createCorpsMember,
     updateCorpsMember,
+    clearCorpsMemberRegistrationLock,
     importCorpsMemberCsv,
     downloadCorpsMembersCsv,
     uploadCorpsMemberPhoto,
@@ -33,6 +34,7 @@
   let saving = $state(false);
   let importing = $state(false);
   let exporting = $state(false);
+  let clearingRegistrationLockId = $state<string | null>(null);
   let selectedPhotoFile = $state<File | null>(null);
   let photoPreviewUrl = $state('');
   let signingOut = $state(false);
@@ -267,6 +269,20 @@
   async function saveMember(event: SubmitEvent) {
     event.preventDefault();
     formError = '';
+    if (form.profileStatus === 'preloaded') {
+      if (!form.callUpNumber.trim()) {
+        formError = 'Call-up number is required for preloaded records.';
+        return;
+      }
+      if (!form.dateOfBirth) {
+        formError = 'Date of birth is required for preloaded records.';
+        return;
+      }
+      if (!form.email.trim() && !form.phone.trim()) {
+        formError = 'Enter at least one contact method: email address or phone number.';
+        return;
+      }
+    }
     saving = true;
     try {
       const input = buildInput();
@@ -399,6 +415,30 @@
     return status.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  async function clearRegistrationLock(member: CorpsMemberRecord) {
+    const confirmed = confirm(
+      `Confirm that you have verified ${fullName(member)} (${member.stateCode}) in person using official NYSC identification documents. This will restore self-service registration access.`
+    );
+    if (!confirmed) return;
+
+    clearingRegistrationLockId = member.id;
+    errorMessage = '';
+    noticeMessage = '';
+    try {
+      await clearCorpsMemberRegistrationLock(member.id);
+      noticeMessage = `Registration lock cleared for ${fullName(member)} after LGI verification.`;
+      await loadMembers(pagination.page);
+    } catch (error) {
+      errorMessage = error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'Unable to clear the registration lock.';
+    } finally {
+      clearingRegistrationLockId = null;
+    }
+  }
+
   function streamLabel(stream: CorpsMemberReferenceData['streams'][number]) {
     const available = stream.isActive && stream.batchIsActive && stream.serviceYearIsActive;
     return `${stream.serviceYear} · ${stream.batchName} · ${stream.name}${available ? '' : ' (historical / inactive)'}`;
@@ -484,7 +524,17 @@
                       <td>{member.serviceYear} · {member.batchCode} · {member.streamCode}</td>
                       <td>{member.institutionName || '—'}<small>{member.courseName || ''}</small></td>
                       <td><span class:approved={member.profileStatus === 'approved'} class:rejected={member.profileStatus === 'rejected'} class="status">{statusLabel(member.profileStatus)}</span></td>
-                      <td><button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit</button></td>
+                      <td>
+                        <div class="member-actions">
+                          <button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit</button>
+                          {#if member.registrationLockedAt}
+                            <span class="status rejected">Registration locked</span>
+                            <button class="unlock-button" type="button" disabled={clearingRegistrationLockId === member.id} onclick={() => void clearRegistrationLock(member)}>
+                              {clearingRegistrationLockId === member.id ? 'Clearing...' : 'Clear lock'}
+                            </button>
+                          {/if}
+                        </div>
+                      </td>
                     </tr>
                   {/each}
                 </tbody>
@@ -499,6 +549,12 @@
                   {#if member.email}<small>{member.email}</small>{/if}
                   {#if member.phone}<small>{member.phone}</small>{/if}
                   <small>{member.lgaName}</small>
+                  {#if member.registrationLockedAt}
+                    <div class="registration-lock-alert">Self-service registration is locked. Verify the member's NYSC identity in person before clearing this lock.</div>
+                    <button class="unlock-button" type="button" disabled={clearingRegistrationLockId === member.id} onclick={() => void clearRegistrationLock(member)}>
+                      {clearingRegistrationLockId === member.id ? 'Clearing...' : 'Clear registration lock'}
+                    </button>
+                  {/if}
                   <button class="text-button" type="button" onclick={() => void openEditForm(member)}>View / Edit record →</button>
                 </article>
               {/each}
@@ -524,20 +580,20 @@
         <div class="form-section-title">NYSC identification</div>
         <div class="form-grid">
           <label><span>State code *</span><input bind:value={form.stateCode} required maxlength="50" placeholder="e.g. AB/26A/001" /></label>
-          <label><span>Call-up number</span><input bind:value={form.callUpNumber} maxlength="100" /></label>
+          <label><span>Call-up number{form.profileStatus === 'preloaded' ? ' *' : ''}</span><input bind:value={form.callUpNumber} required={form.profileStatus === 'preloaded'} maxlength="100" /></label>
           <label><span>First name *</span><input bind:value={form.firstName} required maxlength="100" /></label>
           <label><span>Middle name</span><input bind:value={form.middleName} maxlength="100" /></label>
           <label><span>Last name *</span><input bind:value={form.lastName} required maxlength="100" /></label>
-          <label><span>Date of birth</span><input type="date" bind:value={form.dateOfBirth} /></label>
+          <label><span>Date of birth{form.profileStatus === 'preloaded' ? ' *' : ''}</span><input type="date" bind:value={form.dateOfBirth} required={form.profileStatus === 'preloaded'} max={new Date().toISOString().slice(0, 10)} /></label>
           <label><span>Gender</span><select bind:value={form.gender}><option value="">Not specified</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other</option></select></label>
         </div>
 
         <div class="form-section-title">Contact details</div>
         <div class="form-grid">
-          <label><span>Email address</span><input type="email" bind:value={form.email} maxlength="320" autocomplete="email" placeholder="member@example.com" /></label>
-          <label><span>Phone number</span><input type="tel" bind:value={form.phone} maxlength="30" autocomplete="tel" placeholder="+234 801 234 5678" /></label>
+          <label><span>Email address{form.profileStatus === 'preloaded' && !form.phone.trim() ? ' *' : ''}</span><input type="email" bind:value={form.email} required={form.profileStatus === 'preloaded' && !form.phone.trim()} maxlength="320" autocomplete="email" placeholder="member@example.com" /></label>
+          <label><span>Phone number{form.profileStatus === 'preloaded' && !form.email.trim() ? ' *' : ''}</span><input type="tel" bind:value={form.phone} required={form.profileStatus === 'preloaded' && !form.email.trim()} maxlength="30" autocomplete="tel" placeholder="+234 801 234 5678" /></label>
         </div>
-        <p class="contact-note">These details are managed by the LGI and will be used for OTP verification during account onboarding. Contact ownership is not verified yet.</p>
+        <p class="contact-note">Preloaded records require a date of birth, call-up number and at least one contact method. Email or phone ownership is verified by OTP during account onboarding.</p>
 
         <div class="form-section-title">Deployment details</div>
         <div class="form-grid">
@@ -713,4 +769,8 @@
   }
   .historical-stream-note { color: #9a5a20; font-size: 9px; font-weight: 500; line-height: 1.5; }
   @media (prefers-reduced-motion: reduce) { .loader { animation-duration: 1.8s; } }
+  .member-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-width: 150px; }
+  .unlock-button { min-height: 32px; padding: 7px 10px; border: 1px solid #e8c8c5; border-radius: 7px; background: #fff4f2; color: #9d3028; font-size: 9px; font-weight: 800; cursor: pointer; }
+  .unlock-button:disabled { opacity: .55; cursor: wait; }
+  .registration-lock-alert { padding: 9px 10px; border: 1px solid #f0d0cc; border-radius: 8px; background: #fff4f2; color: #92372f; font-size: 9px; line-height: 1.55; }
 </style>

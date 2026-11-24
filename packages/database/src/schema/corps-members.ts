@@ -87,6 +87,25 @@ export const corpsMembers = pgTable(
       .notNull()
       .default('preloaded'),
 
+    registrationFailedAttempts: integer('registration_failed_attempts')
+      .notNull()
+      .default(0),
+
+    registrationCooldownUntil: timestamp('registration_cooldown_until', {
+      withTimezone: true
+    }),
+
+    registrationLockedAt: timestamp('registration_locked_at', {
+      withTimezone: true
+    }),
+
+    registrationLockClearedAt: timestamp('registration_lock_cleared_at', {
+      withTimezone: true
+    }),
+
+    registrationLockClearedByUserId: uuid('registration_lock_cleared_by_user_id')
+      .references(() => users.id, { onDelete: 'set null' }),
+
     createdByUserId: uuid('created_by_user_id')
       .references(() => users.id, {
         onDelete: 'set null'

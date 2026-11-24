@@ -658,6 +658,7 @@ export interface LgiDocumentSubmission {
   fileName: string;
   mimeType: string;
   status: DocumentVerificationStatus;
+  verificationProvider: string | null;
   confidence: number | null;
   reason: string | null;
   submittedAt: string;
@@ -756,15 +757,32 @@ export async function listLgiDocumentSubmissions(
   return response.data;
 }
 
+export interface DocumentReviewDecisionResult {
+  status: 'verified' | 'needs_resubmission';
+  matchingPending: boolean;
+  matching: {
+    assigned: boolean;
+    groupId?: string;
+    groupCode?: string;
+    groupName?: string;
+    reason?: string;
+  } | null;
+}
+
 export async function decideLgiDocumentManualReview(
   submissionId: string,
   decision: 'verified' | 'needs_resubmission',
   reason: string
-): Promise<void> {
-  await request(`/lgi/document-submissions/${encodeURIComponent(submissionId)}/decision`, {
+): Promise<DocumentReviewDecisionResult> {
+  const response = await request<{
+    success: boolean;
+    message: string;
+    data: DocumentReviewDecisionResult;
+  }>(`/lgi/document-submissions/${encodeURIComponent(submissionId)}/decision`, {
     method: 'POST',
     body: JSON.stringify({ decision, reason })
   });
+  return response.data;
 }
 
 export async function downloadLgiDocumentSubmission(submissionId: string): Promise<Blob> {
@@ -1235,6 +1253,11 @@ export interface CorpsMemberRecord {
   institutionName: string | null;
   courseName: string | null;
   profileStatus: CorpsProfileStatus;
+  registrationFailedAttempts: number;
+  registrationCooldownUntil: string | null;
+  registrationLockedAt: string | null;
+  registrationLockClearedAt: string | null;
+  registrationLockClearedByUserId: string | null;
   hasPassportPhoto: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1259,6 +1282,11 @@ export interface CorpsMemberDetail {
   qualification: string | null;
   graduationYear: number | null;
   profileStatus: CorpsProfileStatus;
+  registrationFailedAttempts: number;
+  registrationCooldownUntil: string | null;
+  registrationLockedAt: string | null;
+  registrationLockClearedAt: string | null;
+  registrationLockClearedByUserId: string | null;
   hasPassportPhoto: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1394,6 +1422,13 @@ export async function updateCorpsMember(memberId: string, input: Partial<CorpsMe
 export async function getCorpsMember(memberId: string): Promise<CorpsMemberDetail> {
   const response = await request<{ success: boolean; data: CorpsMemberDetail }>(`/lgi/corps-members/${encodeURIComponent(memberId)}`);
   return response.data;
+}
+
+export async function clearCorpsMemberRegistrationLock(memberId: string): Promise<void> {
+  await request(
+    `/lgi/corps-members/${encodeURIComponent(memberId)}/clear-registration-lock`,
+    { method: 'POST' }
+  );
 }
 
 export async function importCorpsMemberCsv(csv: string): Promise<{
@@ -2026,9 +2061,14 @@ export async function decideCloDocumentSubmission(
   submissionId: string,
   decision: 'verified' | 'needs_resubmission',
   reason: string
-): Promise<void> {
-  await request(`/clo/documents/submissions/${encodeURIComponent(submissionId)}/decision`, {
+): Promise<DocumentReviewDecisionResult> {
+  const response = await request<{
+    success: boolean;
+    message: string;
+    data: DocumentReviewDecisionResult;
+  }>(`/clo/documents/submissions/${encodeURIComponent(submissionId)}/decision`, {
     method: 'POST',
     body: JSON.stringify({ decision, reason })
   });
+  return response.data;
 }

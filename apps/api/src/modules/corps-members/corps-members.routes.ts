@@ -8,6 +8,7 @@ import {
   getCorpsMemberReferenceData,
   listCorpsMembers,
   updateCorpsMember,
+  clearCorpsMemberRegistrationLock,
   CorpsMemberServiceError
 } from './corps-members.service';
 import { importCorpsMembers, parseCorpsMemberCsv, exportCorpsMembersCsv, CorpsMemberImportError } from './corps-members-import.service';
@@ -214,6 +215,28 @@ corpsMemberRoutes.get('/corps-members/:memberId', async (c) => {
   try {
     const data = await getCorpsMember(id.data, getAssignedLgaIds(c));
     return c.json({ success: true, data });
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
+corpsMemberRoutes.post('/corps-members/:memberId/clear-registration-lock', async (c) => {
+  const id = memberIdSchema.safeParse(c.req.param('memberId'));
+  if (!id.success) {
+    return c.json({ success: false, message: 'Invalid corps member ID.' }, 400);
+  }
+
+  try {
+    const data = await clearCorpsMemberRegistrationLock(
+      id.data,
+      getAssignedLgaIds(c),
+      c.get('authUser').id
+    );
+    return c.json({
+      success: true,
+      message: 'Registration lock cleared after LGI verification.',
+      data
+    });
   } catch (error) {
     return handleError(c, error);
   }
