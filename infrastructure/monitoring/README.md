@@ -11,20 +11,15 @@ This stack is optional and runs through the Docker Compose `monitoring` profile.
 - **cAdvisor** collects Docker container resource metrics.
 - **Blackbox Exporter** checks the API's `/health` and `/health/db` endpoints.
 
-The API is currently started on the host with `bun run dev:api`, so Prometheus probes it through `host.docker.internal:3001`. The API health panels will show DOWN while the API is stopped; the other exporters can still report their metrics.
+The Blackbox probes target the API Compose service at `api:3001`. Start the API service with `docker compose --profile app up -d api` before starting the monitoring profile. The API health panels will show DOWN while the API container is stopped; the other exporters can still report their metrics.
 
 ## Start monitoring
 
 1. Make sure the root `.env` file contains the PostgreSQL variables used by the existing Compose setup. Copy `.env.example` if you do not already have one, then replace the example passwords.
-2. Start the API in a separate terminal:
+2. Start the API service and monitoring stack:
 
    ```bash
-   bun run dev:api
-   ```
-
-3. Start the database and monitoring stack:
-
-   ```bash
+   docker compose --profile app up -d api
    docker compose --profile monitoring up -d
    ```
 
@@ -37,7 +32,7 @@ The API is currently started on the host with `bun run dev:api`, so Prometheus p
 
 Grafana uses `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from the root `.env` file. `GRAFANA_ADMIN_USER` defaults to `admin`, but `GRAFANA_ADMIN_PASSWORD` is required when the monitoring profile starts; the Compose configuration deliberately has no default admin password. Use a unique password and do not expose Grafana beyond your machine without an appropriate access-control and TLS setup.
 
-Check Prometheus targets at http://localhost:9090/targets. The dashboard and Prometheus UI are bound to `127.0.0.1`, so they are not published to your LAN by this Compose configuration.
+Check Prometheus targets at http://localhost:9090/targets. The dashboard and Prometheus UI are bound to `127.0.0.1`, so they are not published to your LAN by this Compose configuration. Container CPU and memory panels are filtered to the Compose project label `nysc-cds-platform`, excluding unrelated Docker projects on the same host.
 
 ## Stop monitoring
 
