@@ -218,7 +218,19 @@ cloDocumentRoutes.post('/documents/submissions/:submissionId/decision', async (c
     return c.json({
       success: true,
       message: validation.data.decision === 'verified'
-        ? 'Document verified. The platform will continue matching when all mandatory documents are verified.'
+        ? data.matchingPending
+          ? 'Document marked verified. Automatic CDS matching could not complete and needs a separate retry.'
+          : data.matching?.assigned
+            ? `Document verified. The Corps Member has been matched to ${data.matching.groupName}.`
+            : data.matching?.reason === 'documents_incomplete'
+              ? 'Document verified. The remaining mandatory documents must also be verified before CDS matching.'
+              : data.matching?.reason === 'documents_not_configured'
+                ? 'Document verified, but no active document requirements are configured for this LGA.'
+                : data.matching?.reason === 'all_eligible_groups_full'
+                  ? 'Document verified, but all eligible CDS groups are full. LGI follow-up is required.'
+                  : data.matching?.reason === 'no_eligible_group'
+                    ? 'Document verified, but no active CDS group currently accepts this Corps Member\'s course.'
+                    : 'Document marked verified. Check the Corps Member record for the CDS placement outcome.'
         : 'Document returned to the Corps Member for resubmission.',
       data
     });
