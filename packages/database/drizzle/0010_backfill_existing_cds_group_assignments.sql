@@ -1,4 +1,7 @@
--- Backfill accounts created before automatic CDS matching was introduced.
+-- Backfill accounts created before document-gated automatic matching.
+-- These pre-existing allocations are intentionally retained when document
+-- verification is introduced by migration 0011. The document gate applies to
+-- future automatic placements; it does not retroactively remove current groups.
 -- Members with any prior membership history are intentionally not re-assigned:
 -- they may have declined a group or been deliberately removed by an LGI.
 DO $$
