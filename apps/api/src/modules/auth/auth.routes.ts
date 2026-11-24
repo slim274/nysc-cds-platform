@@ -124,16 +124,9 @@ authRoutes.post('/verify-corps-member', async (c) => {
       clientAddress
     );
 
-    if (!result) {
-      return c.json({
-        success: false,
-        message: 'We could not verify these details. Check the State Code, Date of Birth and Call-up Number with your LGI.'
-      }, 400);
-    }
-
     return c.json({
       success: true,
-      message: 'Identity verified. You can continue to contact verification.',
+      message: 'If the identity details match an eligible Corps Member record, you can continue to contact verification.',
       data: result
     });
   } catch (error) {
