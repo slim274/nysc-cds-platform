@@ -643,6 +643,8 @@ export async function listCdsGroupMembers(
         courseName: courses.name,
         profileStatus: corpsMembers.profileStatus,
         assignedAt: cdsGroupMemberships.assignedAt,
+        source: cdsGroupMemberships.source,
+        assignmentExplanation: cdsGroupMemberships.assignmentExplanation,
         courseMappingOverride: cdsGroupMemberships.courseMappingOverride,
         courseMappingOverrideReason: cdsGroupMemberships.courseMappingOverrideReason
       })

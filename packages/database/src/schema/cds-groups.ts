@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   timestamp,
+  jsonb,
   index,
   uniqueIndex,
   check
@@ -99,6 +100,24 @@ export const cdsGroupCourses = pgTable(
   ]
 );
 
+export type CdsAutomaticMatchExplanation = {
+  version: 1;
+  algorithm: 'lowest_utilisation_v1';
+  matchedCourseId: string;
+  matchedCourseName: string | null;
+  eligibleGroupCount: number;
+  availableGroupCount: number;
+  activeMemberCountAtAssignment: number;
+  maxCapacityAtAssignment: number;
+  utilisationPercentAtAssignment: number;
+  selectionCriterion:
+    | 'lowest_utilisation'
+    | 'fewest_active_members'
+    | 'oldest_group'
+    | 'stable_group_id';
+  selectedAt: string;
+};
+
 export const cdsGroupMemberships = pgTable(
   'cds_group_memberships',
   {
@@ -128,6 +147,9 @@ export const cdsGroupMemberships = pgTable(
       .default(false),
 
     courseMappingOverrideReason: text('course_mapping_override_reason'),
+
+    assignmentExplanation: jsonb('assignment_explanation')
+      .$type<CdsAutomaticMatchExplanation>(),
 
     assignedAt: timestamp('assigned_at', {
       withTimezone: true

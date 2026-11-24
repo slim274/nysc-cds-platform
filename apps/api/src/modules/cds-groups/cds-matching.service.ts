@@ -15,13 +15,26 @@ import {
   corpsMemberDocumentSubmissions,
   cdsGroups,
   cdsGroupCourses,
-  cdsGroupMemberships
+  cdsGroupMemberships,
+  courses,
+  type CdsAutomaticMatchExplanation
 } from '@nysc/database';
+
+import {
+  buildCdsAutomaticMatchExplanation,
+  selectCdsGroupByCapacityUtilisation
+} from './cds-matching.policy';
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type CdsMatchResult =
-  | { assigned: true; groupId: string; groupCode: string; groupName: string }
+  | {
+      assigned: true;
+      groupId: string;
+      groupCode: string;
+      groupName: string;
+      explanation: CdsAutomaticMatchExplanation;
+    }
   | {
       assigned: false;
       reason:
@@ -114,6 +127,12 @@ export async function assignCorpsMemberAfterDocumentVerification(
   if (!member.courseId) {
     return { assigned: false, reason: 'course_not_recorded' };
   }
+
+  const [course] = await tx
+    .select({ name: courses.name })
+    .from(courses)
+    .where(eq(courses.id, member.courseId))
+    .limit(1);
 
   const verifiedDocuments = await hasVerifiedMandatoryDocuments(
     tx,
@@ -209,37 +228,46 @@ export async function assignCorpsMemberAfterDocumentVerification(
     countRows.map((row) => [row.groupId, Number(row.activeCount)])
   );
 
-  const selected = eligibleGroups
-    .map((group) => ({
-      ...group,
-      activeCount: countByGroup.get(group.id) ?? 0
-    }))
-    .filter((group) => group.activeCount < group.maxCapacity)
-    .sort((a, b) => {
-      const utilisation =
-        (a.activeCount / a.maxCapacity) - (b.activeCount / b.maxCapacity);
-      return utilisation ||
-        a.activeCount - b.activeCount ||
-        a.createdAt.getTime() - b.createdAt.getTime() ||
-        a.id.localeCompare(b.id);
-    })[0];
+  const candidates = eligibleGroups.map((group) => ({
+    ...group,
+    activeCount: countByGroup.get(group.id) ?? 0
+  }));
+  const availableGroupCount = candidates.filter((group) =>
+    group.activeCount < group.maxCapacity
+  ).length;
+  const selection = selectCdsGroupByCapacityUtilisation(candidates);
 
-  if (!selected) {
+  if (!selection) {
     return { assigned: false, reason: 'all_eligible_groups_full' };
   }
+
+  const selected = selection.selected;
+  const assignedAt = new Date();
+  const explanation = buildCdsAutomaticMatchExplanation({
+    matchedCourseId: member.courseId,
+    matchedCourseName: course?.name ?? null,
+    eligibleGroupCount: eligibleGroups.length,
+    availableGroupCount,
+    selectedGroup: selected,
+    selectionCriterion: selection.criterion,
+    selectedAt: assignedAt.toISOString()
+  });
 
   await tx.insert(cdsGroupMemberships).values({
     cdsGroupId: selected.id,
     corpsMemberId,
     status: 'active',
     source: 'automatic',
-    assignedByUserId: null
+    assignedByUserId: null,
+    assignedAt,
+    assignmentExplanation: explanation
   });
 
   return {
     assigned: true,
     groupId: selected.id,
     groupCode: selected.code,
-    groupName: selected.name
+    groupName: selected.name,
+    explanation
   };
 }
