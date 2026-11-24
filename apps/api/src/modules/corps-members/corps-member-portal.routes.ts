@@ -66,6 +66,7 @@ async function getMemberPortalData(userId: string) {
       serviceYear: serviceYears.year,
       membershipId: cdsGroupMemberships.id,
       membershipSource: cdsGroupMemberships.source,
+      assignmentExplanation: cdsGroupMemberships.assignmentExplanation,
       assignedAt: cdsGroupMemberships.assignedAt,
       groupId: cdsGroups.id,
       groupCode: cdsGroups.code,
@@ -178,7 +179,8 @@ async function getMemberPortalData(userId: string) {
       description: member.groupDescription,
       whatsappGroupLink: member.whatsappGroupLink,
       source: member.membershipSource,
-      assignedAt: member.assignedAt
+      assignedAt: member.assignedAt,
+      assignmentExplanation: member.assignmentExplanation
     },
     coordinator: coordinators[0] ?? null,
     president: presidents[0] ?? null
