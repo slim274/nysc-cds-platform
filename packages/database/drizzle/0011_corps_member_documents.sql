@@ -74,7 +74,7 @@ CREATE INDEX "corps_member_doc_submissions_member_requirement_idx"
 CREATE INDEX "corps_member_doc_submissions_status_idx"
   ON "corps_member_document_submissions" USING btree ("status", "submitted_at");
 --> statement-breakpoint
--- Remove allocations produced by the earlier registration-time matcher. The
--- verified-document gate now controls all automatic placements.
-DELETE FROM "cds_group_memberships"
-WHERE "source" = 'automatic' AND "status" = 'active';
+-- Preserve active CDS allocations created before document verification was
+-- introduced. Existing members keep their current group assignment; the
+-- verified-document gate in the application service applies to future
+-- automatic placements and does not retroactively remove existing members.
