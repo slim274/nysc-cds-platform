@@ -12,6 +12,7 @@
     logout,
     type CurrentUserResponse,
     type CorpsMemberPortalData,
+    type CdsAutomaticMatchExplanation,
     type CorpsMemberDocumentDashboard,
     type CorpsMemberDocumentRequirement,
     type CorpsMemberApprovedAttendance
@@ -153,6 +154,19 @@
 
   function fullName(person: { firstName: string; middleName: string | null; lastName: string }) {
     return [person.firstName, person.middleName, person.lastName].filter(Boolean).join(' ');
+  }
+
+  function matchingSelectionReason(criterion: CdsAutomaticMatchExplanation['selectionCriterion']) {
+    switch (criterion) {
+      case 'fewest_active_members':
+        return 'Several groups shared the lowest utilisation, so the group with fewer active members was selected.';
+      case 'oldest_group':
+        return 'The eligible groups were still tied, so the oldest group was selected.';
+      case 'stable_group_id':
+        return 'The eligible groups were exactly tied, so a consistent system tie-breaker was used.';
+      default:
+        return 'This group had the lowest capacity utilisation among groups with available spaces.';
+    }
   }
 </script>
 
@@ -330,6 +344,25 @@
             {portal.cdsGroup.source === 'automatic' ? 'Automatically matched' : 'LGI placement'}
           </span>
         </div>
+        {#if portal.cdsGroup.source === 'automatic'}
+          <section class="matching-explanation" aria-label="Automatic CDS matching explanation">
+            <div class="matching-explanation-heading">
+              <span class="eyebrow">PLACEMENT EXPLANATION</span>
+              <strong>Why you were matched to this group</strong>
+            </div>
+            {#if portal.cdsGroup.assignmentExplanation}
+              <p>Your academic course ({portal.cdsGroup.assignmentExplanation.matchedCourseName ?? portal.member.courseName ?? 'recorded course'}) is mapped to this group, and all mandatory documents were verified before matching.</p>
+              <div class="matching-facts">
+                <span><strong>{portal.cdsGroup.assignmentExplanation.eligibleGroupCount}</strong> eligible groups considered</span>
+                <span><strong>{portal.cdsGroup.assignmentExplanation.availableGroupCount}</strong> had available capacity</span>
+                <span><strong>{portal.cdsGroup.assignmentExplanation.activeMemberCountAtAssignment} / {portal.cdsGroup.assignmentExplanation.maxCapacityAtAssignment}</strong> occupied when assigned ({portal.cdsGroup.assignmentExplanation.utilisationPercentAtAssignment}% utilisation)</span>
+              </div>
+              <small>{matchingSelectionReason(portal.cdsGroup.assignmentExplanation.selectionCriterion)}</small>
+            {:else}
+              <p>This automatic placement was created before detailed matching explanations were recorded.</p>
+            {/if}
+          </section>
+        {/if}
         {#if portal.cdsGroup.whatsappGroupLink}
           <section class="whatsapp-card">
             <div><span class="eyebrow">CDS WHATSAPP GROUP</span><strong>Join your CDS group on WhatsApp</strong><p>Connect with verified members and receive group updates. This invitation is available to members assigned to this CDS group.</p></div>
@@ -932,4 +965,12 @@
       flex-direction: column;
     }
   }
+.matching-explanation { display: grid; gap: 10px; margin: 16px 0; padding: 16px 18px; border: 1px solid #d9e9dd; border-radius: 11px; background: #f5faf6; }
+  .matching-explanation-heading { display: grid; gap: 4px; }
+  .matching-explanation-heading strong { color: #234432; font-size: 12px; }
+  .matching-explanation > p { margin: 0; color: #52675a; font-size: 11px; line-height: 1.6; }
+  .matching-facts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .matching-facts span { padding: 8px 10px; border: 1px solid #e0ebe2; border-radius: 7px; background: #fff; color: #607066; font-size: 9px; line-height: 1.5; }
+  .matching-facts strong { color: #0a5c37; }
+  .matching-explanation > small { color: #607066; font-size: 9px; line-height: 1.5; }
 </style>
