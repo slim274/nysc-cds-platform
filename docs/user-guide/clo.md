@@ -19,11 +19,13 @@ Open a submission using **View document** and inspect the file before deciding. 
 - **Mark verified** to accept the document.
 - **Request resubmission** to return it with a clear correction instruction.
 
+The human-review queue includes Manual submissions, AI-assisted submissions and AI Auto rejections that need a human override. An AI Auto rejection may still have the database status `needs_resubmission`; in the CLO workspace it is labelled as an AI Auto flag with review available, not as a completed human resubmission request.
+
 A review note of at least 10 characters is required. The platform records the decision, reviewer and time. Do not approve a file based only on its filename or an AI recommendation.
 
 ## CLO permission boundaries
 
-A CLO can review document submissions and view active requirements. A CLO cannot create, edit, enable, disable or remove document requirements. Those settings remain under LGI administration.
+A CLO can review Manual and AI-assisted submissions and AI Auto rejections that require a human decision, and can view active requirements. A CLO cannot create, edit, enable, disable or remove document requirements. Those settings remain under LGI administration.
 
 The LGA scope displayed in the account form controls which LGI administrators can manage the CLO account; it does not restrict the CLO document queue to those LGAs.
 
