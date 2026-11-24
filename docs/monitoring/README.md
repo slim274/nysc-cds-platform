@@ -1,39 +1,61 @@
-# Monitoring Views — Prometheus and Grafana
+# Infrastructure Monitoring — Prometheus and Grafana
 
-This page records the monitoring screens captured during local development and describes what they show. It is not yet a deployment runbook.
+This guide describes the optional local monitoring stack provided by the Docker Compose `monitoring` profile. The configuration is tracked under `infrastructure/monitoring/` and is intended for the Ubuntu/Linux development environment.
 
-## Important repository limitation
+## Start the monitoring stack
 
-As of the `feat/prometheus-grafana-monitoring` branch checked on 23 November 2026, the tracked repository contains:
-- Docker Compose services for PostgreSQL and Redis.
-- An optional `app` profile for the API, web application and Nginx.
-- Health endpoints referenced by the API/container health checks: `/health`, `/health/db` and `/health/redis`.
+1. Ensure the repository root has a `.env` file. Keep the existing PostgreSQL values (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DATABASE_URL`) unchanged. Add a unique `GRAFANA_ADMIN_PASSWORD` and, optionally, `GRAFANA_ADMIN_USER`.
+2. Start the API Compose service and monitoring profile:
 
-The tracked `docker-compose.yml`, `docker-compose.override.yml` and repository tree do **not** currently include a Prometheus or Grafana service definition, Prometheus scrape configuration, Grafana provisioning files, Node Exporter, cAdvisor, Blackbox Exporter or PostgreSQL Exporter configuration. The screenshots below show a monitoring environment that was running locally during an earlier session; they do not establish that the monitoring stack can currently be recreated from this branch.
+   ```bash
+   docker compose --profile app up -d api
+   docker compose --profile monitoring up -d
+   ```
 
-Do not use these screenshots as a live service-health check. They are dated reference captures.
+4. Open the local services:
+
+   | Service | URL |
+   |---|---|
+   | Grafana | http://localhost:3000 |
+   | Prometheus | http://localhost:9090 |
+   | Prometheus targets | http://localhost:9090/targets |
+
+Grafana uses `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from `.env`. Change the example password before starting the monitoring profile. Grafana and Prometheus ports are bound to `127.0.0.1`, so this Compose configuration does not publish them to the LAN.
+
+The API health probe targets use `api:3001` on the shared Compose network. They will show DOWN while the API container is stopped. The current probes cover HTTP availability and database health; they are not application request-count or latency instrumentation. Container CPU and memory panels are filtered to `container_label_com_docker_compose_project="nysc-cds-platform"`, excluding unrelated Docker projects on the same host.
+
+## Stop monitoring
+
+To stop only the monitoring services while leaving PostgreSQL and Redis running:
+
+```bash
+docker compose stop prometheus grafana postgres-exporter node-exporter cadvisor blackbox-exporter
+```
+
+To stop every container in this Compose project, including PostgreSQL, Redis and any active `app` profile containers:
+
+```bash
+docker compose --profile monitoring down
+```
+
+These commands do not remove named volumes. Do not add `-v` unless you intentionally want to delete the database, Prometheus and Grafana data volumes.
 
 ## Grafana folder and infrastructure dashboard
 
-The Grafana folder contains a dashboard named **NYSC CDS Platform – Infrastructure Overview**.
+The provisioned Grafana folder contains **NYSC CDS Platform — Infrastructure Overview**.
 
 ![Grafana dashboard folder](../assets/screenshots/monitoring/grafana-dashboard-folder.jpg)
 
-The overview dashboard screenshot includes panels for:
-- API health.
-- API database health.
-- PostgreSQL exporter health.
-- PostgreSQL connection counts.
-- Host CPU usage and host memory usage.
-- Container CPU and memory usage panels.
+The dashboard includes panels for API health, API database health, PostgreSQL exporter health, PostgreSQL connection counts, host CPU and memory usage, and container CPU and memory usage.
 
 ![Grafana infrastructure overview](../assets/screenshots/monitoring/grafana-infrastructure-overview.jpg)
 
-In the captured dashboard, the API, API database and PostgreSQL exporter health panels show `1` (the panel labels define `1 = UP`). The container CPU and memory panels show **No data** in that capture. This illustrates why dashboard panels must be checked individually; an overall page being visible does not mean every exporter is supplying metrics.
+In the saved capture, the API, API database and PostgreSQL exporter health panels show `1` (the panel labels define `1 = UP`). The container CPU and memory panels show **No data** in that capture. This is a point-in-time image, not evidence that every metric is currently available.
 
 ## Prometheus target health
 
-The Prometheus target-health screenshot shows these scrape pools:
+The saved Prometheus target-health screenshot shows these scrape pools:
+
 - `blackbox-exporter`
 - `cadvisor`
 - `node`
@@ -43,7 +65,7 @@ The Prometheus target-health screenshot shows these scrape pools:
 
 ![Prometheus target health](../assets/screenshots/monitoring/prometheus-target-health.jpg)
 
-At the time of that capture, the displayed targets were UP, including two API health probe targets. Target state is time-dependent. In an active environment, refresh the page and check the **Last scrape**, **State** and scrape error details rather than relying on a saved image.
+Target state is time-dependent. In an active environment, refresh the page and inspect **Last scrape**, **State** and scrape error details rather than relying on the saved image.
 
 ## Metrics explorer
 
@@ -51,16 +73,12 @@ Grafana's metrics explorer screenshot shows the metric browser populated with co
 
 ![Grafana metrics explorer](../assets/screenshots/monitoring/grafana-metrics-explorer.jpg)
 
-Use the metrics explorer to check whether a metric is present before adding it to a dashboard panel. A metric that is absent may indicate that the relevant exporter is not running, not scraped, or not exposing that metric.
+Check that a metric is present before adding it to a dashboard panel. An absent metric may mean that the relevant exporter is not running, is not being scraped or does not expose that metric.
 
-## Work still required before an operational monitoring runbook
+## Operational limitations and follow-up work
 
-The monitoring stack configuration needs to be added to the repository before this guide can provide reproducible startup and recovery commands. That work should include:
-1. Versioned Compose service definitions for Prometheus, Grafana and each selected exporter.
-2. Prometheus scrape configuration, health checks and persistent storage.
-3. Grafana datasource and dashboard provisioning rather than relying only on manually created dashboards.
-4. A clear mapping from each metric to the exporter that supplies it.
-5. Alert rules for API availability, database health, exporter scrape failures, host resource pressure and Redis degradation.
-6. Access control, secret handling, retention settings and a documented backup/restore approach for monitoring data.
-
-Until those files are committed, treat Prometheus/Grafana as a local monitoring experiment and not part of the reproducible Compose stack documented in the main README.
+- The API is monitored through HTTP probes, not application-level request, latency or error-rate metrics.
+- The current API health probes target the API Compose service at `api:3001`; the API container must be running in the shared Compose network for the probes to succeed.
+- No alert rules or alert notification channels are provisioned yet.
+- Production use still requires a reviewed access-control model, managed secrets, retention settings, and monitoring-data backup/restore procedures.
+- Host and container exporters use Linux host mounts. This configuration is intended for a Linux host and may require adjustment on non-Linux Docker environments.

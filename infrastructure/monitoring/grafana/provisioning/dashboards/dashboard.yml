@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: NYSC CDS Platform
+    orgId: 1
+    folder: NYSC CDS Platform
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
