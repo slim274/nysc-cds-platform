@@ -106,7 +106,7 @@ jobs:
             -U nysc_migration -d nysc_full_migration -Atc \
             'SELECT count(*) FROM drizzle.__drizzle_migrations')
           echo "Applied Drizzle migrations: $applied"
-          test "$applied" -eq 26
+          test "$applied" -eq 27
 
       - name: Typecheck API
         run: bun run --filter @nysc/api typecheck
