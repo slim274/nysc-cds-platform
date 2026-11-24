@@ -107,7 +107,7 @@ The API is a modular monolith. The browser presents the interface, but the API r
 | CDS Coordinator | Manages only assigned CDS groups, member rosters, President designations, WhatsApp group settings, CDS meetings, attendance review and Coordinator announcements. |
 | CDS President | Works only with group(s) attached to an active President assignment; coordinates the group, records attendance and submits eligible announcements for review. |
 | Corps Member | Uses one personal account to manage their member portal, view NYSC/CDS allocation and contacts, submit required documents, join the assigned WhatsApp group and view approved attendance. |
-| Corps Liaison Officer (CLO) | Views document submissions across all LGAs and makes human verification/resubmission decisions on items awaiting manual review; CLO account management remains assigned to selected LGI administrators. |
+| Corps Liaison Officer (CLO) | Views document submissions across all LGAs and makes human decisions on Manual/AI-assisted review items and AI Auto rejections awaiting an override; CLO account management remains assigned to selected LGI administrators. |
 
 Role assignments must be scoped. In particular, a CDS President assignment is tied to a CDS group; it is not a global permission. LGI administrators manage LGA operational records only within their assigned LGA(s). The shared academic course catalogue is centrally managed from the LGI module and is used across LGAs.
 
