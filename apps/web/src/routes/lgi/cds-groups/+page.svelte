@@ -843,6 +843,15 @@
                     <strong>{member.lastName}, {member.firstName} {member.middleName ?? ''}</strong>
                     <span>{member.stateCode} · {member.courseName ?? 'Course not recorded'}</span>
                     <small>Added {new Date(member.assignedAt).toLocaleDateString()}</small>
+                    {#if member.source === 'automatic'}
+                      {#if member.assignmentExplanation}
+                        <small class="auto-match-history">Automatic match · {member.assignmentExplanation.availableGroupCount} of {member.assignmentExplanation.eligibleGroupCount} eligible groups had capacity · selected at {member.assignmentExplanation.activeMemberCountAtAssignment}/{member.assignmentExplanation.maxCapacityAtAssignment} capacity ({member.assignmentExplanation.utilisationPercentAtAssignment}%).</small>
+                      {:else}
+                        <small class="auto-match-history">Automatic placement · detailed explanation not available for this historical record.</small>
+                      {/if}
+                    {:else}
+                      <small class="manual-placement-history">Manual placement by LGI.</small>
+                    {/if}
                     {#if member.courseMappingOverride}
                       <small class="course-override-history">Course-mapping exception · {member.courseMappingOverrideReason ?? 'Reason not recorded'}</small>
                     {/if}
@@ -1232,4 +1241,6 @@
     .sidebar { transition: none; }
     .loader { animation-duration: 1.8s; }
   }
+.auto-match-history, .manual-placement-history { color: #426b51 !important; font-size: 9px !important; line-height: 1.5; }
+  .manual-placement-history { color: #718078 !important; }
 </style>
