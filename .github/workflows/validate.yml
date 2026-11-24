@@ -53,10 +53,14 @@ jobs:
       - name: Build frontend
         run: cd apps/web && bun run --bun build
 
-      - name: Validate Docker Compose application profile
+      - name: Validate Docker Compose application and monitoring profiles
         run: |
           cp .env.example .env
           docker compose --profile app config --quiet
+          docker compose --profile monitoring config --quiet
+
+      - name: Validate Grafana dashboard JSON
+        run: python -m json.tool infrastructure/monitoring/grafana/dashboards/nysc-overview.json > /dev/null
 
       - name: Validate Nginx configuration
         run: |
