@@ -464,19 +464,16 @@ Database migrations and seeding are run from the repository using the commands a
 
 The optional `monitoring` profile starts Prometheus, Grafana, PostgreSQL Exporter, Node Exporter, cAdvisor and Blackbox Exporter. It does not change the default local development or `app` profile startup.
 
-Set `GRAFANA_ADMIN_PASSWORD` in `.env` to a unique value. For the API health probes, run the API directly on the host in a separate terminal:
+Set `GRAFANA_ADMIN_PASSWORD` in `.env` to a unique value. The health probes target the API Compose service on the shared Compose network. Start the API service and monitoring stack with:
 
 ```bash
-bun run dev:api
-```
-
-Then start the database and monitoring services:
-
-```bash
+docker compose --profile app up -d api
 docker compose --profile monitoring up -d
 ```
 
-Open Grafana at `http://localhost:3000` and Prometheus at `http://localhost:9090`. Check scrape status at `http://localhost:9090/targets`. The API health probes expect the host API on port `3001`; they show DOWN while that process is stopped. See the [Monitoring Guide](docs/monitoring/README.md) for details and limitations.
+You can also start the full application profile with `docker compose --profile app up -d` when you need the web and Nginx services.
+
+Open Grafana at `http://localhost:3000` and Prometheus at `http://localhost:9090`. Check scrape status at `http://localhost:9090/targets`. The API health probes target `api:3001` on the Compose network and show DOWN while the API container is stopped. Container CPU and memory panels are filtered to the `nysc-cds-platform` Compose project. See the [Monitoring Guide](docs/monitoring/README.md) for details and limitations.
 
 To stop only the monitoring services while leaving PostgreSQL and Redis running:
 
