@@ -22,7 +22,7 @@
       },
       "targets": [
         {
-          "expr": "probe_success{instance=\"http://host.docker.internal:3001/health\"}",
+          "expr": "probe_success{job=\"nysc-api-health\",instance=\"http://api:3001/health\"}",
           "refId": "A"
         }
       ],
@@ -57,7 +57,7 @@
       },
       "targets": [
         {
-          "expr": "probe_success{instance=\"http://host.docker.internal:3001/health/db\"}",
+          "expr": "probe_success{job=\"nysc-api-health\",instance=\"http://api:3001/health/db\"}",
           "refId": "A"
         }
       ],
